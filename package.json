@@ -1,0 +1,13 @@
+{
+  "name": "wksp",
+  "version": "1.0.0",
+  "description": "Workspace CLI for Claude Code — multi-repo development with git worktrees",
+  "bin": {
+    "wksp": "./bin/wksp.js"
+  },
+  "engines": {
+    "node": ">=18"
+  },
+  "keywords": ["claude", "workspace", "worktree", "cli"],
+  "files": ["bin/", "lib/"]
+}
