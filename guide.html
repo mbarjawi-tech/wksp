@@ -252,7 +252,7 @@ wksp task MONA-1234 --to-worktree marketplace</pre>
   <div class="flow">
     <div class="fs info"><span class="sn">1</span><div class="sb">Find <code>.wksp</code> in current or parent dir. Read <code>repos.txt</code>. If empty → print "No repos registered yet. Run <code>wksp repo &lt;path&gt;</code> first." and exit.</div></div>
     <div class="fs"><span class="sn">2</span><div class="sb">Create <code>tasks/MONA-1234/</code>, <code>tasks/MONA-1234/worktrees/</code>, and a <code>CLAUDE.md</code> from template.</div></div>
-    <div class="fs"><span class="sn">3</span><div class="sb">For each non-<code>--shared</code> repo: prompt <code>"Branch for api [currently: production]: "</code>. Enter = use current branch. If the branch is already checked out elsewhere → re-prompt with a conflict message and a hint to use <code>--to-shared</code> if you don't need a worktree for this repo.</div></div>
+    <div class="fs"><span class="sn">3</span><div class="sb">For each non-<code>--shared</code> repo: prompt <code>"Branch for api [production]: "</code>. Enter = use current branch. If the typed branch doesn't exist locally or remotely, a follow-up prompts <code>"→ new branch on api, base off [production]: "</code> — Enter accepts the repo's default branch as the base. If the branch is already checked out elsewhere → re-prompt with a conflict message and a hint to use <code>--to-shared</code>.</div></div>
     <div class="fs"><span class="sn">4</span><div class="sb">Check for folder name collisions. If two repos share the same basename → prompt for a custom folder name.</div></div>
     <div class="fs"><span class="sn">5</span><div class="sb">Run <code>git worktree add</code> for each repo. Print progress.</div></div>
     <div class="fs ok"><span class="sn">6</span><div class="sb">Print startup summary → launch Claude.</div></div>
@@ -301,7 +301,8 @@ wksp task MONA-1234 --to-worktree marketplace</pre>
     <div class="fs warn"><span class="sn">2</span><div class="sb">Prompt: <code>Confirm? [y/N]</code></div></div>
     <div class="fs"><span class="sn">3</span><div class="sb">For each worktree: run <code>git worktree remove</code>. If uncommitted changes → show files and prompt for force-remove. Never forces without explicit confirmation.</div></div>
     <div class="fs"><span class="sn">4</span><div class="sb">Run <code>git worktree prune</code> on each affected base repo.</div></div>
-    <div class="fs ok"><span class="sn">5</span><div class="sb">Delete <code>tasks/MONA-1234/</code> folder recursively.</div></div>
+    <div class="fs warn"><span class="sn">5</span><div class="sb">If any worktree branches still exist locally: prompt <code>"Delete local branches (feature/x, …)? [y/N]"</code>. If yes and a branch has unmerged commits → prompt <code>"Force delete? [y/N]"</code> per branch. Branches are never deleted without explicit confirmation.</div></div>
+    <div class="fs ok"><span class="sn">6</span><div class="sb">Delete <code>tasks/MONA-1234/</code> folder recursively.</div></div>
   </div>
 
   <div class="divider"></div>

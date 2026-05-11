@@ -57,7 +57,7 @@ wksp repo /c/development/tinyeye-docs --shared   # read-only reference, no workt
 wksp task MONA-1234
 ```
 
-On `wksp task`, you're prompted once per repo for a branch name. Press **Enter** to use the repo's current branch. Claude launches with all worktrees (and shared repos) added via `--add-dir`.
+On `wksp task`, you're prompted once per repo for a branch name. Press **Enter** to use the repo's current branch. If the branch name is new (doesn't exist locally or remotely), a follow-up prompt asks which branch to base it on — press **Enter** to accept the repo's default branch. Claude launches with all worktrees (and shared repos) added via `--add-dir`.
 
 ## Shared vs worktree — when to use which
 
@@ -86,7 +86,7 @@ These changes are per-task only and don't affect `repos.txt`.
 | `wksp init [name]` | Create a new project |
 | `wksp repo <path-or-url>` | Register a repo (`--shared`, `--remove`) |
 | `wksp task <id>` | Create or resume a task |
-| `wksp task <id> --del` | Tear down worktrees and delete the task folder |
+| `wksp task <id> --del` | Tear down worktrees and delete the task folder (prompts whether to delete local branches) |
 | `wksp task <id> --to-shared <repo>` | Remove worktree for a repo and use the shared path instead (this task only) |
 | `wksp task <id> --to-worktree <repo>` | Create a worktree for a repo that was shared in this task |
 | `wksp list` | List all tasks in the current project |
@@ -98,7 +98,7 @@ These changes are per-task only and don't affect `repos.txt`.
 
 ## How tasks work
 
-**New task** — prompts for a branch per repo, creates a git worktree for each, launches Claude.
+**New task** — prompts for a branch per repo. If the branch doesn't exist yet, a follow-up asks which branch to base it on (defaults to the repo's default branch). Creates a git worktree for each repo, then launches Claude.
 
 **Resume task** — detects any repos added to `repos.txt` since last run, creates missing worktrees, then launches. Existing worktrees are never re-branched — whatever branch they're on is respected.
 
