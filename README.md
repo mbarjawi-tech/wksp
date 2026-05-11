@@ -4,6 +4,25 @@ Workspace CLI for Claude Code — manage multi-repo development with git worktre
 
 Each **project** groups a set of repos. Each **task** (a ticket, a feature, a bug fix) gets its own set of git worktrees — one per repo — so you can work on multiple tasks simultaneously without branch-switching.
 
+## Testing
+
+```bash
+npm install   # installs Jest (dev dependency)
+npm test      # run all 63 tests
+```
+
+Tests are split into two groups:
+
+**Unit** (`tests/unit/`) — pure logic, no git, no network, runs in milliseconds:
+- `paths.test.js` — Windows ↔ POSIX path conversion
+- `config.test.js` — global/project config, `cloneRoot→reposRoot` migration, `findProjectDir` walk-up
+- `repos.test.js` — `repos.txt` parsing, add, remove, duplicate detection
+
+**Integration** (`tests/integration/`) — real temporary git repos, ~60 s total:
+- `git.test.js` — all git operations: branch detection, worktree create/remove, branch delete (safe + force), staleness count, default branch resolution
+- `worktrees.test.js` — worktree discovery: empty dirs, corrupted `.git` files, real worktrees with metadata
+- `task-del.test.js` — `wksp task --del` behaviour: cancellation, keep vs delete branches, unmerged-commit guard
+
 ## Install
 
 Navigate to the `wksp` folder on your machine, then run:

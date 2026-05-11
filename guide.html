@@ -332,6 +332,41 @@ wksp task MONA-1234 --to-worktree marketplace</pre>
 <span class="c">If anything here contradicts the project-level CLAUDE.md, flag the contradiction</span>
 <span class="c">and ask for clarification — do not silently resolve it yourself.</span></pre>
 
+  <div class="divider"></div>
+
+  <!-- ══ TESTING ══ -->
+  <h2><span class="n">9</span> Testing</h2>
+
+  <p>Install Jest and run the suite:</p>
+
+  <pre><span class="p">npm install</span>   <span class="c"># installs Jest (dev dependency)</span>
+<span class="p">npm test</span>      <span class="c"># run all 63 tests</span>
+<span class="p">npm run test:watch</span>    <span class="c"># watch mode — re-runs on file changes</span>
+<span class="p">npm run test:coverage</span> <span class="c"># with coverage report</span></pre>
+
+  <h3>Unit tests <code>tests/unit/</code></h3>
+  <p>Pure logic — no git, no network. Runs in milliseconds.</p>
+  <table>
+    <tr><th>File</th><th>What it covers</th></tr>
+    <tr><td><code>paths.test.js</code></td><td>Windows ↔ POSIX path conversion, drive-letter handling, round-trips</td></tr>
+    <tr><td><code>config.test.js</code></td><td>Global config read/write, <code>cloneRoot→reposRoot</code> migration, <code>setGlobalConfig</code>, <code>findProjectDir</code> walk-up</td></tr>
+    <tr><td><code>repos.test.js</code></td><td><code>repos.txt</code> parsing (comments, <code>--shared</code>), add, remove, duplicate detection</td></tr>
+  </table>
+
+  <h3>Integration tests <code>tests/integration/</code></h3>
+  <p>Use real temporary git repos created in <code>os.tmpdir()</code>. Total runtime ~60 s. Each test cleans up its temp dirs in <code>afterEach</code>.</p>
+  <table>
+    <tr><th>File</th><th>What it covers</th></tr>
+    <tr><td><code>git.test.js</code></td><td><code>currentBranch</code>, <code>branchExistsLocally/Cached</code>, <code>addWorktree</code> (new branch, base branch, existing branch), <code>removeWorktree</code> (normal + force), <code>deleteBranch</code> (safe + force), <code>findCheckedOutBranch</code>, <code>getChangedFiles</code>, <code>defaultBranch</code>, <code>behindCount</code></td></tr>
+    <tr><td><code>worktrees.test.js</code></td><td><code>discoverWorktrees</code>: no dir, empty dir, corrupted <code>.git</code> file, real worktree with branch + baseRepo metadata</td></tr>
+    <tr><td><code>task-del.test.js</code></td><td><code>wksp task --del</code>: cancellation, keep vs delete branches, unmerged-commit guard with force-delete prompt, prompts mocked with Jest</td></tr>
+  </table>
+
+  <div class="card blue">
+    <div class="ct">Test helpers</div>
+    <p style="font-size:.87rem;margin:0"><code>tests/helpers/index.js</code> provides <code>makeTempDir</code>, <code>makeGitRepo</code>, <code>makeGitRepoWithRemote</code> (bare origin + clone with push), and <code>makeProject</code> (full <code>.wksp</code> project structure) for use across all integration tests.</p>
+  </div>
+
   <footer>wksp CLI · Reference Guide · May 2026</footer>
 
 </div>
