@@ -98,7 +98,7 @@ These changes are per-task only and don't affect `repos.txt`.
 
 ## How tasks work
 
-**New task** — prompts for a branch per repo. If the branch doesn't exist yet, a follow-up asks which branch to base it on (defaults to the repo's default branch). Creates a git worktree for each repo, then launches Claude.
+**New task** — prompts for a branch per repo. If the branch doesn't exist yet, a follow-up asks which branch to base it on (defaults to the repo's default branch). Creates a git worktree for each repo, generates a `<project>--<task>.code-workspace` file for VS Code, then launches Claude.
 
 **Resume task** — detects any repos added to `repos.txt` since last run, creates missing worktrees, then launches. Existing worktrees are never re-branched — whatever branch they're on is respected.
 
@@ -135,8 +135,9 @@ monarch/
 ├── CLAUDE.md          ← project-wide conventions for Claude
 └── tasks/
     └── MONA-1234/
-        ├── CLAUDE.md          ← task-specific context for Claude
-        ├── task-shared.txt    ← repos using shared path for this task (if any)
+        ├── CLAUDE.md                        ← task-specific context for Claude
+        ├── monarch--MONA-1234.code-workspace ← VS Code multi-root workspace
+        ├── task-shared.txt                  ← repos using shared path for this task (if any)
         └── worktrees/
             ├── api/            ← git worktree on feature/MONA-1234
             └── monarch-front-end/

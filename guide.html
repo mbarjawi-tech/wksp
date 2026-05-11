@@ -235,8 +235,9 @@ wksp task MONA-1234 --to-worktree marketplace</pre>
 
   <h3>Task folder layout</h3>
   <pre><span class="h">tasks/MONA-1234/</span>
-<span class="h">├── CLAUDE.md</span>             <span class="c">← task context: goal, decisions, notes</span>
-<span class="h">├── task-shared.txt</span>       <span class="c">← repos using shared path for this task only (optional)</span>
+<span class="h">├── CLAUDE.md</span>                          <span class="c">← task context: goal, decisions, notes</span>
+<span class="h">├── monarch--MONA-1234.code-workspace</span>  <span class="c">← VS Code multi-root workspace (all repos)</span>
+<span class="h">├── task-shared.txt</span>                    <span class="c">← repos using shared path for this task only (optional)</span>
 <span class="h">└── worktrees/</span>
 <span class="h">    ├── api/</span>               <span class="c">← git worktree; .git file points back to C:/development/api</span>
 <span class="h">    └── monarch-front-end/</span></pre>
@@ -255,7 +256,8 @@ wksp task MONA-1234 --to-worktree marketplace</pre>
     <div class="fs"><span class="sn">3</span><div class="sb">For each non-<code>--shared</code> repo: prompt <code>"Branch for api [production]: "</code>. Enter = use current branch. If the typed branch doesn't exist locally or remotely, a follow-up prompts <code>"→ new branch on api, base off [production]: "</code> — Enter accepts the repo's default branch as the base. If the branch is already checked out elsewhere → re-prompt with a conflict message and a hint to use <code>--to-shared</code>.</div></div>
     <div class="fs"><span class="sn">4</span><div class="sb">Check for folder name collisions. If two repos share the same basename → prompt for a custom folder name.</div></div>
     <div class="fs"><span class="sn">5</span><div class="sb">Run <code>git worktree add</code> for each repo. Print progress.</div></div>
-    <div class="fs ok"><span class="sn">6</span><div class="sb">Print startup summary → launch Claude.</div></div>
+    <div class="fs"><span class="sn">6</span><div class="sb">Write <code>monarch--MONA-1234.code-workspace</code> — a VS Code multi-root workspace containing all worktree folders and shared repo paths. Open it in VS Code to browse and diff across all repos simultaneously.</div></div>
+    <div class="fs ok"><span class="sn">7</span><div class="sb">Print startup summary → launch Claude.</div></div>
   </div>
 
   <h3>wksp task MONA-1234 — resume existing task</h3>
@@ -264,7 +266,8 @@ wksp task MONA-1234 --to-worktree marketplace</pre>
     <div class="fs"><span class="sn">2</span><div class="sb"><strong>New repos check:</strong> repos in <code>repos.txt</code> not yet covered and not in <code>task-shared.txt</code> get a branch prompt and worktree created now.</div></div>
     <div class="fs warn"><span class="sn">3</span><div class="sb"><strong>Non-critical warnings</strong> (print but continue): worktree folder missing but still registered in git.</div></div>
     <div class="fs red"><span class="sn">!</span><div class="sb"><strong>Critical errors</strong> (block launch): repo base path does not exist on disk; worktree <code>.git</code> file missing or malformed. Suggests <code>wksp task MONA-1234 --del</code> to start fresh.</div></div>
-    <div class="fs ok"><span class="sn">4</span><div class="sb">Print startup summary with live branches and staleness → launch Claude.</div></div>
+    <div class="fs"><span class="sn">4</span><div class="sb">Regenerate <code>&lt;project&gt;--MONA-1234.code-workspace</code> to reflect any repo changes since last run.</div></div>
+    <div class="fs ok"><span class="sn">5</span><div class="sb">Print startup summary with live branches and staleness → launch Claude.</div></div>
   </div>
 
   <h3>Startup summary</h3>
