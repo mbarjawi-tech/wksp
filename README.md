@@ -57,7 +57,7 @@ wksp repo /c/development/tinyeye-docs --shared   # read-only reference, no workt
 wksp task MONA-1234
 ```
 
-On `wksp task`, you're prompted once per repo for a branch name. Press **Enter** to use the repo's current branch. If the branch name is new (doesn't exist locally or remotely), a follow-up prompt asks which branch to base it on — press **Enter** to accept the repo's default branch. Claude launches with all worktrees (and shared repos) added via `--add-dir`.
+On `wksp task`, you're prompted once per repo for a branch name. Press **Enter** to use the repo's current branch, or type **`s`** to skip worktree creation and use that repo as shared for this task. If the branch name is new (doesn't exist locally or remotely), a follow-up prompt asks which branch to base it on — press **Enter** to accept the repo's default branch. Claude launches with all worktrees (and shared repos) added via `--add-dir`.
 
 ## Shared vs worktree — when to use which
 
