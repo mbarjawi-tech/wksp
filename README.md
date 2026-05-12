@@ -100,7 +100,7 @@ These changes are per-task only and don't affect `repos.txt`.
 
 **New task** — prompts for a branch per repo. If the branch doesn't exist yet, a follow-up asks which branch to base it on (defaults to the repo's default branch). Creates a git worktree for each repo, generates a `<project>--<task>.code-workspace` file for VS Code, then launches Claude.
 
-**Resume task** — detects any repos added to `repos.txt` since last run, creates missing worktrees, then launches. Existing worktrees are never re-branched — whatever branch they're on is respected.
+**Resume task** — detects any repos added to `repos.txt` since last run, creates missing worktrees, then launches. Existing worktrees are never re-branched — whatever branch they're on is respected. By default the last Claude session for the task is resumed automatically so conversation history carries over. Set `autoResume: false` in global config to be prompted instead.
 
 **Startup summary** — printed before Claude launches. Shows each repo's live branch, type (worktree or shared), and a staleness warning if the branch is behind `origin/main` (or the repo's default branch):
 
@@ -121,10 +121,13 @@ The staleness count uses locally cached remote refs — no network fetch is perf
 ## Global config (`~/.wksp`)
 
 ```json
-{ "reposRoot": "/c/development" }
+{ "reposRoot": "/c/development", "autoResume": true }
 ```
 
-`reposRoot` is where GitHub URLs get cloned when you run `wksp repo <github-url>`. Prompted automatically on first use — not needed for local paths.
+| Key | Default | Description |
+|---|---|---|
+| `reposRoot` | — | Where GitHub URLs are cloned. Prompted on first use. |
+| `autoResume` | `true` | Automatically resume the last Claude session when running `wksp task`. Set to `false` to be prompted instead. |
 
 ## Project structure
 

@@ -145,10 +145,12 @@ wksp task MONA-1234 --to-worktree marketplace</pre>
 
   <h3><code>~/.wksp</code> — global user config</h3>
   <pre>{
-  <span class="h">"reposRoot"</span>: <span class="s">"C:/development"</span>
+  <span class="h">"reposRoot"</span>:   <span class="s">"C:/development"</span>,
+  <span class="h">"autoResume"</span>:  <span class="s">true</span>
 }</pre>
-  <p><code>reposRoot</code> is the directory where GitHub repos are cloned when you run <code>wksp repo &lt;github-url&gt;</code>. Only needed if you use GitHub URLs — local paths work without it. Prompted automatically on first use, or set manually:</p>
-  <pre>wksp config set reposRoot C:/development</pre>
+  <p><code>reposRoot</code> — directory where GitHub repos are cloned via <code>wksp repo &lt;url&gt;</code>. Prompted on first use.</p>
+  <p><code>autoResume</code> — when <code>true</code> (default), <code>wksp task</code> automatically resumes the last Claude session for the task by passing <code>--resume &lt;session-id&gt;</code>, so conversation history carries over. When <code>false</code>, you are prompted each time. The session ID is resolved from Claude's local session files — no manual copy-paste required.</p>
+  <pre>wksp config set autoResume false</pre>
 
   <h3><code>&lt;project&gt;/.wksp</code> — project marker + config</h3>
   <pre>{
@@ -267,7 +269,8 @@ wksp task MONA-1234 --to-worktree marketplace</pre>
     <div class="fs warn"><span class="sn">3</span><div class="sb"><strong>Non-critical warnings</strong> (print but continue): worktree folder missing but still registered in git.</div></div>
     <div class="fs red"><span class="sn">!</span><div class="sb"><strong>Critical errors</strong> (block launch): repo base path does not exist on disk; worktree <code>.git</code> file missing or malformed. Suggests <code>wksp task MONA-1234 --del</code> to start fresh.</div></div>
     <div class="fs"><span class="sn">4</span><div class="sb">Regenerate <code>&lt;project&gt;--MONA-1234.code-workspace</code> to reflect any repo changes since last run.</div></div>
-    <div class="fs ok"><span class="sn">5</span><div class="sb">Print startup summary with live branches and staleness → launch Claude.</div></div>
+    <div class="fs"><span class="sn">5</span><div class="sb">Print startup summary with live branches and staleness.</div></div>
+    <div class="fs ok"><span class="sn">6</span><div class="sb"><strong>Session resume:</strong> if a prior Claude session exists for this task, resume it automatically (passing <code>--resume &lt;id&gt;</code>) so conversation history carries over. If <code>autoResume: false</code> in global config, prompt <code>"Resume last Claude session (May 10, 2026)? [y/N]"</code> instead. New tasks always launch fresh.</div></div>
   </div>
 
   <h3>Startup summary</h3>
