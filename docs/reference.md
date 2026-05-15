@@ -1,0 +1,267 @@
+# Reference
+
+## Commands
+
+### `wksp init [name]`
+
+Create a new project. Scaffolds `.wksp`, `repos.txt`, `CLAUDE.md`, and `tasks/`. Prompts for `reposRoot` if not already set (skippable — you can add it later with `wksp config set`).
+
+```bash
+wksp init acme
+```
+
+---
+
+### `wksp repo <path-or-url>`
+
+Register a repo with the current project.
+
+- **Local path** — added directly to `repos.txt`.
+- **GitHub URL** — cloned into `reposRoot` (skipped if already cloned), then the local path is added.
+
+```bash
+wksp repo /c/dev/backend
+wksp repo https://github.com/your-org/frontend
+wksp repo /c/dev/company-docs --shared
+wksp repo /c/dev/old-service --remove
+```
+
+| Flag | Description |
+|---|---|
+| `--shared` | Never create a worktree; always use the original repo path. Use for read-only reference repos. |
+| `--remove` | Remove from `repos.txt`. Warns if orphaned worktrees exist. |
+
+---
+
+### `wksp task <id>`
+
+Create or resume a task.
+
+**New task** — prompts for a branch per repo, creates worktrees, generates a VS Code workspace file, then launches Claude.
+
+**Resume** — scans existing worktrees, detects any new repos added since last run (prompts for branches for those), then launches Claude.
+
+```bash
+wksp task PROJ-1234
+```
+
+#### Branch prompt options
+
+For each non-shared repo you are asked:
+
+```
+Branch for backend [main, s=shared, x=exclude]:
+```
+
+| Input | What happens |
+|---|---|
+| Enter | Use the repo's current branch as a worktree. |
+| A branch name | Create or check out that branch in a new worktree. If the branch is new, a follow-up asks which branch to base it on (defaults to the repo's default branch). |
+| `s` | Use the base repo path directly for this task (task-shared). No worktree created. |
+| `x` | Exclude this repo from this task entirely. No worktree, not in workspace, not passed to Claude. |
+
+#### Flags
+
+| Flag | Description |
+|---|---|
+| `--del` | Tear down worktrees and delete the task folder. Also works on archived tasks (no teardown needed). Add `--delete-branches` to remove kept branches. |
+| `--to-shared <repo>` | Remove the worktree for a repo and use the shared path for this task only. |
+| `--to-worktree <repo>` | Ensure a worktree exists for a repo in this task. Prompts for a branch; clears any task-shared or task-excluded mark. No-op if a worktree already exists. |
+| `--archive` | Remove worktrees and move the task folder to `archived-tasks/`. Preserves context and metadata for future rehydration. |
+| `--archive --delete-branches` | Also delete local branches during archive. |
+| `--archive --force` | Allow archiving when uncommitted changes exist. |
+| `--unarchive` | Restore an archived task: classify each repo's branch state and recreate worktrees. |
+| `--unarchive --dry-run` | Show the restore plan without applying it. |
+| `--unarchive --fetch` | Fetch remote refs in all base repos before classifying. |
+| `--unarchive --skip <repo>` | Skip a specific repo during unarchive. |
+| `--unarchive --branch <repo>=<branch>` | Override the branch used for a specific repo. |
+| `--unarchive --shared <repo>` | Restore a specific repo as task-shared instead of creating a worktree. |
+
+---
+
+### `wksp list`
+
+Show live tasks in the current project. The footer notes the archived task count.
+
+```bash
+wksp list             # live tasks only
+wksp list --archived  # archived tasks with archive dates
+wksp list --all       # both, with a Status column
+```
+
+---
+
+### `wksp status`
+
+Show the current task's repos, their live branches, types (worktree/shared/excluded), and staleness. Run from inside a task folder or any subdirectory of one.
+
+---
+
+### `wksp cleanup --stale <path>`
+
+Scan a base repo for stale worktree refs (worktrees that no longer exist on disk) and prune them. Useful after manually deleting task folders.
+
+```bash
+wksp cleanup --stale /c/dev/backend
+wksp cleanup --stale /c/dev -r   # scan all repos in the directory
+```
+
+| Flag | Description |
+|---|---|
+| `-r` | Scan first-level subdirectories of `<path>` for git repos. |
+
+---
+
+### `wksp delete`
+
+Destroy the entire project: tear down all worktrees for all tasks, then delete the project folder. Prompts for confirmation by typing the project name.
+
+---
+
+### `wksp config set <key> <value>` / `wksp config get [key]`
+
+Read or write global config (`~/.wksp`).
+
+```bash
+wksp config set reposRoot /c/dev
+wksp config set autoResume false
+wksp config get
+wksp config get reposRoot
+```
+
+---
+
+## File formats
+
+### `~/.wksp` — global config
+
+```json
+{
+  "reposRoot": "/c/dev",
+  "autoResume": true
+}
+```
+
+### `<project>/.wksp` — project marker
+
+```json
+{ "name": "acme" }
+```
+
+Presence of this file marks the directory as a wksp project. Commands walk up the directory tree to find it — identical to how `git` finds `.git`.
+
+### `<project>/repos.txt`
+
+```
+# Format: <path> [--shared]
+# Any path format is accepted (Windows backslash, forward slash, POSIX)
+
+C:/dev/backend
+C:/dev/frontend
+C:/dev/company-docs  --shared
+```
+
+### `tasks/<id>/task-shared.txt`
+
+One normalized path per line. Lists base repos that use their original folder for this task instead of a worktree. Created by `--to-shared`; read on every resume.
+
+### `tasks/<id>/task-excluded.txt`
+
+One normalized path per line. Lists base repos excluded from this task entirely. Created at task creation when the user types `x` at the branch prompt; can be cleared with `--to-worktree`.
+
+### `archived-tasks/<id>/archived.json`
+
+Written by `--archive`. Contains everything needed to rehydrate the task:
+
+```json
+{
+  "version": 1,
+  "archivedAt": "2026-05-14T21:00:00.000Z",
+  "taskId": "PROJ-1234",
+  "repos": [
+    {
+      "repoPath": "C:/dev/backend",
+      "folderName": "backend",
+      "branch": "feature/PROJ-1234",
+      "tipSha": "abc123...",
+      "kind": "worktree"
+    }
+  ],
+  "sharedRepos": ["C:/dev/company-docs"],
+  "excludedRepos": []
+}
+```
+
+`tipSha` allows the unarchive classifier to determine if a missing branch was merged, is in a dangling state, or is truly lost.
+
+---
+
+## CLAUDE.md templates
+
+### Project-level (generated by `wksp init`)
+
+```markdown
+## Project: acme
+
+## Cross-cutting conventions
+<!-- fill in: backend, frontend, branch naming, test commands... -->
+
+## Conflict policy
+This file defines project-wide conventions. Tasks each have their own CLAUDE.md.
+If you notice a contradiction between this file and a task's CLAUDE.md,
+flag it immediately and ask for clarification before proceeding.
+```
+
+### Task-level (generated by `wksp task`)
+
+```markdown
+## Task: PROJ-1234
+## Goal: (describe the task here)
+
+## Notes
+<!-- decisions, constraints, references, links to tickets... -->
+
+## Conflict policy
+The project-level CLAUDE.md defines shared conventions. This file adds task-specific context only.
+If anything here contradicts the project-level CLAUDE.md, flag the contradiction
+and ask for clarification — do not silently resolve it yourself.
+```
+
+---
+
+## Startup summary
+
+Printed before Claude launches. Branches are read live from git; staleness uses locally cached remote refs — no network fetch at launch.
+
+```
+────────────────────────────────────────────
+  wksp · acme / PROJ-1234
+────────────────────────────────────────────
+  Repos:
+
+    backend              feature/PROJ-1234   (worktree)  ⚠ 3 commits behind main
+    frontend             feature/PROJ-1234   (worktree)
+    services             main                (shared)
+    company-docs         —                   (excluded)
+────────────────────────────────────────────
+```
+
+---
+
+## Unarchive classifier states
+
+When unarchiving, each repo's branch is classified before worktrees are recreated:
+
+| State | Meaning | Default action |
+|---|---|---|
+| `present-local` | Branch still exists locally | Restore worktree on same branch |
+| `advanced` | Branch exists locally, moved ahead of archived SHA | Restore worktree (show diff count) |
+| `remote-only` | Branch deleted locally but exists on remote | Restore worktree (uses remote ref) |
+| `merged` | Branch merged into default branch, then deleted | Restore as task-shared (on default branch) |
+| `merged-elsewhere` | Tip SHA reachable from default, branch gone | Restore as task-shared |
+| `dangling` | Tip SHA in object DB, no branch pointing to it | Restore from SHA (create recovery branch) |
+| `lost` | Tip SHA not found in any local object DB | Skip (print warning) |
+| `base-missing` | Base repo not on disk at all | Skip (print warning) |
+| `new-since-archive` | Repo added to `repos.txt` after archiving | Prompt for branch at restore time |
+
+When all repos are `present-local`, unarchive runs silently. When any repo has a non-trivial state, a preview table is shown and confirmation is requested before applying.

@@ -1,0 +1,583 @@
+<!doctype html>
+<html lang="en">
+<head>
+<meta charset="UTF-8">
+<meta name="viewport" content="width=device-width, initial-scale=1.0">
+<title>wksp — Team Demo</title>
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reset.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.css">
+<link rel="stylesheet" href="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/theme/black.min.css">
+<style>
+:root {
+  --bg:      #0d1117;
+  --surface: #161b22;
+  --surface2:#21262d;
+  --border:  #30363d;
+  --text:    #e6edf3;
+  --muted:   #8b949e;
+  --dim:     #3d444d;
+  --accent:  #7c6af7;
+  --green:   #3fb950;
+  --blue:    #58a6ff;
+  --yellow:  #d29922;
+  --orange:  #f0883e;
+  --red:     #f85149;
+}
+
+/* ── Base overrides ── */
+.reveal { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
+.reveal .slides section { padding: 16px 44px; }
+.reveal h1, .reveal h2, .reveal h3 { text-transform: none; letter-spacing: -0.02em; font-weight: 700; }
+.reveal h2 { font-size: 1.75rem; margin-bottom: .7rem; color: #fff; }
+.reveal h3 { font-size: 1rem; font-weight: 400; color: var(--muted); margin-bottom: .9rem; }
+.reveal p  { font-size: .86rem; line-height: 1.65; }
+.reveal pre { width: 100%; box-shadow: none; border: 1px solid var(--border); border-radius: 8px; margin: 0; }
+.reveal pre code { background: #010409; font-size: .78rem; padding: 16px 20px; line-height: 1.75; }
+.reveal .slide-number { background: transparent; color: var(--dim); font-size: .72rem; }
+.reveal table { font-size: .78rem; border-collapse: collapse; width: 100%; }
+.reveal table th { background: var(--surface); color: var(--muted); font-size: .68rem; text-transform: uppercase; letter-spacing: .06em; padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--border); font-weight: 600; }
+.reveal table td { padding: 7px 12px; border-bottom: 1px solid var(--surface2); color: var(--text); vertical-align: top; }
+.reveal table tr:last-child td { border-bottom: none; }
+.reveal table td code, .reveal table th code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; color: var(--blue); font-size: .82em; }
+
+/* ── Pills ── */
+.pill { display: inline-block; padding: 2px 9px; border-radius: 20px; font-size: .68rem; font-weight: 700; letter-spacing: .04em; text-transform: uppercase; vertical-align: middle; }
+.pill.purple { background: rgba(124,106,247,.18); color: var(--accent);  border: 1px solid rgba(124,106,247,.4); }
+.pill.green  { background: rgba(63,185,80,.15);   color: var(--green);   border: 1px solid rgba(63,185,80,.3);  }
+.pill.blue   { background: rgba(88,166,255,.15);  color: var(--blue);    border: 1px solid rgba(88,166,255,.3); }
+.pill.yellow { background: rgba(210,153,34,.15);  color: var(--yellow);  border: 1px solid rgba(210,153,34,.3); }
+.pill.red    { background: rgba(248,81,73,.15);   color: var(--red);     border: 1px solid rgba(248,81,73,.3);  }
+.pill.dim    { background: var(--surface2);       color: var(--muted);   border: 1px solid var(--border);       }
+
+/* ── Terminal ── */
+.term { background: #010409; border: 1px solid var(--border); border-radius: 10px; overflow: hidden; font-family: 'Cascadia Code','Fira Code',Consolas,monospace; font-size: .76rem; text-align: left; }
+.term-bar { background: var(--surface); padding: 7px 14px; display: flex; align-items: center; gap: 5px; border-bottom: 1px solid var(--border); }
+.dot { width: 10px; height: 10px; border-radius: 50%; display: inline-block; flex-shrink: 0; }
+.dot.r { background: #f85149; } .dot.y { background: #d29922; } .dot.g { background: #3fb950; }
+.term-bar .label { color: var(--muted); font-size: .68rem; margin-left: 5px; font-family: -apple-system, sans-serif; }
+.term-body { padding: 14px 18px; line-height: 1.8; }
+.tc  { color: var(--text); }
+.tc::before { content: '$ '; color: var(--green); }
+.to  { color: var(--muted); }
+.tok { color: var(--green); }
+.tw  { color: var(--yellow); }
+.tb  { color: var(--blue); }
+.th  { color: var(--accent); font-weight: 600; }
+.tdm { color: var(--dim); }
+.tsep{ color: var(--border); }
+.tpi { color: var(--text); } /* prompt input */
+
+/* ── Layout helpers ── */
+.cols   { display: grid; gap: 18px; }
+.cols-2 { grid-template-columns: 1fr 1fr; }
+.cols-3 { grid-template-columns: 1fr 1fr 1fr; }
+
+/* ── Card ── */
+.card { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; padding: 16px 18px; text-align: left; }
+.card .ci  { font-size: 1.4rem; margin-bottom: 7px; }
+.card .ct  { font-size: .82rem; font-weight: 700; color: #fff; margin-bottom: 5px; }
+.card .cb  { font-size: .72rem; color: var(--muted); line-height: 1.5; }
+.card .cb code { font-family: 'Cascadia Code',Consolas,monospace; color: var(--blue); font-size: .9em; }
+
+/* ── Before / After ── */
+.ba      { display: grid; grid-template-columns: 1fr 1fr; gap: 14px; }
+.ba-box  { background: var(--surface); border: 1px solid var(--border); border-radius: 10px; overflow: hidden; }
+.ba-head { padding: 7px 15px; font-size: .68rem; font-weight: 700; text-transform: uppercase; letter-spacing: .07em; }
+.ba-head.b { background: rgba(248,81,73,.12);  color: var(--red);   border-bottom: 1px solid rgba(248,81,73,.2);  }
+.ba-head.a { background: rgba(63,185,80,.1);   color: var(--green); border-bottom: 1px solid rgba(63,185,80,.2);  }
+.ba-body { padding: 13px 16px; font-size: .76rem; line-height: 1.85; color: var(--text); }
+.ba-body code { font-family: 'Cascadia Code',Consolas,monospace; color: var(--blue); font-size: .88em; }
+.x     { color: var(--red);   }
+.check { color: var(--green); }
+
+/* ── Callout ── */
+.callout { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 16px; font-size: .82rem; color: var(--text); line-height: 1.6; margin-top: .8rem; }
+
+/* ── Title slide ── */
+.title-logo      { font-size: 5.5rem; font-weight: 800; color: #fff; letter-spacing: -.06em; margin-bottom: 0; line-height: 1; }
+.title-logo span { color: var(--accent); }
+.title-sub       { color: var(--muted); font-size: .95rem; margin-top: .4rem; }
+.title-tagline   { color: var(--text); font-size: 1.3rem; font-weight: 300; margin-top: 1.6rem; line-height: 1.5; }
+
+/* ── Section divider ── */
+.section-num { font-size: 6rem; font-weight: 800; color: rgba(124,106,247,.12); line-height: 1; }
+.section-h   { font-size: 2.4rem !important; color: #fff !important; margin-top: -.3em !important; }
+
+/* misc */
+code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; background: var(--surface2); border-radius: 4px; padding: 1px 6px; font-size: .85em; color: var(--blue); }
+</style>
+</head>
+<body>
+<div class="reveal">
+<div class="slides">
+
+
+<!-- ══════════════════════════════════════════
+     1. TITLE
+══════════════════════════════════════════ -->
+<section data-transition="fade">
+  <div style="padding: 10px 0">
+    <div class="title-logo">w<span>k</span>sp</div>
+    <div class="title-sub">Workspace CLI for Claude Code</div>
+    <div class="title-tagline">
+      Multi-repo development.<br>
+      Zero branch-switching.
+    </div>
+    <div style="margin-top: 2.5rem; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
+      <span class="pill purple">Git Worktrees</span>
+      <span class="pill green">Claude Code</span>
+      <span class="pill blue">Multi-repo</span>
+      <span class="pill yellow">Task Isolation</span>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     2. THE PAIN
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Sound familiar?</h2>
+  <h3>Starting PROJ-1234 — a feature that touches backend, front-end, and services</h3>
+
+  <div class="term">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
+    <div class="term-body">
+      <div class="tc">cd /c/dev/backend &amp;&amp; git checkout -b feature/PROJ-1234</div>
+      <div class="to">Switched to a new branch 'feature/PROJ-1234'</div>
+      <br>
+      <div class="tc">cd ../frontend &amp;&amp; git checkout -b feature/PROJ-1234</div>
+      <div class="to">Switched to a new branch 'feature/PROJ-1234'</div>
+      <br>
+      <div class="tc">cd ../services &amp;&amp; git checkout -b feature/PROJ-1234</div>
+      <div class="to">Switched to a new branch 'feature/PROJ-1234'</div>
+    </div>
+  </div>
+
+  <p style="margin-top: 1.1rem; color: var(--muted);">
+    Open 3 VS Code windows. Brief Claude on what you're doing. Start coding.<br>
+    Now PROJ-5678 lands as urgent. Start over.
+  </p>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     3. THE PROBLEM COMPOUNDS
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Three tickets. Three repos each. One you.</h2>
+
+  <div class="ba" style="margin-top: .8rem;">
+    <div class="ba-box">
+      <div class="ba-head b">Without wksp — branch switching reality</div>
+      <div class="ba-body">
+        <span class="x">✗</span> Switch all 3 repos to PROJ-5678 branches<br>
+        <span class="x">✗</span> VS Code loses open files and scroll positions<br>
+        <span class="x">✗</span> Claude loses conversation context<br>
+        <span class="x">✗</span> Switch back to PROJ-1234 — repeat<br>
+        <span class="x">✗</span> <code>git checkout</code> fails: <em>"already checked out"</em><br>
+        <br>
+        <span style="color: var(--red);">Every context switch costs 5–10 minutes of recovery.</span>
+      </div>
+    </div>
+    <div class="ba-box">
+      <div class="ba-head a">With wksp</div>
+      <div class="ba-body">
+        <span class="check">✓</span> Open PROJ-1234 workspace in VS Code window 1<br>
+        <span class="check">✓</span> Open PROJ-5678 workspace in VS Code window 2<br>
+        <span class="check">✓</span> Both tasks live simultaneously on their own branches<br>
+        <span class="check">✓</span> Claude resumes exactly where it left off<br>
+        <span class="check">✓</span> No branch-switching. Ever.<br>
+        <br>
+        <span style="color: var(--green);">Switch tasks by switching windows.</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     4. THE PRIMITIVE
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>The primitive: git worktrees</h2>
+  <h3>Built into git since v2.5 — wksp makes them effortless across every repo in your project</h3>
+
+  <div class="term" style="margin-bottom: 1rem;">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">One git database — two working directories — two branches</span></div>
+    <div class="term-body">
+      <div><span class="th">/c/dev/backend/</span><span class="tdm">                              ← base clone, on main</span></div>
+      <div><span class="th">acme/tasks/PROJ-1234/worktrees/backend/</span><span class="tdm">   ← worktree, on feature/PROJ-1234</span></div>
+      <div><span class="th">acme/tasks/PROJ-5678/worktrees/backend/</span><span class="tdm">   ← worktree, on feature/PROJ-5678</span></div>
+      <br>
+      <div class="tdm"># All three share the same .git object database</div>
+      <div class="tdm"># Checkout is instant — no duplicate history on disk</div>
+    </div>
+  </div>
+
+  <div class="callout">
+    wksp automates creating, naming, and tearing down worktrees across every repo in your project simultaneously — so you get all the power without ever typing <code>git worktree add</code> directly.
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     5. SETUP
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Setting up a project</h2>
+  <h3>One-time setup per product area — takes under a minute</h3>
+
+  <div class="cols cols-2" style="align-items: start; gap: 20px;">
+    <div class="term">
+      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
+      <div class="term-body">
+        <div class="tc">wksp init acme</div>
+        <div class="tok">✓  Created acme/</div>
+        <br>
+        <div class="tc">cd acme</div>
+        <div class="tc">wksp repo /c/dev/backend</div>
+        <div class="tc">wksp repo /c/dev/frontend</div>
+        <div class="tc">wksp repo /c/dev/services</div>
+        <div class="tc">wksp repo /c/dev/company-docs --shared</div>
+        <div class="tok">✓  4 repos registered</div>
+      </div>
+    </div>
+    <div style="display: flex; flex-direction: column; gap: 12px;">
+      <div class="card">
+        <div class="ci">🌿</div>
+        <div class="ct">Worktree repos</div>
+        <div class="cb">Each task gets its own isolated branch checkout. The default for repos you change.</div>
+      </div>
+      <div class="card">
+        <div class="ci">📖</div>
+        <div class="ct"><code>--shared</code> repos</div>
+        <div class="cb">Read-only reference repos — docs, design systems. Always use the base folder, no branch management needed.</div>
+      </div>
+      <div class="card">
+        <div class="ci">🔗</div>
+        <div class="ct">GitHub URLs work too</div>
+        <div class="cb"><code>wksp repo https://github.com/org/repo</code> — clones if needed, then registers.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     6. CREATING A TASK
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Starting a task</h2>
+  <h3>One command — prompts for branches, creates worktrees, launches Claude</h3>
+
+  <div class="term" style="margin-bottom: .9rem; font-size: .74rem;">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
+    <div class="term-body">
+      <div class="tc">wksp task PROJ-1234</div>
+      <br>
+      <div><span class="to">Branch for backend [main, s=shared, x=exclude]: </span><span class="tpi">feature/PROJ-1234</span></div>
+      <div><span class="tdm">  → new branch. Base off [main]: </span><span class="tpi">↵</span></div>
+      <br>
+      <div><span class="to">Branch for frontend [main, s=shared, x=exclude]: </span><span class="tpi">feature/PROJ-1234</span></div>
+      <br>
+      <div><span class="to">Branch for services [main, s=shared, x=exclude]: </span><span class="tpi">s</span></div>
+      <div class="tdm">  → using shared path for this task</div>
+      <br>
+      <div class="tok">✓  worktree backend            → feature/PROJ-1234</div>
+      <div class="tok">✓  worktree frontend            → feature/PROJ-1234</div>
+      <div class="tok">✓  Generated acme--PROJ-1234.code-workspace</div>
+    </div>
+  </div>
+
+  <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
+    <div style="text-align:center;"><span class="pill green">↵ Enter</span><br><span style="font-size:.7rem;color:var(--muted);">current branch</span></div>
+    <div style="text-align:center;"><span class="pill purple">branch name</span><br><span style="font-size:.7rem;color:var(--muted);">create or check out</span></div>
+    <div style="text-align:center;"><span class="pill blue">s</span><br><span style="font-size:.7rem;color:var(--muted);">use base repo</span></div>
+    <div style="text-align:center;"><span class="pill yellow">x</span><br><span style="font-size:.7rem;color:var(--muted);">exclude entirely</span></div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     7. STARTUP SUMMARY + CLAUDE
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Then Claude launches</h2>
+  <h3>A startup summary confirms exactly what's loaded before Claude appears</h3>
+
+  <div class="term">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
+    <div class="term-body">
+      <div class="tsep">────────────────────────────────────────────</div>
+      <div style="color:#fff;font-weight:700;">  wksp · acme / PROJ-1234</div>
+      <div class="tsep">────────────────────────────────────────────</div>
+      <div class="to">  Repos:</div>
+      <br>
+      <div>  <span class="tb">backend</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="tok">feature/PROJ-1234</span>&nbsp;&nbsp; <span class="to">(worktree)</span></div>
+      <div>  <span class="tb">frontend</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="tok">feature/PROJ-1234</span>&nbsp;&nbsp; <span class="to">(worktree)</span>&nbsp; <span class="tw">⚠ 3 commits behind main</span></div>
+      <div>  <span class="tb">services</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="to">main</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="to">(shared)</span></div>
+      <div>  <span class="tb">company-docs</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="to">main</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="to">(shared)</span></div>
+      <div class="tsep">────────────────────────────────────────────</div>
+      <div class="to">  Launching Claude...</div>
+    </div>
+  </div>
+
+  <p style="margin-top: .9rem; color: var(--muted); font-size: .82rem;">
+    All worktrees and shared repos are passed to Claude as <code>--add-dir</code>.
+    The last conversation session is automatically resumed — context carries over from where you left off.
+  </p>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     8. WHAT'S ON DISK
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>What lands on disk</h2>
+
+  <div class="cols cols-2" style="gap: 22px; align-items: start;">
+    <div class="term" style="font-size: .71rem;">
+      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">acme/</span></div>
+      <div class="term-body" style="line-height:1.9;">
+        <div><span class="th">acme/</span></div>
+        <div>  <span class="to">├── .wksp</span>                 <span class="tdm">project marker</span></div>
+        <div>  <span class="to">├── repos.txt</span>             <span class="tdm">registered repos</span></div>
+        <div>  <span class="to">├── CLAUDE.md</span>             <span class="tdm">project conventions</span></div>
+        <div>  <span class="th">├── tasks/</span></div>
+        <div>  <span class="to">│   </span><span class="th">└── PROJ-1234/</span></div>
+        <div>  <span class="to">│       ├── CLAUDE.md</span>       <span class="tdm">← fill in: goal, decisions</span></div>
+        <div>  <span class="to">│       ├── acme--PROJ-1234</span></div>
+        <div>  <span class="to">│       │   .code-workspace</span>  <span class="tdm">← open in VS Code</span></div>
+        <div>  <span class="to">│       </span><span class="th">└── worktrees/</span></div>
+        <div>  <span class="to">│           ├── backend/</span>      <span class="tdm">feature/PROJ-1234</span></div>
+        <div>  <span class="to">│           └── frontend/</span>    <span class="tdm">feature/PROJ-1234</span></div>
+        <div>  <span class="th">└── archived-tasks/</span>       <span class="tdm">done work, kept for later</span></div>
+      </div>
+    </div>
+
+    <div style="display:flex;flex-direction:column;gap:11px;">
+      <div class="card">
+        <div class="ci">📁</div>
+        <div class="ct">One folder per task</div>
+        <div class="cb">Everything for a ticket lives together. Open a task by opening its <code>.code-workspace</code> file — all repos in the sidebar, all on the right branches.</div>
+      </div>
+      <div class="card">
+        <div class="ci">📝</div>
+        <div class="ct">CLAUDE.md hierarchy</div>
+        <div class="cb">Project-level conventions + task-level goals. Claude reads both automatically. You never re-explain architecture or patterns.</div>
+      </div>
+      <div class="card">
+        <div class="ci">📦</div>
+        <div class="ct">archived-tasks/</div>
+        <div class="cb">Completed tasks move here. Worktrees gone, context preserved. Restore anytime with <code>--unarchive</code>.</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     9. CONCURRENT TASKS
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Two tasks. Same repos. No conflict.</h2>
+
+  <div class="term" style="margin-bottom: 1rem; font-size: .74rem;">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
+    <div class="term-body">
+      <div class="tdm"># PROJ-1234 already running in VS Code window 1</div>
+      <br>
+      <div class="tc">wksp task PROJ-5678</div>
+      <br>
+      <div><span class="to">Branch for backend [main, s=shared, x=exclude]: </span><span class="tpi">hotfix/PROJ-5678</span></div>
+      <div><span class="to">Branch for frontend [main, s=shared, x=exclude]: </span><span class="tpi">hotfix/PROJ-5678</span></div>
+      <br>
+      <div class="tok">✓  worktree backend            → hotfix/PROJ-5678</div>
+      <div class="tok">✓  worktree frontend            → hotfix/PROJ-5678</div>
+    </div>
+  </div>
+
+  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 13px 18px; font-size: .8rem; color: var(--text);">
+    <div style="margin-bottom: 7px;">
+      <span class="pill green" style="margin-right:8px;">PROJ-1234</span>
+      backend <code>feature/PROJ-1234</code> &nbsp;·&nbsp; front-end <code>feature/PROJ-1234</code>
+    </div>
+    <div>
+      <span class="pill yellow" style="margin-right:8px;">PROJ-5678</span>
+      backend <code>hotfix/PROJ-5678</code> &nbsp;·&nbsp; front-end <code>hotfix/PROJ-5678</code>
+    </div>
+    <div style="margin-top: 9px; color: var(--muted); font-size: .73rem;">
+      git supports multiple worktrees of the same repo on different branches simultaneously — wksp just makes it seamless across your whole project.
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     10. LIST
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>See everything at a glance</h2>
+
+  <div class="cols cols-2" style="gap: 18px;">
+    <div class="term" style="font-size: .74rem;">
+      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">wksp list --all</span></div>
+      <div class="term-body">
+        <div class="tc">wksp list --all</div>
+        <br>
+        <div style="color:#fff;font-weight:700;">acme</div>
+        <br>
+        <div><span class="tdm" style="font-size:.68em;text-transform:uppercase;letter-spacing:.07em;">  Task&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Status&nbsp;&nbsp;&nbsp;&nbsp; Details</span></div>
+        <div>  <span class="th">PROJ-1234</span>&nbsp;&nbsp;&nbsp; <span class="tok">live</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 worktrees, 1 shared</div>
+        <div>  <span class="th">PROJ-5678</span>&nbsp;&nbsp;&nbsp; <span class="tok">live</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 worktrees</div>
+        <div>  <span class="th">PROJ-0987</span>&nbsp;&nbsp;&nbsp; <span class="to">archived</span>&nbsp;&nbsp; 2026-03-02</div>
+        <div>  <span class="th">PROJ-0500</span>&nbsp;&nbsp;&nbsp; <span class="to">archived</span>&nbsp;&nbsp; 2025-11-18</div>
+      </div>
+    </div>
+    <div style="display:flex;flex-direction:column;gap:10px;justify-content:center;">
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;font-size:.78rem;">
+        <code>wksp list</code>
+        <div style="color:var(--muted);font-size:.72rem;margin-top:4px;">Live tasks only</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;font-size:.78rem;">
+        <code>wksp list --archived</code>
+        <div style="color:var(--muted);font-size:.72rem;margin-top:4px;">Archived tasks with dates</div>
+      </div>
+      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;font-size:.78rem;">
+        <code>wksp list --all</code>
+        <div style="color:var(--muted);font-size:.72rem;margin-top:4px;">Combined view with status column</div>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     11. ARCHIVE
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Archive: done for now, not forever</h2>
+  <h3>Preserve context and branch metadata. Restore months later — even if branches were merged.</h3>
+
+  <div class="cols cols-2" style="gap: 16px; margin-top: .3rem;">
+    <div class="term" style="font-size:.73rem;">
+      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Archive</span></div>
+      <div class="term-body">
+        <div class="tc">wksp task PROJ-1234 --archive</div>
+        <br>
+        <div class="to">Removing worktrees...</div>
+        <div class="tok">✓  backend</div>
+        <div class="tok">✓  frontend</div>
+        <div class="to">Writing archived.json...</div>
+        <div class="tok">✓  Moved → archived-tasks/PROJ-1234</div>
+      </div>
+    </div>
+    <div class="term" style="font-size:.73rem;">
+      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Unarchive (3 months later)</span></div>
+      <div class="term-body">
+        <div class="tc">wksp task PROJ-1234 --unarchive</div>
+        <br>
+        <div class="to">Classifying branches...</div>
+        <div>  backend          <span class="tok">present-local</span>  → worktree</div>
+        <div>  frontend         <span class="tw">merged</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ task-shared</div>
+        <br>
+        <div><span class="to">Apply? [y/N]: </span><span class="tpi">y</span></div>
+        <div class="tok">✓  Restored PROJ-1234</div>
+      </div>
+    </div>
+  </div>
+
+  <p style="margin-top: .9rem; font-size: .8rem; color: var(--muted);">
+    wksp records each branch's tip SHA at archive time. On unarchive it checks: is the branch still local? merged into main? deleted but SHA reachable? It picks a sensible default for each repo and shows you a preview when anything non-trivial happened.
+  </p>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     12. COMMAND REFERENCE
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Key commands</h2>
+
+  <table style="margin-top:.4rem;">
+    <thead>
+      <tr><th>Command</th><th>What it does</th></tr>
+    </thead>
+    <tbody>
+      <tr><td><code>wksp init acme</code></td><td>Create a project folder</td></tr>
+      <tr><td><code>wksp repo &lt;path&gt; [--shared]</code></td><td>Register a repo (local path or GitHub URL)</td></tr>
+      <tr><td><code>wksp task PROJ-1234</code></td><td>Create or resume — prompts for branches, launches Claude</td></tr>
+      <tr><td><code>wksp task PROJ-1234 --del</code></td><td>Tear down worktrees and delete the task folder</td></tr>
+      <tr><td><code>wksp task PROJ-1234 --archive</code></td><td>Remove worktrees, preserve context in <code>archived-tasks/</code></td></tr>
+      <tr><td><code>wksp task PROJ-1234 --unarchive</code></td><td>Restore — smart branch recovery included</td></tr>
+      <tr><td><code>wksp task PROJ-1234 --to-shared backend</code></td><td>Use base repo instead of worktree (this task only)</td></tr>
+      <tr><td><code>wksp task PROJ-1234 --to-worktree backend</code></td><td>Create a worktree; clears shared or excluded</td></tr>
+      <tr><td><code>wksp list --all</code></td><td>Live and archived tasks in one view</td></tr>
+    </tbody>
+  </table>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     13. GET STARTED
+══════════════════════════════════════════ -->
+<section data-transition="fade">
+  <h2>Get started</h2>
+
+  <div class="term" style="margin-bottom: 1.2rem;">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Three commands to be up and running</span></div>
+    <div class="term-body">
+      <div class="tdm"># 1. Install</div>
+      <div class="tc">cd /c/workspaces/wksp &amp;&amp; npm link</div>
+      <br>
+      <div class="tdm"># 2. Create your project</div>
+      <div class="tc">wksp init acme &amp;&amp; cd acme</div>
+      <div class="tc">wksp repo /c/dev/backend</div>
+      <br>
+      <div class="tdm"># 3. Start your first task</div>
+      <div class="tc">wksp task PROJ-1234</div>
+    </div>
+  </div>
+
+  <div class="cols cols-3" style="gap: 12px;">
+    <div class="card" style="text-align:center;">
+      <div class="ci">📖</div>
+      <div class="ct">Full docs</div>
+      <div class="cb"><code>npm run docs:dev</code><br>localhost:5173</div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div class="ci">🧪</div>
+      <div class="ct">Run tests</div>
+      <div class="cb"><code>npm test</code><br>81 tests, all passing</div>
+    </div>
+    <div class="card" style="text-align:center;">
+      <div class="ci">❓</div>
+      <div class="ct">Help</div>
+      <div class="cb"><code>wksp --help</code><br>wksp &lt;command&gt; --help</div>
+    </div>
+  </div>
+</section>
+
+
+</div>
+</div>
+
+<script src="https://cdnjs.cloudflare.com/ajax/libs/reveal.js/4.6.1/reveal.min.js"></script>
+<script>
+Reveal.initialize({
+  hash: true,
+  slideNumber: 'c/t',
+  transition: 'slide',
+  transitionSpeed: 'fast',
+  controls: true,
+  progress: true,
+  center: true,
+  width: 1200,
+  height: 700,
+  margin: 0.04,
+  plugins: [],
+});
+</script>
+</body>
+</html>
