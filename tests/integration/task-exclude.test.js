@@ -69,7 +69,7 @@ describe('exclude at new-repo prompt', () => {
 
     const excludedFile = path.join(projectDir, 'tasks', 'TASK-EX', 'task-excluded.txt');
     expect(fs.existsSync(excludedFile)).toBe(true);
-    expect(fs.readFileSync(excludedFile, 'utf8').trim().split('\n')).toContain(path.resolve(repoDir));
+    expect(fs.readFileSync(excludedFile, 'utf8').trim().split('\n')).toContain(path.basename(repoDir));
   });
 
   test('excluded repo gets no worktree', async () => {
