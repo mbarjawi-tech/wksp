@@ -24,12 +24,17 @@ wksp repo /c/dev/backend
 wksp repo https://github.com/your-org/frontend
 wksp repo /c/dev/company-docs --shared
 wksp repo /c/dev/old-service --remove
+
+# Register the same repo twice — each gets its own worktree on a different branch
+wksp repo /c/dev/malachite --as malachite-b
+wksp repo /c/dev/malachite --remove --as malachite-b
 ```
 
 | Flag | Description |
 |---|---|
 | `--shared` | Never create a worktree; always use the original repo path. Use for read-only reference repos. |
-| `--remove` | Remove from `repos.txt`. Warns if orphaned worktrees exist. |
+| `--as <alias>` | Register the same repo a second time with a distinct folder name. Each instance gets its own worktree and can be on a different branch. The alias must be unique across all repos in the project. |
+| `--remove` | Remove from `repos.txt`. Warns if orphaned worktrees exist. When the same repo is registered more than once, `--as <alias>` is required to identify which entry to remove. |
 
 ---
 
@@ -153,21 +158,25 @@ Presence of this file marks the directory as a wksp project. Commands walk up th
 ### `<project>/repos.txt`
 
 ```
-# Format: <path> [--shared]
+# Format: <path> [--shared] [--as <alias>]
 # Any path format is accepted (Windows backslash, forward slash, POSIX)
 
 C:/dev/backend
 C:/dev/frontend
 C:/dev/company-docs  --shared
+
+# Same repo registered twice — two worktrees, two branches, one task
+C:/dev/malachite
+C:/dev/malachite  --as malachite-b
 ```
 
 ### `tasks/<id>/task-shared.txt`
 
-One normalized path per line. Lists base repos that use their original folder for this task instead of a worktree. Created by `--to-shared`; read on every resume.
+One folder name per line (the alias, or `basename` of the repo path when no alias is set). Lists repos that use their original folder for this task instead of a worktree. Created by `--to-shared`; read on every resume.
 
 ### `tasks/<id>/task-excluded.txt`
 
-One normalized path per line. Lists base repos excluded from this task entirely. Created at task creation when the user types `x` at the branch prompt; can be cleared with `--to-worktree`.
+One folder name per line (same convention as `task-shared.txt`). Lists repos excluded from this task entirely. Created at task creation when the user types `x` at the branch prompt; can be cleared with `--to-worktree`.
 
 ### `archived-tasks/<id>/archived.json`
 
