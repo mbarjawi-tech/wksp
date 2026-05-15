@@ -106,3 +106,50 @@ describe('readProjectConfig / writeProjectConfig', () => {
     expect(config.readProjectConfig(dir)).toEqual({ name: 'myproject', extra: 42 });
   });
 });
+
+describe('setProjectConfig', () => {
+  let dir;
+  beforeEach(() => { dir = makeTempDir('wksp-proj-set'); });
+  afterEach(()  => { cleanup(dir); });
+
+  test('adds a key without overwriting others', () => {
+    config.writeProjectConfig(dir, { name: 'myproject' });
+    config.setProjectConfig(dir, 'reposRoot', '/c/dev/games');
+    expect(config.readProjectConfig(dir)).toEqual({ name: 'myproject', reposRoot: '/c/dev/games' });
+  });
+});
+
+describe('readConfig', () => {
+  let dir;
+  beforeEach(() => {
+    dir = makeTempDir('wksp-merged-cfg');
+    config.writeGlobalConfig({ reposRoot: '/c/dev', autoResume: true });
+  });
+  afterEach(() => { cleanup(dir); });
+
+  test('returns global config when no project overrides', () => {
+    config.writeProjectConfig(dir, { name: 'test' });
+    const cfg = config.readConfig(dir);
+    expect(cfg.reposRoot).toBe('/c/dev');
+    expect(cfg.autoResume).toBe(true);
+  });
+
+  test('project-level key overrides global', () => {
+    config.writeProjectConfig(dir, { name: 'test', reposRoot: '/c/dev/games' });
+    const cfg = config.readConfig(dir);
+    expect(cfg.reposRoot).toBe('/c/dev/games');
+    expect(cfg.autoResume).toBe(true);
+  });
+
+  test('project can override multiple keys independently', () => {
+    config.writeProjectConfig(dir, { name: 'test', autoResume: false });
+    const cfg = config.readConfig(dir);
+    expect(cfg.reposRoot).toBe('/c/dev');
+    expect(cfg.autoResume).toBe(false);
+  });
+
+  test('falls back gracefully when no projectDir given', () => {
+    const cfg = config.readConfig(null);
+    expect(cfg.reposRoot).toBe('/c/dev');
+  });
+});
