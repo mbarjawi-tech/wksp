@@ -125,14 +125,26 @@ Destroy the entire project: tear down all worktrees for all tasks, then delete t
 
 ### `wksp config set <key> <value>` / `wksp config get [key]`
 
-Read or write global config (`~/.wksp`).
+Read or write config values. Without `--global`, writes to the current project's `.wksp`. With `--global`, writes to `~/.wksp`.
 
 ```bash
-wksp config set reposRoot /c/dev
-wksp config set autoResume false
-wksp config get
-wksp config get reposRoot
+wksp config set reposRoot /c/dev/games     # project-level
+wksp config set reposRoot /c/dev --global  # global fallback
+
+wksp config set autoResume false           # project-level
+wksp config set autoResume true --global   # global fallback
+
+wksp config get                            # effective values (project overrides global)
+wksp config get --global                   # only ~/.wksp
+wksp config get reposRoot                  # single key, effective value
 ```
+
+Project-level values override global ones. If you run `set` without `--global` outside a project directory, wksp errors and asks you to use `--global`.
+
+| Key | Description |
+|---|---|
+| `reposRoot` | Directory where GitHub URLs are cloned. |
+| `autoResume` | `true` (default) to auto-resume the last Claude session; `false` to prompt each time. |
 
 ---
 
@@ -147,13 +159,16 @@ wksp config get reposRoot
 }
 ```
 
-### `<project>/.wksp` — project marker
+### `<project>/.wksp` — project config
 
 ```json
-{ "name": "acme" }
+{
+  "name": "acme",
+  "reposRoot": "/c/dev/acme-repos"
+}
 ```
 
-Presence of this file marks the directory as a wksp project. Commands walk up the directory tree to find it — identical to how `git` finds `.git`.
+Presence of this file marks the directory as a wksp project. Commands walk up the directory tree to find it — identical to how `git` finds `.git`. Project-level `reposRoot` and `autoResume` override the global values for that project.
 
 ### `<project>/repos.txt`
 
