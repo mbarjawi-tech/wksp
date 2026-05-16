@@ -70,6 +70,7 @@ Branch for backend [main, s=shared, x=exclude]:
 | Flag | Description |
 |---|---|
 | `--del` | Tear down worktrees and delete the task folder. Also works on archived tasks (no teardown needed). Add `--delete-branches` to remove kept branches. |
+| `--rename <new-id>` | Rename the task: renames the folder, workspace file, and CLAUDE.md header, then repairs git worktree paths in each base repo. |
 | `--to-shared <repo>` | Remove the worktree for a repo and use the shared path for this task only. |
 | `--to-worktree <repo>` | Ensure a worktree exists for a repo in this task. Prompts for a branch; clears any task-shared or task-excluded mark. No-op if a worktree already exists. |
 | `--to-exclude <repo>` | Remove the worktree for a repo (if any) and exclude it from this task entirely. Clears any task-shared mark. Reverse with `--to-worktree`. |
