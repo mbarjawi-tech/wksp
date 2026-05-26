@@ -1,5 +1,14 @@
 # Reference
 
+## Global flags
+
+| Flag | Description |
+|---|---|
+| `--version`, `-v` | Print the installed version and exit. |
+| `--help`, `-h` | Print usage for a command and exit. Supported on all commands. |
+
+---
+
 ## Commands
 
 ### `wksp init [name]`
@@ -42,7 +51,7 @@ wksp repo /c/dev/malachite --remove --as malachite-b
 
 Create or resume a task.
 
-**New task** — prompts for a branch per repo, creates worktrees, generates a VS Code workspace file, then launches Claude.
+**New task** — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout so you can open it directly), then launches Claude.
 
 **Resume** — scans existing worktrees, detects any new repos added since last run (prompts for branches for those), then launches Claude.
 
@@ -98,9 +107,14 @@ wksp list --all       # both, with a Status column
 
 ---
 
-### `wksp status`
+### `wksp status [task-id]`
 
-Show the current task's repos, their live branches, types (worktree/shared/excluded), and staleness. Run from inside a task folder or any subdirectory of one.
+Show a task's repos, their live branches, and types (worktree/shared/excluded). Run from inside a task folder, or pass a task-id from anywhere in the project.
+
+```bash
+wksp status            # auto-detects task from cwd
+wksp status PROJ-1234  # explicit task-id
+```
 
 ---
 
@@ -141,7 +155,7 @@ wksp config get --global                   # only ~/.wksp
 wksp config get reposRoot                  # single key, effective value
 ```
 
-Project-level values override global ones. If you run `set` without `--global` outside a project directory, wksp errors and asks you to use `--global`.
+Project-level values override global ones. If you run `set` without `--global` outside a project directory, wksp saves to the global config automatically.
 
 | Key | Description |
 |---|---|
