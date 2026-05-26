@@ -1,5 +1,5 @@
 {
-  "name": "wksp",
+  "name": "@mbarjawi-tech/wksp",
   "version": "1.1.0",
   "description": "Workspace CLI for Claude Code — multi-repo development with git worktrees",
   "bin": {
