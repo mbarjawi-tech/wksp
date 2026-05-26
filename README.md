@@ -5,6 +5,12 @@ Workspace CLI for Claude Code. Manage multi-repo development with git worktrees 
 ## Install
 
 ```bash
+npm install -g @mbarjawi-tech/wksp
+```
+
+Or install from source:
+
+```bash
 git clone https://github.com/mbarjawi-tech/wksp
 cd wksp
 npm install
