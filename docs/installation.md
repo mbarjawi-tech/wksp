@@ -8,14 +8,9 @@
 
 ## Install
 
-Clone or download the wksp repo, navigate into it, then run:
-
 ```bash
-npm install   # install dev dependencies (Jest)
-npm link      # register `wksp` as a global command
+npm install -g @mbarjawi-tech/wksp
 ```
-
-`npm link` creates a symlink — edits to the source files take effect immediately without reinstalling.
 
 Verify it works:
 
@@ -26,10 +21,21 @@ wksp --help
 ## Uninstall
 
 ```bash
-npm unlink -g wksp
+npm uninstall -g @mbarjawi-tech/wksp
 ```
 
-This removes the global command. Your source folder and all project data are untouched.
+## Install from source
+
+If you want to contribute or run the latest unreleased code:
+
+```bash
+git clone https://github.com/mbarjawi-tech/wksp
+cd wksp
+npm install
+npm link
+```
+
+`npm link` creates a symlink — edits to the source files take effect immediately without reinstalling. To unlink: `npm unlink -g wksp`.
 
 ## First-time setup
 
