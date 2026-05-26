@@ -4,6 +4,15 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [1.1.1] — 2026-05-26
+
+### Changed
+
+- `package.json` — added `"license": "MIT"` so npm displays the correct license
+- `docs/installation.md` — leads with `npm install -g @mbarjawi-tech/wksp`; moved clone-and-link to a "from source" section for contributors
+
+---
+
 ## [1.1.0] — 2026-05-26
 
 ### Added
