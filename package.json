@@ -1,6 +1,6 @@
 {
   "name": "@mbarjawi-tech/wksp",
-  "version": "1.1.2",
+  "version": "1.1.3",
   "description": "Workspace CLI for Claude Code — multi-repo development with git worktrees",
   "license": "MIT",
   "bin": {
