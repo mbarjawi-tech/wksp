@@ -166,6 +166,110 @@ describe('wksp task --to-shared', () => {
   });
 });
 
+// ─── task repo (v2 scripted) ──────────────────────────────────────────────
+
+describe('wksp task repo — scripted', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('repo-cmd-1');
+    repoDir    = makeTempDir('repo-repo-cmd-1');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => cleanup(projectDir, repoDir));
+
+  test('share mode removes the worktree and writes task-shared.txt', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/repo-share');
+    await runTask(projectDir, 'TASK-RS');
+
+    const wtPath = path.join(projectDir, 'tasks', 'TASK-RS', WORKTREES_DIR, path.basename(repoDir));
+    expect(fs.existsSync(wtPath)).toBe(true);
+
+    await runTask(projectDir, 'repo', 'TASK-RS', path.basename(repoDir), 'share');
+
+    expect(fs.existsSync(wtPath)).toBe(false);
+    const sharedFile = path.join(projectDir, 'tasks', 'TASK-RS', 'task-shared.txt');
+    expect(fs.existsSync(sharedFile)).toBe(true);
+    expect(fs.readFileSync(sharedFile, 'utf8')).toContain(path.basename(repoDir));
+  });
+
+  test('exclude mode removes the worktree and writes task-excluded.txt', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/repo-excl');
+    await runTask(projectDir, 'TASK-RE');
+
+    const wtPath = path.join(projectDir, 'tasks', 'TASK-RE', WORKTREES_DIR, path.basename(repoDir));
+    expect(fs.existsSync(wtPath)).toBe(true);
+
+    await runTask(projectDir, 'repo', 'TASK-RE', path.basename(repoDir), 'exclude');
+
+    expect(fs.existsSync(wtPath)).toBe(false);
+    const excludedFile = path.join(projectDir, 'tasks', 'TASK-RE', 'task-excluded.txt');
+    expect(fs.existsSync(excludedFile)).toBe(true);
+    expect(fs.readFileSync(excludedFile, 'utf8')).toContain(path.basename(repoDir));
+  });
+
+  test('exits 1 when task does not exist', async () => {
+    await expect(
+      runTask(projectDir, 'repo', 'NO-SUCH-TASK', path.basename(repoDir), 'share')
+    ).rejects.toThrow('process.exit(1)');
+  });
+
+  test('exits 1 when repo not registered', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/repo-notfound');
+    await runTask(projectDir, 'TASK-RNF');
+    await expect(
+      runTask(projectDir, 'repo', 'TASK-RNF', 'nonexistent-repo', 'share')
+    ).rejects.toThrow('process.exit(1)');
+  });
+
+  test('exits 1 on unknown mode', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/repo-badmode');
+    await runTask(projectDir, 'TASK-RBM');
+    await expect(
+      runTask(projectDir, 'repo', 'TASK-RBM', path.basename(repoDir), 'badmode')
+    ).rejects.toThrow('process.exit(1)');
+  });
+});
+
+// ─── task repo (v2 interactive) ───────────────────────────────────────────
+
+describe('wksp task repo — interactive', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('repo-inter-1');
+    repoDir    = makeTempDir('repo-inter-repo');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => cleanup(projectDir, repoDir));
+
+  test('prompts for both repo and mode when neither given', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/inter-both');
+    await runTask(projectDir, 'TASK-IB');
+
+    prompts.ask
+      .mockResolvedValueOnce(path.basename(repoDir)) // repo name prompt
+      .mockResolvedValueOnce('exclude');             // mode prompt
+
+    await runTask(projectDir, 'repo', 'TASK-IB');
+
+    const excludedFile = path.join(projectDir, 'tasks', 'TASK-IB', 'task-excluded.txt');
+    expect(fs.existsSync(excludedFile)).toBe(true);
+  });
+
+  test('prompts only for mode when repo given but mode omitted', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/inter-mode');
+    await runTask(projectDir, 'TASK-IM');
+
+    prompts.ask.mockResolvedValueOnce('share'); // mode prompt only
+
+    await runTask(projectDir, 'repo', 'TASK-IM', path.basename(repoDir));
+
+    const sharedFile = path.join(projectDir, 'tasks', 'TASK-IM', 'task-shared.txt');
+    expect(fs.existsSync(sharedFile)).toBe(true);
+  });
+});
+
 // ─── task --to-exclude ────────────────────────────────────────────────────
 
 describe('wksp task --to-exclude', () => {
