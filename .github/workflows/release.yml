@@ -47,7 +47,8 @@ jobs:
           git add package.json
           git commit -m "chore: release $VERSION"
           git tag "v$VERSION"
-          git push origin main --follow-tags
+          git push origin main
+          git push origin "v$VERSION"
 
       - name: Publish to npm
         if: steps.bump.outputs.type != 'none'
