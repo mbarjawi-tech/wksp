@@ -47,17 +47,26 @@ wksp repo /c/dev/malachite --remove --as malachite-b
 
 ---
 
-### `wksp task <id>`
+### `wksp task <subcommand> <id>`
 
-Create or resume a task.
-
-**New task** — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout so you can open it directly), then launches Claude.
-
-**Resume** — scans existing worktrees, detects any new repos added since last run (prompts for branches for those), then launches Claude.
+Manage task workspaces.
 
 ```bash
-wksp task PROJ-1234
+wksp task create PROJ-1234      # create new task, prompt for branches, launch Claude
+wksp task resume PROJ-1234      # resume existing task, launch Claude
+wksp task delete PROJ-1234      # tear down worktrees and delete task folder
+wksp task rename PROJ-1234 PROJ-5678   # rename task in place
+wksp task archive PROJ-1234     # remove worktrees, move to archived-tasks/
+wksp task unarchive PROJ-1234   # restore an archived task
+wksp task repo PROJ-1234 backend share    # switch repo to shared path for this task
+wksp task repo PROJ-1234 backend worktree # create/restore a worktree for a repo
+wksp task repo PROJ-1234 backend exclude  # exclude a repo from this task
+wksp task repo PROJ-1234                  # interactive: pick repo then mode
 ```
+
+`create` — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout), then launches Claude.
+
+`resume` — scans existing worktrees, detects any new repos added since last run (prompts for branches for those), then launches Claude.
 
 #### Branch prompt options
 
@@ -76,22 +85,18 @@ Branch for backend [main, s=shared, x=exclude]:
 
 #### Flags
 
-| Flag | Description |
-|---|---|
-| `--del` | Tear down worktrees and delete the task folder. Also works on archived tasks (no teardown needed). Add `--delete-branches` to remove kept branches. |
-| `--rename <new-id>` | Rename the task: renames the folder, workspace file, and CLAUDE.md header, then repairs git worktree paths in each base repo. |
-| `--to-shared <repo>` | Remove the worktree for a repo and use the shared path for this task only. |
-| `--to-worktree <repo>` | Ensure a worktree exists for a repo in this task. Prompts for a branch; clears any task-shared or task-excluded mark. No-op if a worktree already exists. |
-| `--to-exclude <repo>` | Remove the worktree for a repo (if any) and exclude it from this task entirely. Clears any task-shared mark. Reverse with `--to-worktree`. |
-| `--archive` | Remove worktrees and move the task folder to `archived-tasks/`. Preserves context and metadata for future rehydration. |
-| `--archive --delete-branches` | Also delete local branches during archive. |
-| `--archive --force` | Allow archiving when uncommitted changes exist. |
-| `--unarchive` | Restore an archived task: classify each repo's branch state and recreate worktrees. |
-| `--unarchive --dry-run` | Show the restore plan without applying it. |
-| `--unarchive --fetch` | Fetch remote refs in all base repos before classifying. |
-| `--unarchive --skip <repo>` | Skip a specific repo during unarchive. |
-| `--unarchive --branch <repo>=<branch>` | Override the branch used for a specific repo. |
-| `--unarchive --shared <repo>` | Restore a specific repo as task-shared instead of creating a worktree. |
+| Subcommand | Flag | Description |
+|---|---|---|
+| `delete` | `--delete-branches` | Also delete local branches when tearing down. |
+| `archive` | `--delete-branches` | Delete local branches during archive. |
+| `archive` | `--force` | Archive even when uncommitted changes exist. |
+| `unarchive` | `--dry-run` | Show restore plan without applying it. |
+| `unarchive` | `--fetch` | Fetch remote refs in all base repos before classifying. |
+| `unarchive` | `--skip <repo>` | Skip a specific repo during restore. |
+| `unarchive` | `--branch <repo>=<branch>` | Override the branch used for a specific repo. |
+| `unarchive` | `--shared <repo>` | Restore a specific repo as task-shared instead of a worktree. |
+
+> **v1 syntax** (`wksp task <id> --del`, `wksp task <id> --archive`, etc.) still works in v2 but prints a deprecation warning. It will be removed in v2.1.0.
 
 ---
 
