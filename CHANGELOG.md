@@ -4,7 +4,21 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
-## [Unreleased] — 2.1.0
+## [Unreleased] — 2.2.0
+
+### Added
+
+- `wksp migrate` — detect and apply pending project schema migrations; `--dry-run` flag to preview without writing
+- `schemaVersion` field in `.wksp` — written by `wksp init` from v2.2.0 onwards; any wksp command warns and suggests `wksp migrate` when the project schema is outdated
+
+### Removed
+
+- v1 positional syntax for `wksp repo` (`wksp repo <path>`, `wksp repo <path> --remove`) — use `wksp repo add` / `wksp repo remove` instead
+- v1 positional syntax for `wksp task` (`wksp task <id> --del`, `wksp task <id> --archive`, etc.) — use `wksp task delete` / `wksp task archive` etc. instead
+
+---
+
+## [2.1.0] — 2026-05-28
 
 ### Added
 

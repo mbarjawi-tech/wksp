@@ -139,6 +139,23 @@ Destroy the entire project: tear down all worktrees for all tasks, then delete t
 
 ---
 
+### `wksp migrate`
+
+Detect and apply any pending project schema migrations. Safe to run multiple times — does nothing if the project is already current.
+
+```bash
+wksp migrate           # apply all pending migrations
+wksp migrate --dry-run # preview changes without writing anything
+```
+
+| Flag | Description |
+|---|---|
+| `--dry-run` | Show what would be changed without writing to disk. |
+
+See the [Migration Guide](/migration) for a full history of what each migration does.
+
+---
+
 ### `wksp config set <key> <value>` / `wksp config get [key]`
 
 Read or write config values. Without `--global`, writes to the current project's `.wksp`. With `--global`, writes to `~/.wksp`.
@@ -180,9 +197,12 @@ Project-level values override global ones. If you run `set` without `--global` o
 ```json
 {
   "name": "acme",
+  "schemaVersion": 1,
   "reposRoot": "/c/dev/acme-repos"
 }
 ```
+
+`schemaVersion` is written by `wksp init` and updated by `wksp migrate`. Projects created before v2.1.0 have no `schemaVersion` field (implicitly version 0).
 
 Presence of this file marks the directory as a wksp project. Commands walk up the directory tree to find it — identical to how `git` finds `.git`. Project-level `reposRoot` and `autoResume` override the global values for that project.
 

@@ -17,6 +17,7 @@ const COMMANDS = {
   status:  () => require('../lib/commands/status'),
   delete:  () => require('../lib/commands/delete'),
   config:  () => require('../lib/commands/configCmd'),
+  migrate: () => require('../lib/commands/migrate'),
 };
 
 function printHelp() {
@@ -25,22 +26,22 @@ function printHelp() {
 
   Commands:
     wksp init [name]                 Create a new project
-    wksp repo <url-or-path>          Register a repo
+    wksp repo add <path-or-url>      Register a repo
       --shared                         Never create a worktree; always use original path
-      --remove                         Remove from repos.txt
-    wksp task <id>                   Create or resume a task
-      --del                            Tear down worktrees and delete task folder
-      --to-shared <repo>               Use shared path for a repo in this task
-      --to-worktree <repo>             Create a worktree for a repo that was shared in this task
-      --to-exclude <repo>              Exclude a repo from this task
-      --rename <new-id>                Rename the task
-      --archive                        Archive the task
-      --unarchive                      Restore an archived task
+    wksp repo remove <path-or-url>   Remove a repo from repos.txt
+    wksp task create <id>            Create a new task workspace
+    wksp task resume <id>            Resume an existing task
+    wksp task delete <id>            Tear down worktrees and delete task folder
+    wksp task rename <id> <new-id>   Rename a task in place
+    wksp task archive <id>           Archive the task
+    wksp task unarchive <id>         Restore an archived task
+    wksp task repo <id> [repo] [mode]  Switch a repo's mode (share/worktree/exclude)
     wksp cleanup --stale <path>      Prune stale worktree refs from a base repo
       -r                               Scan first-level subdirectories too
     wksp list [--archived] [--all]   List tasks in current project
     wksp status [<task-id>]          Show task repo/branch status
     wksp delete                      Delete entire project (destructive, requires confirmation)
+    wksp migrate [--dry-run]         Apply pending project schema migrations
     wksp config set <key> <value>    Set a config value
       --global                         Write to global config (~/.wksp)
     wksp config get [key]            Show config (merged global + project)
@@ -65,6 +66,19 @@ if (!loader) {
   console.error(`  Error: unknown command "${cmd}"`);
   printHelp();
   process.exit(1);
+}
+
+// Warn if the project's schema is outdated (skip for migrate itself and global-only commands).
+if (cmd !== 'migrate' && cmd !== 'init') {
+  const config = require('../lib/config');
+  const projectDir = config.findProjectDir();
+  if (projectDir) {
+    const { schemaVersion = 0 } = config.readProjectConfig(projectDir);
+    if (schemaVersion < config.CURRENT_SCHEMA_VERSION) {
+      console.warn('\n  ⚠  This project was created with an older version of wksp.');
+      console.warn('     Run `wksp migrate` to update it.\n');
+    }
+  }
 }
 
 loader().run(rest).catch(err => {
