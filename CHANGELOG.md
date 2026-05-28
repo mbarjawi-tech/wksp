@@ -4,6 +4,23 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 2.1.0
+
+### Added
+
+- `wksp repo add <path-or-url>` — verb-first subcommand for registering a repo (`--shared` flag supported)
+- `wksp repo remove <path-or-url>` — verb-first subcommand for removing a repo
+
+### Removed
+
+- `wksp repo --as <alias>` — removed. It allowed registering the same repo twice under a different folder name so two branches could coexist in one task. The correct approach is to check the repo out into two separate physical directories and register each as a distinct path.
+
+### Deprecated
+
+- Old positional syntax (`wksp repo <path>`, `wksp repo <path> --remove`) still works but prints a deprecation warning. Will be removed in v2.2.0.
+
+---
+
 ## [1.1.1] — 2026-05-26
 
 ### Changed
@@ -21,7 +38,7 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 - Per-command `--help` / `-h` — all commands now accept a help flag
 - `wksp task --rename <new-id>` — rename a task in place: renames the folder, workspace file, CLAUDE.md header, and repairs git worktree paths
 - `wksp task --to-exclude <repo>` — exclude a repo from a task after creation; reversible with `--to-worktree`
-- `wksp repo --as <alias>` — register the same repo twice under different names, each getting its own worktree on a different branch
+- `wksp repo --as <alias>` — register the same repo twice under different names, each getting its own worktree on a different branch *(removed in v2.1.0)*
 - `wksp status [task-id]` — now accepts an optional task-id argument so you can check status from anywhere in the project, not just from inside the task folder
 - `.code-workspace` filename is now printed to stdout when a task is created, so you can open it directly
 - `wksp config set/get` now support `--global` flag to read/write `~/.wksp` explicitly; project-level values override global
