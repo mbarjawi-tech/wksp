@@ -46,10 +46,7 @@ describe('wksp task --help', () => {
 
 describe('wksp repo --help', () => {
   const { run } = require('../../lib/commands/repo');
-  test('--help prints help and mentions --as', async () => {
-    await expect(run(['--help'])).rejects.toThrow('process.exit(0)');
-    expect(logOutput.join('\n')).toMatch(/--as/);
-  });
+  test('--help prints help', helpExits(run, '--help'));
   test('-h prints help', helpExits(run, '-h'));
 });
 

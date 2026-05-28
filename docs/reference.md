@@ -33,16 +33,12 @@ wksp repo add /c/dev/backend
 wksp repo add https://github.com/your-org/frontend
 wksp repo add /c/dev/company-docs --shared
 wksp repo remove /c/dev/old-service
-
-# Register the same repo twice — each gets its own worktree on a different branch
-wksp repo add /c/dev/malachite --as malachite-b
-wksp repo remove /c/dev/malachite --as malachite-b
 ```
 
 | Subcommand | Description |
 |---|---|
-| `add <path-or-url>` | Register a repo. Use `--shared` to always use the original path (no worktree). Use `--as <alias>` to register the same repo twice under a different name. |
-| `remove <path-or-url>` | Remove from `repos.txt`. Warns if orphaned worktrees exist. When the same repo is registered more than once, `--as <alias>` is required to identify which entry to remove. |
+| `add <path-or-url>` | Register a repo. Use `--shared` to always use the original path (no worktree). |
+| `remove <path-or-url>` | Remove from `repos.txt`. Warns if orphaned worktrees exist. |
 
 ---
 
@@ -193,16 +189,12 @@ Presence of this file marks the directory as a wksp project. Commands walk up th
 ### `<project>/repos.txt`
 
 ```
-# Format: <path> [--shared] [--as <alias>]
+# Format: <path> [--shared]
 # Any path format is accepted (Windows backslash, forward slash, POSIX)
 
 C:/dev/backend
 C:/dev/frontend
 C:/dev/company-docs  --shared
-
-# Same repo registered twice — two worktrees, two branches, one task
-C:/dev/malachite
-C:/dev/malachite  --as malachite-b
 ```
 
 ### `tasks/<id>/task-shared.txt`

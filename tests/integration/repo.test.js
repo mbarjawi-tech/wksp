@@ -69,13 +69,6 @@ describe('wksp repo add', () => {
     expect(logLines.some(l => l.includes('--shared'))).toBe(true);
   });
 
-  test('adds with --as alias', async () => {
-    await runRepo(projectDir, 'add', repoDir, '--as', 'my-alias');
-    const reposTxt = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
-    expect(reposTxt).toMatch(/my-alias/);
-    expect(logLines.some(l => l.includes('my-alias'))).toBe(true);
-  });
-
   test('exits 1 when no path given', async () => {
     await expect(runRepo(projectDir, 'add')).rejects.toThrow('process.exit(1)');
   });
@@ -98,18 +91,6 @@ describe('wksp repo remove', () => {
     const reposTxt = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
     expect(reposTxt).not.toContain(repoDir.replace(/\\/g, '/'));
     expect(logLines.some(l => l.includes('Removed from repos.txt'))).toBe(true);
-  });
-
-  test('removes only the aliased entry when --as given', async () => {
-    await runRepo(projectDir, 'add', repoDir);
-    await runRepo(projectDir, 'add', repoDir, '--as', 'my-alias');
-
-    await runRepo(projectDir, 'remove', repoDir, '--as', 'my-alias');
-
-    const reposTxt = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
-    // base entry still present, alias removed
-    expect(reposTxt).toContain(path.basename(repoDir));
-    expect(reposTxt).not.toMatch(/my-alias/);
   });
 
   test('exits 1 when no path given', async () => {

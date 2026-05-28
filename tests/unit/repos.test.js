@@ -34,7 +34,6 @@ describe('readRepos', () => {
     expect(repos).toHaveLength(1);
     expect(repos[0].raw).toBe(p);
     expect(repos[0].shared).toBe(false);
-    expect(repos[0].alias).toBeNull();
     expect(repos[0].folderName).toBe('api');
   });
 
@@ -43,27 +42,10 @@ describe('readRepos', () => {
     addRepo(projectDir, p, true);
     const repos = readRepos(projectDir);
     expect(repos[0].shared).toBe(true);
-    expect(repos[0].alias).toBeNull();
+    expect(repos[0].folderName).toBe('docs');
   });
 
-  test('parses --as alias', () => {
-    const p = repoPath('malachite');
-    addRepo(projectDir, p, false, 'malachite-b');
-    const repos = readRepos(projectDir);
-    expect(repos[0].alias).toBe('malachite-b');
-    expect(repos[0].folderName).toBe('malachite-b');
-  });
-
-  test('parses --shared combined with --as', () => {
-    const p = repoPath('docs');
-    addRepo(projectDir, p, true, 'ref-docs');
-    const repos = readRepos(projectDir);
-    expect(repos[0].shared).toBe(true);
-    expect(repos[0].alias).toBe('ref-docs');
-    expect(repos[0].folderName).toBe('ref-docs');
-  });
-
-  test('folderName defaults to basename when no alias', () => {
+  test('folderName is always basename of path', () => {
     const p = repoPath('my-service');
     addRepo(projectDir, p, false);
     const repos = readRepos(projectDir);
@@ -97,38 +79,10 @@ describe('addRepo', () => {
     expect(readRepos(projectDir)).toHaveLength(3);
   });
 
-  test('throws on duplicate path without alias', () => {
+  test('throws on duplicate path', () => {
     const p = repoPath('api');
     addRepo(projectDir, p, false);
     expect(() => addRepo(projectDir, p, false)).toThrow('already registered');
-  });
-
-  test('allows duplicate path when alias is provided', () => {
-    const p = repoPath('malachite');
-    addRepo(projectDir, p, false);
-    addRepo(projectDir, p, false, 'malachite-b');
-    const repos = readRepos(projectDir);
-    expect(repos).toHaveLength(2);
-    expect(repos[0].folderName).toBe('malachite');
-    expect(repos[1].folderName).toBe('malachite-b');
-  });
-
-  test('throws when alias collides with existing folderName', () => {
-    const p = repoPath('malachite');
-    addRepo(projectDir, p, false);
-    expect(() => addRepo(projectDir, p, false, 'malachite')).toThrow('already in use');
-  });
-
-  test('throws when alias collides with another alias', () => {
-    const p  = repoPath('malachite');
-    const p2 = repoPath('other-repo');
-    addRepo(projectDir, p,  false, 'shared-name');
-    expect(() => addRepo(projectDir, p2, false, 'shared-name')).toThrow('already in use');
-  });
-
-  test('throws on invalid alias characters', () => {
-    const p = repoPath('malachite');
-    expect(() => addRepo(projectDir, p, false, 'bad alias!')).toThrow('Invalid alias');
   });
 });
 
@@ -153,30 +107,5 @@ describe('removeRepo', () => {
     const remaining = readRepos(projectDir);
     expect(remaining).toHaveLength(1);
     expect(remaining[0].normalized).toBe(path.resolve(b));
-  });
-
-  test('throws on ambiguous remove when multiple entries share a path', () => {
-    const p = repoPath('malachite');
-    addRepo(projectDir, p, false);
-    addRepo(projectDir, p, false, 'malachite-b');
-    expect(() => removeRepo(projectDir, p)).toThrow('disambiguate');
-  });
-
-  test('removes the aliased entry when alias is specified', () => {
-    const p = repoPath('malachite');
-    addRepo(projectDir, p, false);
-    addRepo(projectDir, p, false, 'malachite-b');
-    removeRepo(projectDir, p, 'malachite-b');
-    const repos = readRepos(projectDir);
-    expect(repos).toHaveLength(1);
-    expect(repos[0].alias).toBeNull();
-    expect(repos[0].folderName).toBe('malachite');
-  });
-
-  test('throws when specified alias does not exist', () => {
-    const p = repoPath('malachite');
-    addRepo(projectDir, p, false);
-    addRepo(projectDir, p, false, 'malachite-b');
-    expect(() => removeRepo(projectDir, p, 'no-such-alias')).toThrow('alias');
   });
 });
