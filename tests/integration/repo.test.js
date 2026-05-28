@@ -103,6 +103,40 @@ describe('wksp repo remove', () => {
   });
 });
 
+// ─── wksp repo list ──────────────────────────────────────────────────────────
+
+describe('wksp repo list', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('repo-list-1');
+    repoDir    = makeTempDir('repo-list-src');
+    makeGitRepo(repoDir);
+  });
+  afterEach(() => cleanup(projectDir, repoDir));
+
+  test('lists registered repos', async () => {
+    await runRepo(projectDir, 'add', repoDir);
+    logLines = [];
+    await runRepo(projectDir, 'list');
+    const out = logLines.join('\n');
+    expect(out).toContain(path.basename(repoDir));
+  });
+
+  test('shows --shared flag for shared repos', async () => {
+    await runRepo(projectDir, 'add', repoDir, '--shared');
+    logLines = [];
+    await runRepo(projectDir, 'list');
+    const out = logLines.join('\n');
+    expect(out).toContain('--shared');
+  });
+
+  test('prints helpful message when no repos are registered', async () => {
+    await runRepo(projectDir, 'list');
+    const out = logLines.join('\n');
+    expect(out).toContain('No repos registered');
+  });
+});
+
 // ─── v1 deprecation shim ─────────────────────────────────────────────────────
 
 describe('wksp repo — v1 shim', () => {

@@ -65,7 +65,7 @@ describe('schema 0 → 1 — clean repos.txt', () => {
 
     await runMigrate(projectDir);
 
-    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(1);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
     // repos.txt content unchanged
     expect(fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8')).toBe(reposBefore);
     expect(logLines.some(l => l.includes('Migration complete'))).toBe(true);
@@ -99,7 +99,7 @@ describe('schema 0 → 1 — repos.txt has --as entries', () => {
     expect(repos).toContain('C:/dev/backend');
     expect(repos).not.toContain('[--as <alias>]');
 
-    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(1);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
   });
 
   test('prints details about each stripped alias', async () => {
@@ -131,6 +131,70 @@ describe('--dry-run', () => {
   test('does not write schemaVersion', async () => {
     await runMigrate(projectDir, '--dry-run');
     expect(config.readProjectConfig(projectDir).schemaVersion).toBeUndefined();
+  });
+
+  test('prints dry-run indicator', async () => {
+    await runMigrate(projectDir, '--dry-run');
+    expect(logLines.some(l => l.includes('dry run'))).toBe(true);
+  });
+});
+
+// ─── schema 1 → 2 (task.json consolidation) ──────────────────────────────────
+
+describe('schema 1 → 2 — legacy .txt files present', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeProject('mig-1to2');
+    // Simulate a schema-v1 project
+    config.setProjectConfig(projectDir, 'schemaVersion', 1);
+    // Create a live task with legacy files
+    const taskDir = path.join(projectDir, 'tasks', 'TASK-1');
+    fs.mkdirSync(taskDir, { recursive: true });
+    fs.writeFileSync(path.join(taskDir, 'task-shared.txt'), 'backend\n');
+    fs.writeFileSync(path.join(taskDir, 'task-excluded.txt'), 'docs\n');
+  });
+  afterEach(() => cleanup(projectDir));
+
+  test('writes task.json and removes legacy files', async () => {
+    await runMigrate(projectDir);
+    const taskDir = path.join(projectDir, 'tasks', 'TASK-1');
+    expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(true);
+    expect(fs.existsSync(path.join(taskDir, 'task-shared.txt'))).toBe(false);
+    expect(fs.existsSync(path.join(taskDir, 'task-excluded.txt'))).toBe(false);
+  });
+
+  test('task.json contains correct shared and excluded values', async () => {
+    await runMigrate(projectDir);
+    const data = JSON.parse(fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-1', 'task.json'), 'utf8'));
+    expect(data.shared).toEqual(['backend']);
+    expect(data.excluded).toEqual(['docs']);
+  });
+
+  test('bumps schemaVersion to 2', async () => {
+    await runMigrate(projectDir);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
+  });
+});
+
+describe('schema 1 → 2 — dry-run', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeProject('mig-1to2-dry');
+    config.setProjectConfig(projectDir, 'schemaVersion', 1);
+    const taskDir = path.join(projectDir, 'tasks', 'TASK-X');
+    fs.mkdirSync(taskDir, { recursive: true });
+    fs.writeFileSync(path.join(taskDir, 'task-shared.txt'), 'api\n');
+  });
+  afterEach(() => cleanup(projectDir));
+
+  test('does not write task.json in dry-run', async () => {
+    await runMigrate(projectDir, '--dry-run');
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-X', 'task.json'))).toBe(false);
+  });
+
+  test('does not write schemaVersion in dry-run', async () => {
+    await runMigrate(projectDir, '--dry-run');
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(1);
   });
 
   test('prints dry-run indicator', async () => {

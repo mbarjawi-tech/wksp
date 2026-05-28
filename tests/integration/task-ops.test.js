@@ -154,9 +154,9 @@ describe('wksp task --to-shared', () => {
     await runTask(projectDir, 'TASK-SH', '--to-shared', path.basename(repoDir));
 
     expect(fs.existsSync(wtPath)).toBe(false);
-    const sharedFile = path.join(projectDir, 'tasks', 'TASK-SH', 'task-shared.txt');
-    expect(fs.existsSync(sharedFile)).toBe(true);
-    expect(fs.readFileSync(sharedFile, 'utf8')).toContain(path.basename(repoDir));
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-SH', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).shared).toContain(path.basename(repoDir));
   });
 
   test('exits 1 when no repo arg given', async () => {
@@ -178,7 +178,7 @@ describe('wksp task repo — scripted', () => {
   });
   afterEach(() => cleanup(projectDir, repoDir));
 
-  test('share mode removes the worktree and writes task-shared.txt', async () => {
+  test('share mode removes the worktree and writes task.json', async () => {
     prompts.ask.mockResolvedValueOnce('feature/repo-share');
     await runTask(projectDir, 'TASK-RS');
 
@@ -188,12 +188,12 @@ describe('wksp task repo — scripted', () => {
     await runTask(projectDir, 'repo', 'TASK-RS', path.basename(repoDir), 'share');
 
     expect(fs.existsSync(wtPath)).toBe(false);
-    const sharedFile = path.join(projectDir, 'tasks', 'TASK-RS', 'task-shared.txt');
-    expect(fs.existsSync(sharedFile)).toBe(true);
-    expect(fs.readFileSync(sharedFile, 'utf8')).toContain(path.basename(repoDir));
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-RS', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).shared).toContain(path.basename(repoDir));
   });
 
-  test('exclude mode removes the worktree and writes task-excluded.txt', async () => {
+  test('exclude mode removes the worktree and writes task.json', async () => {
     prompts.ask.mockResolvedValueOnce('feature/repo-excl');
     await runTask(projectDir, 'TASK-RE');
 
@@ -203,9 +203,9 @@ describe('wksp task repo — scripted', () => {
     await runTask(projectDir, 'repo', 'TASK-RE', path.basename(repoDir), 'exclude');
 
     expect(fs.existsSync(wtPath)).toBe(false);
-    const excludedFile = path.join(projectDir, 'tasks', 'TASK-RE', 'task-excluded.txt');
-    expect(fs.existsSync(excludedFile)).toBe(true);
-    expect(fs.readFileSync(excludedFile, 'utf8')).toContain(path.basename(repoDir));
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-RE', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).excluded).toContain(path.basename(repoDir));
   });
 
   test('exits 1 when task does not exist', async () => {
@@ -253,8 +253,9 @@ describe('wksp task repo — interactive', () => {
 
     await runTask(projectDir, 'repo', 'TASK-IB');
 
-    const excludedFile = path.join(projectDir, 'tasks', 'TASK-IB', 'task-excluded.txt');
-    expect(fs.existsSync(excludedFile)).toBe(true);
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-IB', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).excluded).toContain(path.basename(repoDir));
   });
 
   test('prompts only for mode when repo given but mode omitted', async () => {
@@ -265,8 +266,9 @@ describe('wksp task repo — interactive', () => {
 
     await runTask(projectDir, 'repo', 'TASK-IM', path.basename(repoDir));
 
-    const sharedFile = path.join(projectDir, 'tasks', 'TASK-IM', 'task-shared.txt');
-    expect(fs.existsSync(sharedFile)).toBe(true);
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-IM', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).shared).toContain(path.basename(repoDir));
   });
 });
 
@@ -292,9 +294,9 @@ describe('wksp task --to-exclude', () => {
     await runTask(projectDir, 'TASK-EX2', '--to-exclude', path.basename(repoDir));
 
     expect(fs.existsSync(wtPath)).toBe(false);
-    const excludedFile = path.join(projectDir, 'tasks', 'TASK-EX2', 'task-excluded.txt');
-    expect(fs.existsSync(excludedFile)).toBe(true);
-    expect(fs.readFileSync(excludedFile, 'utf8')).toContain(path.basename(repoDir));
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-EX2', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).excluded).toContain(path.basename(repoDir));
   });
 
   test('is idempotent — no error if already excluded', async () => {

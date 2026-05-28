@@ -90,13 +90,65 @@ wksp repo add C:/dev/malachite-b
 
 ---
 
-## Upcoming: v2.2.0
+## v2.1.0 → v2.2.0
 
-The following deprecated syntaxes will be **removed** in v2.2.0:
+Released with wksp v2.2.0. Consolidates two per-task text files into a single JSON file.
+
+### `task-shared.txt` + `task-excluded.txt` → `task.json` *(schema 1 → 2)*
+
+Previously, two separate files tracked which repos were shared or excluded from a task:
+
+- `tasks/<id>/task-shared.txt` — one folder name per line
+- `tasks/<id>/task-excluded.txt` — one folder name per line
+
+These are now combined into a single `task.json`:
+
+```json
+{
+  "shared": ["company-docs"],
+  "excluded": ["legacy-service"]
+}
+```
+
+**Migration path:**
+
+```bash
+wksp migrate --dry-run   # preview which task dirs will be converted
+wksp migrate             # apply: writes task.json, deletes .txt files
+```
+
+`wksp migrate` converts every task in both `tasks/` and `archived-tasks/`. Existing projects without the `.txt` files (empty shared/excluded lists) need no file changes — only the `schemaVersion` in `.wksp` is bumped.
+
+**Backward compatibility:** The `.txt` files continue to be read if `task.json` is not present, so all existing tasks work without migration. The migration is recommended to keep your project tidy and avoid any future `wksp migrate` prompt.
+
+### `wksp cleanup` — overhaul
+
+The `--stale` flag is no longer required. The new signature is:
+
+```bash
+wksp cleanup                   # scan all repos registered in this project
+wksp cleanup <path>            # prune a specific repo
+wksp cleanup <path> --recursive
+```
+
+The old syntax (`wksp cleanup --stale <path>`, `wksp cleanup <path> -r`) still works with a deprecation warning.
+
+### `wksp repo list` — new subcommand
+
+```bash
+wksp repo list    # list all registered repos and their flags
+```
+
+---
+
+## Upcoming: v2.3.0
+
+The following deprecated syntaxes will be **removed** in v2.3.0:
 
 - `wksp task <id>` positional form (all variants)
 - `wksp repo <path>` and `wksp repo <path> --remove` positional forms
+- `wksp cleanup --stale <path>` and `wksp cleanup <path> -r`
 
-If you have scripts or aliases using the old syntax, update them to the v2 verb-first forms before upgrading to v2.2.0. Both the [reference](/reference) and the deprecation warnings printed at runtime show the replacement syntax.
+If you have scripts or aliases using the old syntax, update them to the v2 verb-first forms before upgrading to v2.3.0. Both the [reference](/reference) and the deprecation warnings printed at runtime show the replacement syntax.
 
 No `wksp migrate` step will be needed for this change — it's CLI syntax only, no file format changes.
