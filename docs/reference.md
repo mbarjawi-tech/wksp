@@ -21,29 +21,28 @@ wksp init acme
 
 ---
 
-### `wksp repo <path-or-url>`
+### `wksp repo <subcommand> <path-or-url>`
 
-Register a repo with the current project.
+Register and manage repos within the current project.
 
 - **Local path** — added directly to `repos.txt`.
 - **GitHub URL** — cloned into `reposRoot` (skipped if already cloned), then the local path is added.
 
 ```bash
-wksp repo /c/dev/backend
-wksp repo https://github.com/your-org/frontend
-wksp repo /c/dev/company-docs --shared
-wksp repo /c/dev/old-service --remove
+wksp repo add /c/dev/backend
+wksp repo add https://github.com/your-org/frontend
+wksp repo add /c/dev/company-docs --shared
+wksp repo remove /c/dev/old-service
 
 # Register the same repo twice — each gets its own worktree on a different branch
-wksp repo /c/dev/malachite --as malachite-b
-wksp repo /c/dev/malachite --remove --as malachite-b
+wksp repo add /c/dev/malachite --as malachite-b
+wksp repo remove /c/dev/malachite --as malachite-b
 ```
 
-| Flag | Description |
+| Subcommand | Description |
 |---|---|
-| `--shared` | Never create a worktree; always use the original repo path. Use for read-only reference repos. |
-| `--as <alias>` | Register the same repo a second time with a distinct folder name. Each instance gets its own worktree and can be on a different branch. The alias must be unique across all repos in the project. |
-| `--remove` | Remove from `repos.txt`. Warns if orphaned worktrees exist. When the same repo is registered more than once, `--as <alias>` is required to identify which entry to remove. |
+| `add <path-or-url>` | Register a repo. Use `--shared` to always use the original path (no worktree). Use `--as <alias>` to register the same repo twice under a different name. |
+| `remove <path-or-url>` | Remove from `repos.txt`. Warns if orphaned worktrees exist. When the same repo is registered more than once, `--as <alias>` is required to identify which entry to remove. |
 
 ---
 
