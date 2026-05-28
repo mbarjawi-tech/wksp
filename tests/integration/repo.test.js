@@ -72,6 +72,11 @@ describe('wksp repo add', () => {
   test('exits 1 when no path given', async () => {
     await expect(runRepo(projectDir, 'add')).rejects.toThrow('process.exit(1)');
   });
+
+  test('throws when adding a duplicate repo', async () => {
+    await runRepo(projectDir, 'add', repoDir);
+    await expect(runRepo(projectDir, 'add', repoDir)).rejects.toThrow('already registered');
+  });
 });
 
 // ─── wksp repo remove ────────────────────────────────────────────────────────
