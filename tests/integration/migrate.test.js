@@ -60,7 +60,7 @@ describe('schema 0 → 1 — clean repos.txt', () => {
   beforeEach(() => { projectDir = makeProject('mig-clean'); });
   afterEach(() => cleanup(projectDir));
 
-  test('bumps schemaVersion without touching repos.txt', async () => {
+  test('bumps schemaVersion to current without touching repos.txt', async () => {
     const reposBefore = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
 
     await runMigrate(projectDir);
@@ -170,7 +170,7 @@ describe('schema 1 → 2 — legacy .txt files present', () => {
     expect(data.excluded).toEqual(['docs']);
   });
 
-  test('bumps schemaVersion to 2', async () => {
+  test('bumps schemaVersion to current', async () => {
     await runMigrate(projectDir);
     expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
   });
@@ -200,6 +200,66 @@ describe('schema 1 → 2 — dry-run', () => {
   test('prints dry-run indicator', async () => {
     await runMigrate(projectDir, '--dry-run');
     expect(logLines.some(l => l.includes('dry run'))).toBe(true);
+  });
+});
+
+// ─── schema 2 → 3 (.gitignore update) ────────────────────────────────────────
+
+describe('schema 2 → 3 — adds .wksp-cache/ to .gitignore', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeProject('mig-23');
+    // Start at schema 2 (skips 0→1 and 1→2)
+    config.setProjectConfig(projectDir, 'schemaVersion', 2);
+  });
+  afterEach(() => cleanup(projectDir));
+
+  test('adds .wksp-cache/ to .gitignore when not present', async () => {
+    fs.writeFileSync(path.join(projectDir, '.gitignore'), '.claude/settings.local.json\n');
+
+    await runMigrate(projectDir);
+
+    const gi = fs.readFileSync(path.join(projectDir, '.gitignore'), 'utf8');
+    expect(gi).toContain('.wksp-cache/');
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
+  });
+
+  test('does not duplicate .wksp-cache/ if already present', async () => {
+    fs.writeFileSync(path.join(projectDir, '.gitignore'), '.claude/settings.local.json\n.wksp-cache/\n');
+
+    await runMigrate(projectDir);
+
+    const gi = fs.readFileSync(path.join(projectDir, '.gitignore'), 'utf8');
+    const count = (gi.match(/\.wksp-cache\//g) || []).length;
+    expect(count).toBe(1);
+  });
+
+  test('creates .gitignore when missing and adds entry', async () => {
+    const giPath = path.join(projectDir, '.gitignore');
+    if (fs.existsSync(giPath)) fs.unlinkSync(giPath);
+
+    await runMigrate(projectDir);
+
+    const gi = fs.readFileSync(giPath, 'utf8');
+    expect(gi).toContain('.wksp-cache/');
+  });
+
+  test('dry-run does not modify .gitignore', async () => {
+    const original = '.claude/settings.local.json\n';
+    fs.writeFileSync(path.join(projectDir, '.gitignore'), original);
+
+    await runMigrate(projectDir, '--dry-run');
+
+    expect(fs.readFileSync(path.join(projectDir, '.gitignore'), 'utf8')).toBe(original);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(2);
+  });
+
+  test('prints what was changed', async () => {
+    fs.writeFileSync(path.join(projectDir, '.gitignore'), '');
+
+    await runMigrate(projectDir);
+
+    expect(logLines.some(l => l.includes('.wksp-cache/'))).toBe(true);
   });
 });
 

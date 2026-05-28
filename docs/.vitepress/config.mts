@@ -37,6 +37,7 @@ export default defineConfig({
         items: [
           { text: 'All Commands & Flags', link: '/reference' },
           { text: 'Migration Guide', link: '/migration' },
+          { text: 'Changelog', link: '/changelog' },
         ],
       },
     ],

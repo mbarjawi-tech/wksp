@@ -54,10 +54,12 @@ wksp task delete PROJ-1234      # tear down worktrees and delete task folder
 wksp task rename PROJ-1234 PROJ-5678   # rename task in place
 wksp task archive PROJ-1234     # remove worktrees, move to archived-tasks/
 wksp task unarchive PROJ-1234   # restore an archived task
-wksp task repo PROJ-1234 backend share    # switch repo to shared path for this task
+wksp task repo PROJ-1234 backend share     # switch repo to shared path for this task
 wksp task repo PROJ-1234 backend worktree # create/restore a worktree for a repo
 wksp task repo PROJ-1234 backend exclude  # exclude a repo from this task
-wksp task repo PROJ-1234                  # interactive: pick repo then mode
+wksp task repo PROJ-1234 backend own-deps # use independent deps (remove shared link)
+wksp task repo PROJ-1234 backend link-deps # restore shared dep link
+wksp task repo PROJ-1234                   # interactive: pick repo then mode
 ```
 
 `create` — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout), then launches Claude.
@@ -91,6 +93,16 @@ Branch for backend [main, s=shared, x=exclude]:
 | `unarchive` | `--skip <repo>` | Skip a specific repo during restore. |
 | `unarchive` | `--branch <repo>=<branch>` | Override the branch used for a specific repo. |
 | `unarchive` | `--shared <repo>` | Restore a specific repo as task-shared instead of a worktree. |
+
+#### `wksp task repo` modes
+
+| Mode | Description |
+|---|---|
+| `share` | Remove the worktree and use the base repo path directly for this task (read-only reference). |
+| `worktree` | Create or restore a worktree for this repo in this task. |
+| `exclude` | Exclude the repo from this task: no worktree, not in workspace, not passed to Claude. |
+| `own-deps` | Remove shared dep symlinks for this worktree. Run your own install independently. Adds the repo to `task-own-deps.txt`. |
+| `link-deps` | Restore shared dep symlinks for this worktree. Removes the repo from `task-own-deps.txt`. Fails if a real dep directory is in the way (remove it first). |
 
 > **v1 syntax** (`wksp task <id> --del`, `wksp task <id> --archive`, etc.) still works in v2 but prints a deprecation warning. It will be removed in v2.1.0.
 
@@ -184,6 +196,7 @@ Project-level values override global ones. If you run `set` without `--global` o
 |---|---|
 | `reposRoot` | Directory where GitHub URLs are cloned. |
 | `autoResume` | `true` (default) to auto-resume the last Claude session; `false` to prompt each time. |
+| `sharedDeps` | Array of dependency directory names to share across worktrees (e.g. `["node_modules"]`). Opt-in; see [Shared dependency directories](/concepts#shared-dependency-directories). |
 
 ---
 
@@ -203,12 +216,15 @@ Project-level values override global ones. If you run `set` without `--global` o
 ```json
 {
   "name": "acme",
-  "schemaVersion": 2,
-  "reposRoot": "/c/dev/acme-repos"
+  "schemaVersion": 3,
+  "reposRoot": "/c/dev/acme-repos",
+  "sharedDeps": ["node_modules"]
 }
 ```
 
-`schemaVersion` is written by `wksp init` and updated by `wksp migrate`. Projects created before v2.1.0 have no `schemaVersion` field (implicitly version 0).
+`schemaVersion` is written by `wksp init` and updated by `wksp migrate`. Projects created before v2.1.0 have no `schemaVersion` field (implicitly version 0). The current schema version is **3**.
+
+`sharedDeps` is optional. When present, wksp creates symlinks (junctions on Windows) in every worktree pointing to the shared cache at `.wksp-cache/`. See [Shared dependency directories](/concepts#shared-dependency-directories).
 
 Presence of this file marks the directory as a wksp project. Commands walk up the directory tree to find it — identical to how `git` finds `.git`. Project-level `reposRoot` and `autoResume` override the global values for that project.
 
@@ -239,6 +255,23 @@ Records which repos use a shared path or are excluded from the task. Both keys a
 `excluded` — repos excluded from the task entirely, by folder name. Written when the user types `x` at the branch prompt or runs `wksp task repo … exclude`.
 
 > **Backward compatibility** — Projects with legacy `task-shared.txt` and `task-excluded.txt` files (created before v2.2.0) continue to work without migration. Running `wksp migrate` converts them to `task.json` and removes the old files.
+
+### `tasks/<id>/task-own-deps.txt`
+
+One folder name per line. Lists worktrees that have opted out of shared dep linking for this task. Repos in this list are skipped during dep-link creation on every `task create`/`task resume`. Created by `wksp task repo <id> <repo> own-deps`; an entry is removed by `wksp task repo <id> <repo> link-deps`.
+
+### `<project>/.wksp-cache/`
+
+Cache directory for shared dependency installations. Gitignored (added by `wksp init` and `wksp migrate`). Layout:
+
+```
+.wksp-cache/
+  <repoFolderName>/
+    node_modules/       ← real install; all worktrees of this repo symlink here
+    .venv/              ← if listed in sharedDeps
+```
+
+This directory persists through archive and unarchive cycles. Delete it to force a clean reinstall across all worktrees.
 
 ### `archived-tasks/<id>/archived.json`
 

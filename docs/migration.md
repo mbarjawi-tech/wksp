@@ -92,7 +92,7 @@ wksp repo add C:/dev/malachite-b
 
 ## v2.1.0 → v2.2.0
 
-Released with wksp v2.2.0. Consolidates two per-task text files into a single JSON file.
+Released with wksp v2.2.0. Consolidates task files into JSON, adds shared dependency directories, and bumps `schemaVersion` from 1 → 3.
 
 ### `task-shared.txt` + `task-excluded.txt` → `task.json` *(schema 1 → 2)*
 
@@ -138,6 +138,36 @@ The old syntax (`wksp cleanup --stale <path>`, `wksp cleanup <path> -r`) still w
 ```bash
 wksp repo list    # list all registered repos and their flags
 ```
+
+### Shared dependency directories *(schema 2 → 3)*
+
+wksp can now share installed dependency directories (e.g. `node_modules`) across all worktrees of the same repo. This is opt-in — nothing changes unless you add `sharedDeps` to `.wksp`.
+
+**What changed in the project file format:**
+
+- New `.wksp-cache/` directory at the project root holds shared installs.
+- New `task-own-deps.txt` per-task file tracks worktrees that opted out of sharing.
+- `.wksp-cache/` is added to `.gitignore` so the cache is never committed.
+- `archived.json` gains an `ownDepsRepos` field (defaults to `[]` on read — old archives are unaffected).
+
+**Migration path:**
+
+`wksp migrate` adds `.wksp-cache/` to your `.gitignore` if it's not already listed. That's the only required file change.
+
+```bash
+wksp migrate --dry-run   # preview
+wksp migrate             # apply
+```
+
+After migrating, opt in by adding `sharedDeps` to `.wksp`:
+
+```json
+{
+  "sharedDeps": ["node_modules"]
+}
+```
+
+Projects without `sharedDeps` are completely unaffected — the migration only touches `.gitignore`.
 
 ---
 

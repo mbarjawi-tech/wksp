@@ -1,0 +1,1322 @@
+<!DOCTYPE html>
+<html lang="en" data-theme="light">
+<head>
+  <meta charset="UTF-8" />
+  <meta name="viewport" content="width=device-width, initial-scale=1.0" />
+  <title>wksp CLI Evaluation</title>
+  <style>
+    /* ── Reset ──────────────────────────────────────────────────────── */
+    *, *::before, *::after { box-sizing: border-box; margin: 0; padding: 0; }
+
+    /* ── CSS Variables ──────────────────────────────────────────────── */
+    :root {
+      --bg:          #f8f9fb;
+      --bg-card:     #ffffff;
+      --bg-subtle:   #f0f2f5;
+      --border:      #e2e6ea;
+      --text:        #1a1d23;
+      --text-sub:    #5a6270;
+      --text-muted:  #8a929e;
+      --accent:      #3b82f6;
+      --accent-dark: #1d4ed8;
+      --accent-bg:   #eff6ff;
+      --green:       #16a34a;
+      --green-bg:    #f0fdf4;
+      --yellow:      #ca8a04;
+      --yellow-bg:   #fefce8;
+      --red:         #dc2626;
+      --red-bg:      #fef2f2;
+      --orange:      #ea580c;
+      --orange-bg:   #fff7ed;
+      --shadow:      0 1px 3px rgba(0,0,0,.08), 0 1px 2px rgba(0,0,0,.06);
+      --shadow-lg:   0 4px 16px rgba(0,0,0,.10);
+      --radius:      10px;
+      --radius-sm:   6px;
+      --font:        -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif;
+      --font-mono:   'Cascadia Code', 'Fira Code', 'Consolas', monospace;
+    }
+
+    [data-theme="dark"] {
+      --bg:          #0d1117;
+      --bg-card:     #161b22;
+      --bg-subtle:   #21262d;
+      --border:      #30363d;
+      --text:        #e6edf3;
+      --text-sub:    #8b949e;
+      --text-muted:  #6e7681;
+      --accent:      #58a6ff;
+      --accent-dark: #388bfd;
+      --accent-bg:   #0c1a2e;
+      --green:       #3fb950;
+      --green-bg:    #0d2116;
+      --yellow:      #e3b341;
+      --yellow-bg:   #1f1b0e;
+      --red:         #f85149;
+      --red-bg:      #1e0d0d;
+      --orange:      #ffa657;
+      --orange-bg:   #1e1008;
+      --shadow:      0 1px 3px rgba(0,0,0,.3);
+      --shadow-lg:   0 4px 20px rgba(0,0,0,.5);
+    }
+
+    /* ── Base ───────────────────────────────────────────────────────── */
+    html  { scroll-behavior: smooth; }
+    body  {
+      font-family: var(--font);
+      background: var(--bg);
+      color: var(--text);
+      font-size: 14px;
+      line-height: 1.6;
+    }
+    p               { margin-bottom: 10px; }
+    p:last-child    { margin-bottom: 0; }
+    ul, ol          { padding-left: 20px; margin-bottom: 10px; }
+    li              { margin-bottom: 4px; }
+    hr              { border: none; border-top: 1px solid var(--border); margin: 28px 0; }
+    a               { color: var(--accent); text-decoration: none; }
+    a:hover         { text-decoration: underline; }
+    strong          { color: var(--text); }
+    code            { font-family: var(--font-mono); font-size: 12px; }
+    pre {
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 14px 16px;
+      overflow-x: auto;
+      font-family: var(--font-mono);
+      font-size: 12px;
+      line-height: 1.6;
+      color: var(--text);
+    }
+
+    /* ── Sidebar + Main layout ──────────────────────────────────────── */
+    .layout { display: flex; min-height: 100vh; }
+
+    .sidebar {
+      width: 260px;
+      flex-shrink: 0;
+      background: var(--bg-card);
+      border-right: 1px solid var(--border);
+      position: sticky;
+      top: 0;
+      height: 100vh;
+      overflow-y: auto;
+      display: flex;
+      flex-direction: column;
+    }
+    .sidebar-header {
+      padding: 20px 16px 12px;
+      border-bottom: 1px solid var(--border);
+    }
+    .sidebar-logo  { font-size: 11px; font-weight: 600; letter-spacing: .08em; text-transform: uppercase; color: var(--text-muted); margin-bottom: 4px; }
+    .sidebar-title { font-size: 15px; font-weight: 700; color: var(--text); line-height: 1.3; }
+    .sidebar-meta  { font-size: 11px; color: var(--text-muted); margin-top: 4px; }
+
+    nav { padding: 12px 0; flex: 1; }
+    .nav-section-label { font-size: 10px; font-weight: 700; letter-spacing: .1em; text-transform: uppercase; color: var(--text-muted); padding: 8px 16px 4px; }
+    .nav-link {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      padding: 7px 16px;
+      font-size: 13px;
+      color: var(--text-sub);
+      text-decoration: none;
+      border-left: 2px solid transparent;
+      transition: all .15s;
+    }
+    .nav-link:hover          { background: var(--bg-subtle); color: var(--text); text-decoration: none; }
+    .nav-link.active         { border-left-color: var(--accent); background: var(--accent-bg); color: var(--accent); font-weight: 500; }
+    .nav-link .badge         { margin-left: auto; font-size: 10px; font-weight: 700; padding: 1px 6px; border-radius: 99px; background: var(--red-bg); color: var(--red); }
+    .nav-link .badge.warn    { background: var(--orange-bg); color: var(--orange); }
+    .nav-link .badge.info    { background: var(--accent-bg); color: var(--accent); }
+    .nav-link .badge.ok      { background: var(--green-bg);  color: var(--green);  }
+
+    .sidebar-footer  { padding: 12px 16px; border-top: 1px solid var(--border); }
+
+    .main { flex: 1; min-width: 0; padding: 32px 40px 60px; max-width: 920px; }
+
+    /* ── Single-column layout ───────────────────────────────────────── */
+    .single-col       { max-width: 860px; margin: 0 auto; padding: 32px 24px 60px; }
+    .single-col-header {
+      margin-bottom: 32px;
+      padding-bottom: 20px;
+      border-bottom: 1px solid var(--border);
+      display: flex;
+      align-items: flex-start;
+      gap: 16px;
+    }
+    .single-col-header h1   { font-size: 24px; font-weight: 800; color: var(--text); margin-bottom: 6px; }
+    .single-col-header p    { color: var(--text-sub); font-size: 14px; max-width: 600px; }
+    .header-actions         { margin-left: auto; flex-shrink: 0; }
+    .single-col-header-text { flex: 1; }
+
+    /* ── Theme toggle button ────────────────────────────────────────── */
+    .theme-toggle {
+      display: flex;
+      align-items: center;
+      gap: 8px;
+      font-size: 12px;
+      color: var(--text-sub);
+      cursor: pointer;
+      background: var(--bg-subtle);
+      border: 1px solid var(--border);
+      border-radius: var(--radius-sm);
+      padding: 6px 10px;
+      width: 100%;
+      font-family: var(--font);
+    }
+    .theme-toggle:hover { background: var(--border); }
+
+    /* ── Page header (inside .main) ─────────────────────────────────── */
+    .page-header            { margin-bottom: 36px; }
+    .page-header h1         { font-size: 26px; font-weight: 800; color: var(--text); margin-bottom: 8px; }
+    .page-header p          { color: var(--text-sub); font-size: 14px; max-width: 640px; }
+
+    /* ── Meta chips row ─────────────────────────────────────────────── */
+    .meta-row   { display: flex; flex-wrap: wrap; gap: 10px; margin-top: 14px; }
+    .meta-chip  { font-size: 11px; font-weight: 600; padding: 3px 10px; border-radius: 99px; border: 1px solid var(--border); background: var(--bg-card); color: var(--text-sub); }
+    .meta-chip.deadline { border-color: var(--red);    color: var(--red);    background: var(--red-bg); }
+    .meta-chip.pending  { border-color: var(--yellow); color: var(--yellow); background: var(--yellow-bg); }
+    .meta-chip.active   { border-color: var(--green);  color: var(--green);  background: var(--green-bg); }
+    .meta-chip.info     { border-color: var(--accent);  color: var(--accent);  background: var(--accent-bg); }
+
+    /* ── Sections ───────────────────────────────────────────────────── */
+    .section        { margin-bottom: 48px; }
+    .section-anchor { padding-top: 64px; margin-top: -64px; }
+
+    /* Section heading with full-width rule */
+    .sh {
+      font-size: 18px;
+      font-weight: 800;
+      color: var(--text);
+      margin-bottom: 16px;
+      display: flex;
+      align-items: center;
+      gap: 10px;
+    }
+    .sh::after { content: ''; flex: 1; height: 1px; background: var(--border); }
+
+    /* ── Cards ──────────────────────────────────────────────────────── */
+    .card         { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); box-shadow: var(--shadow); margin-bottom: 16px; overflow: hidden; }
+    .card-header  { padding: 14px 20px; border-bottom: 1px solid var(--border); display: flex; align-items: center; gap: 10px; background: var(--bg-subtle); }
+    .card-header h2 { font-size: 15px; font-weight: 700; color: var(--text); }
+    .card-header h3 { font-size: 14px; font-weight: 600; color: var(--text); }
+    .card-body    { padding: 16px 20px; }
+
+    /* ── Data table ─────────────────────────────────────────────────── */
+    .data-table { width: 100%; border-collapse: collapse; font-size: 12.5px; }
+    .data-table th, .data-table td { padding: 7px 12px; text-align: left; border-bottom: 1px solid var(--border); vertical-align: top; }
+    .data-table th { font-size: 11px; font-weight: 700; text-transform: uppercase; letter-spacing: .06em; color: var(--text-muted); background: var(--bg-subtle); }
+    .data-table td { color: var(--text-sub); }
+    .data-table tr:last-child td { border-bottom: none; }
+    .data-table code { font-family: var(--font-mono); font-size: 11px; background: var(--bg-subtle); border: 1px solid var(--border); padding: 1px 5px; border-radius: 3px; color: var(--text); }
+
+    /* ── Callouts ───────────────────────────────────────────────────── */
+    .callout          { border-radius: var(--radius-sm); padding: 12px 16px; margin-bottom: 14px; display: flex; gap: 10px; font-size: 13px; line-height: 1.6; }
+    .callout-icon     { font-size: 15px; flex-shrink: 0; margin-top: 1px; }
+    .callout-body     { flex: 1; color: var(--text-sub); }
+    .callout-body strong { color: var(--text); }
+    .callout.info     { background: var(--accent-bg); border: 1px solid var(--accent); }
+    .callout.warn     { background: var(--yellow-bg); border: 1px solid var(--yellow); }
+    .callout.error    { background: var(--red-bg);    border: 1px solid var(--red);    }
+    .callout.ok       { background: var(--green-bg);  border: 1px solid var(--green);  }
+
+    /* ── Severity badges ────────────────────────────────────────────── */
+    .sev          { display: inline-flex; align-items: center; gap: 4px; font-size: 10px; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; padding: 2px 8px; border-radius: 4px; flex-shrink: 0; }
+    .sev-critical { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red);    }
+    .sev-high     { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange); }
+    .sev-medium   { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+    .sev-low      { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent); }
+
+    /* ── Status chips ───────────────────────────────────────────────── */
+    .chip        { display: inline-block; font-size: 10px; font-weight: 700; padding: 2px 8px; border-radius: 99px; }
+    .chip-grey   { background: var(--bg-subtle);  color: var(--text-muted); }
+    .chip-green  { background: #e8f5e9; color: #2e7d32; }
+    .chip-orange { background: #fff3e0; color: #e65100; }
+    .chip-red    { background: #ffebee; color: #c62828; }
+    .chip-blue   { background: #e3f2fd; color: #1565c0; }
+    .chip-lblue  { background: #e1f5fe; color: #0277bd; }
+    .chip-yellow { background: #fffde7; color: #f57f17; }
+    [data-theme="dark"] .chip-green  { background: #0a1f0e; color: #66bb6a; }
+    [data-theme="dark"] .chip-orange { background: #3e1500; color: #ffb74d; }
+    [data-theme="dark"] .chip-red    { background: #1e0a0a; color: #ef9a9a; }
+    [data-theme="dark"] .chip-blue   { background: #0a1628; color: #64b5f6; }
+    [data-theme="dark"] .chip-lblue  { background: #0a1e2e; color: #4fc3f7; }
+    [data-theme="dark"] .chip-yellow { background: #1f1b0e; color: #fff176; }
+
+    /* ── Summary stats grid ─────────────────────────────────────────── */
+    .summary-grid { display: grid; grid-template-columns: repeat(auto-fit, minmax(150px, 1fr)); gap: 12px; margin-bottom: 24px; }
+    .summary-stat { background: var(--bg-card); border: 1px solid var(--border); border-radius: var(--radius); padding: 16px; text-align: center; }
+    .summary-stat .num   { font-size: 28px; font-weight: 800; line-height: 1; margin-bottom: 4px; }
+    .summary-stat .label { font-size: 11px; color: var(--text-sub); font-weight: 500; }
+    .num-critical { color: var(--red);    }
+    .num-high     { color: var(--orange); }
+    .num-medium   { color: var(--yellow); }
+    .num-low      { color: var(--accent); }
+    .num-ok       { color: var(--green);  }
+
+    /* ── Collapsible findings ───────────────────────────────────────── */
+    .finding         { border: 1px solid var(--border); border-radius: var(--radius-sm); margin-bottom: 10px; background: var(--bg-card); overflow: hidden; }
+    .finding-header  { display: flex; align-items: flex-start; gap: 12px; padding: 12px 16px; cursor: pointer; user-select: none; }
+    .finding-header:hover { background: var(--bg-subtle); }
+    .finding-num     { width: 22px; height: 22px; border-radius: 50%; background: var(--bg-subtle); border: 1px solid var(--border); font-size: 11px; font-weight: 700; color: var(--text-muted); display: flex; align-items: center; justify-content: center; flex-shrink: 0; margin-top: 1px; }
+    .finding-title   { font-size: 13px; font-weight: 600; color: var(--text); flex: 1; padding-top: 2px; }
+    .finding-chevron { color: var(--text-muted); font-size: 11px; margin-top: 3px; transition: transform .2s; flex-shrink: 0; }
+    .finding.open .finding-chevron { transform: rotate(180deg); }
+    .finding-body    { display: none; padding: 0 16px 14px 50px; color: var(--text-sub); font-size: 13px; line-height: 1.7; }
+    .finding.open .finding-body { display: block; }
+    .finding-body p  { margin-bottom: 8px; }
+    .finding-body p:last-child { margin-bottom: 0; }
+    .finding-body ul { padding-left: 18px; margin-top: 6px; }
+    .finding-body li { margin-bottom: 4px; }
+
+    /* ── Utility ────────────────────────────────────────────────────── */
+    .text-muted { color: var(--text-muted); font-size: 12px; }
+    .mt-4       { margin-top: 16px; }
+    .mb-4       { margin-bottom: 16px; }
+    .flex       { display: flex; gap: 8px; align-items: center; }
+    .flex-wrap  { flex-wrap: wrap; }
+
+    /* ── Responsive ─────────────────────────────────────────────────── */
+    @media (max-width: 768px) {
+      .sidebar            { display: none; }
+      .main               { padding: 20px; }
+      .single-col         { padding: 20px 16px 40px; }
+      .single-col-header  { flex-direction: column; gap: 12px; }
+      .header-actions     { margin-left: 0; }
+    }
+
+    /* ── Document-specific ──────────────────────────────────────────── */
+    .role-label {
+      display: inline-block;
+      font-size: 10px;
+      font-weight: 800;
+      letter-spacing: .08em;
+      text-transform: uppercase;
+      padding: 3px 10px;
+      border-radius: 99px;
+      margin-bottom: 10px;
+    }
+    .role-critic      { background: var(--red-bg);    color: var(--red);    border: 1px solid var(--red); }
+    .role-architect   { background: var(--accent-bg); color: var(--accent); border: 1px solid var(--accent); }
+    .role-ux          { background: var(--orange-bg); color: var(--orange); border: 1px solid var(--orange); }
+    .role-grader      { background: var(--yellow-bg); color: var(--yellow); border: 1px solid var(--yellow); }
+    .role-implementer { background: var(--green-bg);  color: var(--green);  border: 1px solid var(--green); }
+
+    .impl-step {
+      display: flex;
+      gap: 14px;
+      align-items: flex-start;
+      padding: 14px 0;
+      border-bottom: 1px solid var(--border);
+    }
+    .impl-step:last-child { border-bottom: none; }
+    .impl-num {
+      width: 28px;
+      height: 28px;
+      border-radius: 50%;
+      background: var(--accent-bg);
+      border: 1px solid var(--accent);
+      color: var(--accent);
+      font-size: 12px;
+      font-weight: 800;
+      display: flex;
+      align-items: center;
+      justify-content: center;
+      flex-shrink: 0;
+      margin-top: 1px;
+    }
+    .impl-content { flex: 1; }
+    .impl-title { font-size: 13px; font-weight: 700; color: var(--text); margin-bottom: 4px; }
+    .impl-file  { font-size: 11px; color: var(--text-muted); margin-bottom: 6px; font-family: var(--font-mono); }
+    .impl-desc  { font-size: 13px; color: var(--text-sub); line-height: 1.6; }
+    .impl-desc p { margin-bottom: 6px; }
+    .impl-desc p:last-child { margin-bottom: 0; }
+
+  </style>
+</head>
+<body>
+
+<div class="layout">
+  <aside class="sidebar">
+    <div class="sidebar-header">
+      <div class="sidebar-logo">CLI Evaluation</div>
+      <div class="sidebar-title">wksp</div>
+      <div class="sidebar-meta">16-May-2026</div>
+    </div>
+    <nav>
+      <div class="nav-section-label">Overview</div>
+      <a class="nav-link active" href="#summary">📊 Summary</a>
+
+      <div class="nav-section-label">Roles</div>
+      <a class="nav-link" href="#critic">🔍 Role 1 — Critic <span class="badge">14</span></a>
+      <a class="nav-link" href="#architect">🏗 Role 2 — Architect</a>
+      <a class="nav-link" href="#ux">👤 Role 3 — UX Reviewer <span class="badge warn">8</span></a>
+      <a class="nav-link" href="#grader">📋 Role 4 — Grader</a>
+      <a class="nav-link" href="#implementer">⚙️ Role 5 — Implementer <span class="badge ok">15</span></a>
+      <a class="nav-link" href="#roadmap">🗺️ Roadmap <span class="badge info">v2.0</span></a>
+    </nav>
+    <div class="sidebar-footer">
+      <button class="theme-toggle" onclick="toggleTheme()">
+        <span id="theme-icon">🌙</span>
+        <span id="theme-label">Switch to Dark</span>
+      </button>
+    </div>
+  </aside>
+
+  <main class="main">
+
+    <!-- PAGE HEADER -->
+    <div class="page-header">
+      <h1>wksp CLI Evaluation</h1>
+      <p>Five-role analysis of the workspace CLI: command design, flag naming, UX, architectural decisions, and a concrete implementation plan. Updated with v2.0 roadmap, verb-first command redesign, new features, and revert of the <code>--as</code> alias.</p>
+      <div class="meta-row">
+        <span class="meta-chip active">Complete</span>
+        <span class="meta-chip info">15 v1.x Fixes</span>
+        <span class="meta-chip warn">v2.0 Planning</span>
+        <span class="meta-chip active">Finalized · 26-May-2026</span>
+      </div>
+    </div>
+
+    <!-- SUMMARY -->
+    <div id="summary" class="section section-anchor">
+      <div class="sh">📊 Summary</div>
+
+      <div class="summary-grid">
+        <div class="summary-stat">
+          <div class="num num-critical">3</div>
+          <div class="label">Design Flaws</div>
+        </div>
+        <div class="summary-stat">
+          <div class="num num-high">6</div>
+          <div class="label">Flag Issues</div>
+        </div>
+        <div class="summary-stat">
+          <div class="num num-medium">5</div>
+          <div class="label">Missing Features</div>
+        </div>
+        <div class="summary-stat">
+          <div class="num num-ok">15</div>
+          <div class="label">Concrete Fixes</div>
+        </div>
+      </div>
+
+      <div class="callout error">
+        <span class="callout-icon">🚨</span>
+        <div class="callout-body"><strong>Top concern:</strong> <code>wksp task</code> is doing seven jobs — it creates, opens, deletes, renames, archives, unarchives, and adjusts per-repo settings. This single command carries so much responsibility that none of it is discoverable.</div>
+      </div>
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body"><strong>Second concern:</strong> <code>wksp cleanup --stale &lt;path&gt;</code> uses a mandatory flag as a positional argument, the only short flag in the entire tool (<code>-r</code>), and requires a path even when inside a project that knows all its repos.</div>
+      </div>
+      <div class="callout info">
+        <span class="callout-icon">ℹ️</span>
+        <div class="callout-body"><strong>What's working well:</strong> The three-concept hierarchy (Project → Repo → Task), the archive/restore system, the Claude session resume logic, and the per-task shared/excluded state are all well-designed. None of the proposed changes touch the core mechanics — they reshape the surface.</div>
+      </div>
+    </div>
+
+    <!-- ROLE 1: CRITIC -->
+    <div id="critic" class="section section-anchor">
+      <div class="sh">🔍 Role 1 — Critic</div>
+      <span class="role-label role-critic">Critic</span>
+      <p class="mb-4" style="color:var(--text-sub)">Everything that should be questioned: confusing flags, redundant features, poor defaults, missing functionality. Direct.</p>
+
+      <!-- Command Design -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>Command Design</h2></div>
+        <div class="card-body">
+
+          <div class="finding open">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">1</div>
+              <div class="finding-title"><span class="sev sev-critical">Critical</span> &nbsp; <code>wksp task</code> is doing seven jobs</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p><code>--del</code>, <code>--rename</code>, <code>--archive</code>, <code>--unarchive</code>, <code>--to-shared</code>, <code>--to-worktree</code>, <code>--to-exclude</code> are all flags on the same command that also creates and opens tasks. A user types <code>wksp task PROJ-123</code> expecting to open a task and gets no warning that this same command also tears it down. The flags exist only to avoid creating new top-level commands, and it shows.</p>
+            </div>
+          </div>
+
+          <div class="finding open">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">2</div>
+              <div class="finding-title"><span class="sev sev-critical">Critical</span> &nbsp; <code>wksp cleanup --stale &lt;path&gt;</code> is the worst-designed command</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p>The <code>--stale</code> flag is required — the command does nothing without it and errors. That makes it a mandatory argument disguised as an option. <code>-r</code> for recursive is the only short flag in the entire tool. The command can't scan the current project's repos automatically — you must pass a path explicitly even when inside a project that already knows all its repos.</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">3</div>
+              <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; <code>wksp repo</code> uses flags for actions that should be subcommands</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p><code>wksp repo /path --remove</code> is backwards. Every other mutation in this tool is a verb: <code>wksp delete</code>, <code>wksp cleanup</code>, <code>wksp init</code>. Removing a repo should be <code>wksp repo remove /path</code>. There is also no <code>wksp repo list</code> — you have to open <code>repos.txt</code> manually to see what's registered.</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">4</div>
+              <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; <code>--rename</code> launches Claude after renaming</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p><code>wksp task PROJ-123 --rename PROJ-456</code> renames the folder and then opens Claude Code. If someone just wants to rename a task, they get Claude too. The rename is a filesystem operation; launching is a separate intent. These should not be coupled.</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">5</div>
+              <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; <code>wksp delete</code> asks for <code>y</code> to delete everything</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p>The confirmation is a y/N prompt. Given that it tears down all worktrees and deletes the entire project folder, typing the project name is the appropriate bar. This is the standard for destructive CLI operations (e.g. Heroku's <code>heroku apps:destroy --confirm myapp</code>).</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">6</div>
+              <div class="finding-title"><span class="sev sev-medium">Medium</span> &nbsp; <code>wksp status</code> only works inside a task directory</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p><code>wksp status PROJ-123</code> from the project root does not work. There is no way to inspect a task without <code>cd</code>-ing into it. The command should accept an optional task ID argument.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Flag Naming -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>Flag Naming &amp; Consistency</h2></div>
+        <div class="card-body">
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">7</div>
+              <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; <code>--del</code> is inconsistent with <code>wksp delete</code></div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p>The project-level deletion command is <code>wksp delete</code>. The task-level deletion flag is <code>--del</code>. Same concept, different abbreviation, no reason for either choice. Every other long flag in this tool is spelled out in full: <code>--shared</code>, <code>--remove</code>, <code>--global</code>, <code>--archive</code>.</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">8</div>
+              <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; <code>--to-shared</code>, <code>--to-worktree</code>, <code>--to-exclude</code> are verbed wrong</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p>"to-X" sounds like a conversion target but reads as a preposition. The verbs are missing. <code>--to-exclude</code> is the strangest — "to exclude" is a verb phrase that does not fit the flag convention. These should describe the state to apply: <code>--use-shared</code>, <code>--use-worktree</code>, <code>--exclude</code>.</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">9</div>
+              <div class="finding-title"><span class="sev sev-medium">Medium</span> &nbsp; <code>--shared</code> collides with git terminology</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p><code>git clone --shared</code> means share the object store between repos. In <code>wksp</code>, <code>--shared</code> means "never create a worktree — always use the repo's original path." A developer coming from git maps <code>--shared</code> to a completely different concept. A clearer name would be <code>--no-worktree</code> or <code>--in-place</code>. (Deferred — breaks <code>repos.txt</code> format.)</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">10</div>
+              <div class="finding-title"><span class="sev sev-medium">Medium</span> &nbsp; <code>config set</code> errors outside a project instead of defaulting to global</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p>Running <code>wksp config set reposRoot /path</code> outside a project gives: <em>"Error: not inside a wksp project — use --global to set a global value."</em> Most users setting <code>reposRoot</code> have no project yet. The command should default to global with a note, not error.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+
+      <!-- Missing Features -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>Missing Features</h2></div>
+        <div class="card-body">
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">11</div>
+              <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; No <code>wksp --version</code></div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p>Standard CLI expectation. Missing entirely. Every developer's first debugging instinct is to check the version. Not having it is a broken expectation.</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">12</div>
+              <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; No per-command <code>--help</code></div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p><code>wksp task --help</code> does not print task usage — it runs <code>task</code> with <code>['--help']</code> as args, which either fails or behaves unexpectedly. Every command should intercept <code>--help</code> in its own <code>run()</code> and print usage with examples.</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">13</div>
+              <div class="finding-title"><span class="sev sev-medium">Medium</span> &nbsp; <code>wksp list</code> gives no indication that archived tasks exist</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p>If you archived PROJ-123 and run <code>wksp list</code>, you see nothing for it. No indication that anything is archived. The output footer should read: "N archived task(s) — run <code>wksp list --archived</code> to see them."</p>
+            </div>
+          </div>
+
+          <div class="finding">
+            <div class="finding-header" onclick="toggleFinding(this)">
+              <div class="finding-num">14</div>
+              <div class="finding-title"><span class="sev sev-low">Low</span> &nbsp; <code>autoResume</code> config key and <code>WKSP_DEBUG</code> env var are invisible</div>
+              <div class="finding-chevron">▼</div>
+            </div>
+            <div class="finding-body">
+              <p><code>autoResume</code> is read in <code>task.js</code> and affects behavior, but appears nowhere in help output. <code>WKSP_DEBUG</code> enables stack traces in the error handler but is not documented anywhere visible. Both belong in <code>wksp --help</code>.</p>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ROLE 2: ARCHITECT -->
+    <div id="architect" class="section section-anchor">
+      <div class="sh">🏗 Role 2 — Architect</div>
+      <span class="role-label role-architect">Architect</span>
+      <p class="mb-4" style="color:var(--text-sub)">Structural changes — flag naming and grouping, command flow, what to remove vs. consolidate, and what the first-time mental model should look like.</p>
+
+      <div class="card mb-4">
+        <div class="card-header"><h2>Verb-first command redesign (v2.0)</h2></div>
+        <div class="card-body">
+          <p style="color:var(--text-sub); margin-bottom:14px">Approved direction: put the verb first, like kubectl. The object (<code>--task</code>, <code>--repo</code>) is a flag, and <code>list</code> takes the noun as a subcommand. This makes every command readable as a sentence and makes tab-completion on the verb surface everything you can do.</p>
+          <table class="data-table">
+            <thead><tr><th>Current</th><th>v2.0 Verb-First</th><th>Notes</th></tr></thead>
+            <tbody>
+              <tr><td><code>wksp task &lt;id&gt;</code></td><td><code>wksp open &lt;id&gt;</code></td><td>Primary workflow — open or create a task workspace</td></tr>
+              <tr><td><code>wksp task &lt;id&gt; --del</code></td><td><code>wksp delete --task &lt;id&gt;</code></td><td>Verb-first; <code>wksp delete</code> alone still deletes the project</td></tr>
+              <tr><td><code>wksp task &lt;id&gt; --archive</code></td><td><code>wksp archive --task &lt;id&gt;</code></td><td>Top-level action verb</td></tr>
+              <tr><td><code>wksp task &lt;id&gt; --unarchive</code></td><td><code>wksp restore --task &lt;id&gt;</code></td><td>"restore" is clearer than "unarchive"</td></tr>
+              <tr><td><code>wksp task &lt;id&gt; --rename &lt;new&gt;</code></td><td><code>wksp rename --task &lt;id&gt; &lt;new&gt;</code></td><td>Rename and exit — no Claude launch</td></tr>
+              <tr><td><code>wksp list</code></td><td><code>wksp list tasks</code></td><td><code>tasks</code> is default if no noun given</td></tr>
+              <tr><td><code>wksp repo list</code></td><td><code>wksp list repos</code></td><td>Consistent noun pattern</td></tr>
+              <tr><td><code>wksp repo &lt;path&gt;</code></td><td><code>wksp add --repo &lt;path/url&gt;</code></td><td>Verb-first add</td></tr>
+              <tr><td><code>wksp repo &lt;path&gt; --remove</code></td><td><code>wksp remove --repo &lt;path&gt;</code></td><td>Symmetric with add</td></tr>
+            </tbody>
+          </table>
+          <p class="mt-4" style="color:var(--text-sub)">All v1.x commands stay as deprecated aliases in v2.0 with warnings. A migration script handles automatic config/script updates for users upgrading.</p>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><h2>Make <code>wksp repo</code> a subcommand group</h2></div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead><tr><th>Command</th><th>Replaces</th></tr></thead>
+            <tbody>
+              <tr><td><code>wksp repo list</code></td><td>(new — currently requires opening <code>repos.txt</code>)</td></tr>
+              <tr><td><code>wksp repo add &lt;path&gt; [--shared] [--as &lt;alias&gt;]</code></td><td><code>wksp repo &lt;path&gt;</code></td></tr>
+              <tr><td><code>wksp repo remove &lt;path&gt; [--as &lt;alias&gt;]</code></td><td><code>wksp repo &lt;path&gt; --remove</code></td></tr>
+            </tbody>
+          </table>
+          <p class="mt-4" style="color:var(--text-sub)"><code>wksp repo &lt;path&gt;</code> with no subcommand stays as an alias for <code>add</code> for muscle memory. <code>--remove</code> is deprecated with a warning.</p>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><h2>Overhaul <code>wksp cleanup</code></h2></div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead><tr><th>Command</th><th>Behavior</th></tr></thead>
+            <tbody>
+              <tr><td><code>wksp cleanup</code></td><td>Scan all repos registered in the current project (default, zero-arg)</td></tr>
+              <tr><td><code>wksp cleanup &lt;path&gt;</code></td><td>Prune a specific directory</td></tr>
+              <tr><td><code>wksp cleanup &lt;path&gt; --recursive</code></td><td>Scan first-level subdirectories</td></tr>
+            </tbody>
+          </table>
+          <p class="mt-4" style="color:var(--text-sub)">Kill <code>--stale</code> (mandatory option = bad design). Kill <code>-r</code> (only short flag in the tool). Keep both as deprecated aliases with warnings.</p>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><h2>Rename the conversion flags</h2></div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead><tr><th>Old Flag</th><th>New Flag</th><th>Reason</th></tr></thead>
+            <tbody>
+              <tr><td><code>--to-shared &lt;repo&gt;</code></td><td><code>--use-shared &lt;repo&gt;</code></td><td>Verb present, describes the state being applied</td></tr>
+              <tr><td><code>--to-worktree &lt;repo&gt;</code></td><td><code>--use-worktree &lt;repo&gt;</code></td><td>Consistent with above</td></tr>
+              <tr><td><code>--to-exclude &lt;repo&gt;</code></td><td><code>--exclude &lt;repo&gt;</code></td><td>Drops the preposition, cleaner verb</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <div class="card mb-4">
+        <div class="card-header"><h2>First-time mental model: three concepts, in order</h2></div>
+        <div class="card-body">
+          <p style="color:var(--text-sub); margin-bottom:14px">The docs and help text should lead with these three in this order. Everything else is plumbing.</p>
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Concept</th><th>Command</th><th>One-liner</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td><strong>Project</strong></td><td><code>wksp init</code></td><td>The root workspace folder — one per team/client</td></tr>
+              <tr><td>2</td><td><strong>Repo</strong></td><td><code>wksp repo add</code></td><td>A git repo registered to the project</td></tr>
+              <tr><td>3</td><td><strong>Task</strong></td><td><code>wksp task</code></td><td>An isolated unit of work; each repo gets a worktree + branch</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROLE 3: UX REVIEWER -->
+    <div id="ux" class="section section-anchor">
+      <div class="sh">👤 Role 3 — UX Reviewer</div>
+      <span class="role-label role-ux">UX Reviewer</span>
+      <p class="mb-4" style="color:var(--text-sub)">Thinking like a developer who has never seen this tool. What would confuse them? What defaults would surprise them?</p>
+
+      <div class="finding open">
+        <div class="finding-header" onclick="toggleFinding(this)">
+          <div class="finding-num">1</div>
+          <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; The branch prompt is the highest-friction moment and gets no preamble</div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          <p>A new user runs <code>wksp task PROJ-123</code> and immediately gets:</p>
+          <pre>Branch for backend [Enter=current, name=new/existing, s=shared, x=exclude]:</pre>
+          <p><strong>Approved simplification:</strong> drop <code>name=new/existing</code> — it's redundant. Whatever the user types after the colon is the branch name; the label adds noise without adding meaning. The prompt becomes:</p>
+          <pre>Branch for backend [Enter=current, s=shared, x=exclude]:
+  s — use a shared worktree (all tasks share one checkout)
+  x — exclude this repo from this task</pre>
+          <p>The two-line hint only prints on the first <code>wksp task</code> run (tracked in config) or when <code>--help</code> is passed. There is no explanation of what "shared" or "exclude" mean in context — first-time users will press Enter for everything, which is correct, but they won't know why <code>s</code> and <code>x</code> exist or when to use them. The inline hint solves this without cluttering every invocation.</p>
+        </div>
+      </div>
+
+      <div class="finding open">
+        <div class="finding-header" onclick="toggleFinding(this)">
+          <div class="finding-num">2</div>
+          <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; <code>wksp list</code> goes quiet about archived tasks <span class="meta-chip active" style="font-size:11px;padding:2px 8px;vertical-align:middle">Fix approved</span></div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          <p>If PROJ-123 was archived and you run <code>wksp list</code>, you see nothing for it. No indication that anything exists in archived state. A user who archived a task would assume it's gone. The output footer should say: "2 archived task(s) — run <code>wksp list --archived</code> to see them."</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="finding-header" onclick="toggleFinding(this)">
+          <div class="finding-num">3</div>
+          <div class="finding-title"><span class="sev sev-high">High</span> &nbsp; <code>reposRoot</code> is jargon at the worst moment <span class="meta-chip active" style="font-size:11px;padding:2px 8px;vertical-align:middle">Fix approved</span></div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          <p>During <code>wksp init</code>, if <code>reposRoot</code> is not set, the user is prompted for it. They are trying to create a project; they don't know what <code>reposRoot</code> means yet. The prompt needs plain-English context: <em>"Directory where GitHub repos will be cloned. Only needed if you plan to register repos by GitHub URL — local paths don't need this."</em></p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="finding-header" onclick="toggleFinding(this)">
+          <div class="finding-num">4</div>
+          <div class="finding-title"><span class="sev sev-medium">Medium</span> &nbsp; <code>wksp delete</code> asks for <code>y</code> to delete everything</div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          <p>The user typed <code>wksp delete</code>. They will type <code>y</code> without reading. Requiring them to type the project name (e.g. <code>acme</code>) ensures they read and confirm. The <code>confirmTyped()</code> function already exists in <code>lib/prompts.js</code> — this is a one-line change in <code>delete.js</code>.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="finding-header" onclick="toggleFinding(this)">
+          <div class="finding-num">5</div>
+          <div class="finding-title"><span class="sev sev-medium">Medium</span> &nbsp; <code>wksp config get</code> dumps raw JSON</div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          <p>Developers expect formatted key-value output from a config command, not raw JSON. Ideally each key includes a short description of what it does. <code>autoResume</code> and <code>reposRoot</code> should be listed with their purpose even when unset.</p>
+          <pre>reposRoot   /c/dev/repos        — directory for GitHub repo clones
+autoResume  true                 — auto-resume last Claude session</pre>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="finding-header" onclick="toggleFinding(this)">
+          <div class="finding-num">6</div>
+          <div class="finding-title"><span class="sev sev-medium">Medium</span> &nbsp; <code>.code-workspace</code> file is generated silently</div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          <p>The task command writes a VS Code multi-root workspace file to the project root. Nothing tells you this happened or where it is. A simple <code>✓ acme--PROJ-123.code-workspace (VS Code multi-root)</code> line in the task creation output would make this discoverable.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="finding-header" onclick="toggleFinding(this)">
+          <div class="finding-num">7</div>
+          <div class="finding-title"><span class="sev sev-low">Low</span> &nbsp; No <code>wksp --version</code></div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          <p>Every developer's first instinct when debugging is to check what version they have. Not having it is a broken expectation. Two lines in <code>bin/wksp.js</code>.</p>
+        </div>
+      </div>
+
+      <div class="finding">
+        <div class="finding-header" onclick="toggleFinding(this)">
+          <div class="finding-num">8</div>
+          <div class="finding-title"><span class="sev sev-low">Low</span> &nbsp; "task" is the wrong word for the main command</div>
+          <div class="finding-chevron">▼</div>
+        </div>
+        <div class="finding-body">
+          <p><code>wksp task PROJ-123</code> sounds like task management software. The actual action is "open an isolated workspace for this ticket." <code>wksp open PROJ-123</code> or <code>wksp work PROJ-123</code> would communicate this better. That said, renaming the primary command is high-disruption — at minimum, every piece of help text should explain what "task" means in one sentence.</p>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROLE 4: GRADER -->
+    <div id="grader" class="section section-anchor">
+      <div class="sh">📋 Role 4 — Grader</div>
+      <span class="role-label role-grader">Grader</span>
+      <p class="mb-4" style="color:var(--text-sub)">Rubric: every problem has a fix; no recommendation is a rewrite; priorities ordered by user impact; no conflicts.</p>
+
+      <div class="callout ok">
+        <span class="callout-icon">✅</span>
+        <div class="callout-body"><strong>No rewrites disguised as improvements.</strong> All changes are additive flags, renames, new subcommands within existing structure, or small function splits. The 742-line <code>task.js</code> is not proposed for a full rewrite — only specific behaviors are extracted or fixed.</div>
+      </div>
+      <div class="callout ok">
+        <span class="callout-icon">✅</span>
+        <div class="callout-body"><strong>No conflicts between recommendations.</strong> The repo subcommand restructure and the <code>--remove</code> flag removal don't conflict with any other change. The archive/restore split doesn't conflict with keeping <code>--delete</code> on task.</div>
+      </div>
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body"><strong>Two items correctly deferred.</strong> <code>--shared</code> semantic rename (breaking change to <code>repos.txt</code> format) and shell completion (future enhancement) are not in the implementation list — this is the right call.</div>
+      </div>
+
+      <div class="card mt-4">
+        <div class="card-header"><h2>Priority Order by User Impact</h2></div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Change</th><th>Impact</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td><code>wksp archive</code> / <code>wksp restore</code> as top-level commands</td><td><span class="sev sev-critical">Highest</span></td></tr>
+              <tr><td>2</td><td><code>wksp repo add/remove/list</code> subcommand structure</td><td><span class="sev sev-critical">Highest</span></td></tr>
+              <tr><td>3</td><td><code>wksp cleanup</code> redesign — kill <code>--stale</code>, kill <code>-r</code>, smart defaults</td><td><span class="sev sev-high">High</span></td></tr>
+              <tr><td>4</td><td><code>--del</code> → <code>--delete</code>, <code>--to-exclude</code> → <code>--exclude</code>, <code>--to-shared</code> → <code>--use-shared</code>, <code>--to-worktree</code> → <code>--use-worktree</code></td><td><span class="sev sev-high">High</span></td></tr>
+              <tr><td>5</td><td><code>wksp --version</code></td><td><span class="sev sev-high">High</span></td></tr>
+              <tr><td>6</td><td>Per-command <code>--help</code></td><td><span class="sev sev-high">High</span></td></tr>
+              <tr><td>7</td><td><code>--rename</code> should not launch Claude</td><td><span class="sev sev-high">High</span></td></tr>
+              <tr><td>8</td><td><code>wksp list</code> footer for archived tasks</td><td><span class="sev sev-medium">Medium</span></td></tr>
+              <tr><td>9</td><td><code>wksp delete</code> requires typing project name</td><td><span class="sev sev-medium">Medium</span></td></tr>
+              <tr><td>10</td><td><code>wksp status &lt;task-id&gt;</code> optional arg</td><td><span class="sev sev-medium">Medium</span></td></tr>
+              <tr><td>11</td><td><code>config set</code> defaults to global outside project</td><td><span class="sev sev-medium">Medium</span></td></tr>
+              <tr><td>12</td><td>Print <code>.code-workspace</code> path on creation</td><td><span class="sev sev-low">Low</span></td></tr>
+              <tr><td>13</td><td>Document <code>autoResume</code> and <code>WKSP_DEBUG</code> in help</td><td><span class="sev sev-low">Low</span></td></tr>
+              <tr><td>14</td><td><code>reposRoot</code> prompt: better explanation in <code>init</code></td><td><span class="sev sev-low">Low</span></td></tr>
+              <tr><td>15</td><td><code>config get</code>: formatted key-value output with descriptions</td><td><span class="sev sev-low">Low</span></td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+    </div>
+
+    <!-- ROLE 5: IMPLEMENTER -->
+    <div id="implementer" class="section section-anchor">
+      <div class="sh">⚙️ Role 5 — Implementer</div>
+      <span class="role-label role-implementer">Implementer</span>
+      <p class="mb-4" style="color:var(--text-sub)">Concrete, ordered changes. File names, function names, flag names — specific. Do these in order; each is independent except where noted.</p>
+
+      <div class="card">
+        <div class="card-body">
+
+          <div class="impl-step">
+            <div class="impl-num">1</div>
+            <div class="impl-content">
+              <div class="impl-title">Add <code>--version</code> flag</div>
+              <div class="impl-file">bin/wksp.js</div>
+              <div class="impl-desc">
+                <p>Before the COMMANDS lookup, add:</p>
+                <pre>if (cmd === '--version' || cmd === '-v') {
+  console.log(require('../package.json').version);
+  process.exit(0);
+}</pre>
+                <p>Add <code>wksp --version</code> to the <code>printHelp()</code> output.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">2</div>
+            <div class="impl-content">
+              <div class="impl-title">Rename <code>--del</code> → <code>--delete</code></div>
+              <div class="impl-file">lib/commands/task.js</div>
+              <div class="impl-desc">
+                <p>Change <code>args.includes('--del')</code> to <code>args.includes('--delete') || args.includes('--del')</code> (keep <code>--del</code> as a deprecated alias temporarily). Update help text in <code>bin/wksp.js</code>.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">3</div>
+            <div class="impl-content">
+              <div class="impl-title">Fix <code>--rename</code> to not launch Claude</div>
+              <div class="impl-file">lib/commands/task.js</div>
+              <div class="impl-desc">
+                <p>Find the rename branch. After the rename logic completes (folder rename + any path updates), add <code>return;</code> before the code falls through to <code>launch()</code>. The rename is a filesystem mutation, not an open-task action.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">4</div>
+            <div class="impl-content">
+              <div class="impl-title">Rename conversion flags</div>
+              <div class="impl-file">lib/commands/task.js</div>
+              <div class="impl-desc">
+                <table class="data-table" style="margin-top:8px">
+                  <thead><tr><th>Old</th><th>New</th></tr></thead>
+                  <tbody>
+                    <tr><td><code>--to-shared &lt;repo&gt;</code></td><td><code>--use-shared &lt;repo&gt;</code></td></tr>
+                    <tr><td><code>--to-worktree &lt;repo&gt;</code></td><td><code>--use-worktree &lt;repo&gt;</code></td></tr>
+                    <tr><td><code>--to-exclude &lt;repo&gt;</code></td><td><code>--exclude &lt;repo&gt;</code></td></tr>
+                  </tbody>
+                </table>
+                <p style="margin-top:8px">Accept both old and new flag names during transition. Print a deprecation warning for old names.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">5</div>
+            <div class="impl-content">
+              <div class="impl-title">Add <code>wksp archive</code> and <code>wksp restore</code> as top-level commands</div>
+              <div class="impl-file">lib/commands/archiveCmd.js &nbsp;·&nbsp; lib/commands/restoreCmd.js &nbsp;·&nbsp; bin/wksp.js</div>
+              <div class="impl-desc">
+                <p>Extract the archive/unarchive branches from <code>task.js run()</code> into named functions in <code>lib/archive.js</code>. Create two thin command wrappers:</p>
+                <pre>// lib/commands/archiveCmd.js
+async function run(args) {
+  const id = args[0];
+  if (!id) { console.error('  Usage: wksp archive &lt;task-id&gt;'); process.exit(1); }
+  // call extracted archiveTask(projectDir, id)
+}</pre>
+                <p>Add to <code>bin/wksp.js</code> COMMANDS map: <code>archive</code> and <code>restore</code>. Keep <code>--archive</code>/<code>--unarchive</code> on <code>wksp task</code> as deprecated aliases.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">6</div>
+            <div class="impl-content">
+              <div class="impl-title">Restructure <code>wksp repo</code> into subcommands</div>
+              <div class="impl-file">lib/commands/repo.js</div>
+              <div class="impl-desc">
+                <p>Refactor <code>run(args)</code> to dispatch on <code>args[0]</code>:</p>
+                <pre>async function run(args) {
+  const sub = args[0];
+  if (!sub || sub === 'list')           return runList();
+  if (sub === 'add' || isPath(sub))     return runAdd(sub === 'add' ? args.slice(1) : args);
+  if (sub === 'remove' || sub === 'rm') return runRemove(args.slice(1));
+}</pre>
+                <p><code>wksp repo list</code> prints each entry with name, path, and flags. <code>wksp repo &lt;path&gt;</code> with no subcommand remains an alias for <code>add</code> (backward compat). <code>wksp repo &lt;path&gt; --remove</code> prints a deprecation warning and delegates to <code>remove</code>.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">7</div>
+            <div class="impl-content">
+              <div class="impl-title">Overhaul <code>wksp cleanup</code></div>
+              <div class="impl-file">lib/commands/cleanup.js</div>
+              <div class="impl-desc">
+                <p>New signature: <code>wksp cleanup [&lt;path&gt;] [--recursive]</code></p>
+                <pre>async function run(args) {
+  const recursive = args.includes('--recursive') || args.includes('-r');
+  const positional = args.filter(a => !a.startsWith('-'));
+
+  if (positional.length === 0) {
+    // Default: scan all repos in current project
+    const projectDir = config.findProjectDir();
+    if (!projectDir) {
+      console.error('  Not inside a wksp project. Provide a path: wksp cleanup &lt;path&gt;');
+      process.exit(1);
+    }
+    for (const repo of readRepos(projectDir)) await pruneRepo(repo.normalized);
+    return;
+  }
+  // ... existing single-path logic
+}</pre>
+                <p>Keep <code>--stale &lt;path&gt;</code> and <code>-r</code> as deprecated aliases that print a warning.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">8</div>
+            <div class="impl-content">
+              <div class="impl-title"><code>wksp list</code> footer for archived tasks</div>
+              <div class="impl-file">lib/commands/list.js</div>
+              <div class="impl-desc">
+                <p>After printing live tasks, count items in <code>archived-tasks/</code> directory. If count &gt; 0, append:</p>
+                <pre>  ──────────────────────────────────────────
+  3 archived task(s) — run: wksp list --archived</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">9</div>
+            <div class="impl-content">
+              <div class="impl-title"><code>wksp delete</code> requires typing the project name</div>
+              <div class="impl-file">lib/commands/delete.js</div>
+              <div class="impl-desc">
+                <p>Change the confirmation from <code>confirm('Delete project? [y/N]')</code> to:</p>
+                <pre>const confirmed = await confirmTyped(
+  `  Type "${projectName}" to confirm deletion: `,
+  projectName
+);</pre>
+                <p><code>confirmTyped(prompt, expected)</code> already exists in <code>lib/prompts.js</code>. One-line change.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">10</div>
+            <div class="impl-content">
+              <div class="impl-title"><code>wksp status &lt;task-id&gt;</code> optional argument</div>
+              <div class="impl-file">lib/commands/status.js</div>
+              <div class="impl-desc">
+                <p>Add at top of <code>run(args)</code>:</p>
+                <pre>let taskDir;
+const taskId = args[0];
+if (taskId) {
+  const projectDir = config.findProjectDir();
+  if (!projectDir) { console.error('  Not inside a wksp project'); process.exit(1); }
+  taskDir = path.join(projectDir, 'tasks', taskId);
+} else {
+  taskDir = process.cwd(); // existing behavior
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">11</div>
+            <div class="impl-content">
+              <div class="impl-title"><code>config set</code> defaults to global outside a project</div>
+              <div class="impl-file">lib/commands/configCmd.js</div>
+              <div class="impl-desc">
+                <p>In the <code>sub === 'set'</code> branch, replace the error with a graceful fallback:</p>
+                <pre>const projectDir = config.findProjectDir();
+if (!projectDir) {
+  config.setGlobalConfig(key, value);
+  console.log(`  ✓  ~/.wksp: ${key} = ${value}  (no project found — saved globally)`);
+  return;
+}</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">12</div>
+            <div class="impl-content">
+              <div class="impl-title">Print <code>.code-workspace</code> path on creation</div>
+              <div class="impl-file">lib/commands/task.js</div>
+              <div class="impl-desc">
+                <p>Find the <code>fs.writeFileSync</code> call that writes the <code>.code-workspace</code> file. Immediately after it, add:</p>
+                <pre>console.log(`  ✓  ${path.relative(projectDir, workspaceFile)}  (VS Code multi-root workspace)`);</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">13</div>
+            <div class="impl-content">
+              <div class="impl-title">Add per-command <code>--help</code></div>
+              <div class="impl-file">lib/commands/task.js &nbsp;·&nbsp; lib/commands/repo.js &nbsp;·&nbsp; lib/commands/cleanup.js (start here)</div>
+              <div class="impl-desc">
+                <p>At the top of each <code>run(args)</code> in the three highest-traffic commands:</p>
+                <pre>if (args.includes('--help') || args.includes('-h')) {
+  printUsage(); // local function with full flag list and examples
+  process.exit(0);
+}</pre>
+                <p>Then extend to the remaining commands.</p>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">14</div>
+            <div class="impl-content">
+              <div class="impl-title">Document <code>autoResume</code> and <code>WKSP_DEBUG</code> in help</div>
+              <div class="impl-file">bin/wksp.js</div>
+              <div class="impl-desc">
+                <p>In <code>printHelp()</code>, add a section after the commands list:</p>
+                <pre>  Config keys (wksp config set &lt;key&gt; &lt;value&gt;):
+    reposRoot     Directory where GitHub repos are cloned
+    autoResume    true/false — auto-resume last Claude session (default: false)
+
+  Debug:
+    WKSP_DEBUG=1  Print full stack traces on errors</pre>
+              </div>
+            </div>
+          </div>
+
+          <div class="impl-step">
+            <div class="impl-num">15</div>
+            <div class="impl-content">
+              <div class="impl-title">Improve <code>reposRoot</code> prompt wording in <code>wksp init</code></div>
+              <div class="impl-file">lib/commands/init.js</div>
+              <div class="impl-desc">
+                <p>Documentation-only change. Replace the prompt text:</p>
+                <pre>// Old
+'  reposRoot is where GitHub repos get cloned (only needed for GitHub URLs).'
+
+// New
+'  reposRoot is the directory where GitHub repos will be cloned.'
+'  Only needed if you plan to register repos by GitHub URL (e.g. github.com/org/repo).'
+'  Local paths (e.g. /c/dev/myrepo) don\'t need this — press Enter to skip.'</pre>
+              </div>
+            </div>
+          </div>
+
+        </div>
+      </div>
+    </div>
+
+    <!-- ROLE 6: IMPLEMENTATION ROADMAP -->
+    <div id="roadmap" class="section section-anchor">
+      <div class="sh">🗺️ Implementation Roadmap</div>
+      <span class="role-label role-implementer">Roadmap</span>
+      <p class="mb-4" style="color:var(--text-sub)">Two-track plan: v1.x keeps the current surface but fixes friction and adds missing basics. v2.0 is a breaking major with verb-first redesign, new features, and removal of the <code>--as</code> alias. A migration script ships with v2.0 so users can upgrade safely or stay on v1.x.</p>
+
+      <div class="callout warn">
+        <span class="callout-icon">⚠️</span>
+        <div class="callout-body"><strong>Breaking change boundary:</strong> every rename in this document (flag renames, command restructure, verb-first syntax) is a breaking change and belongs in v2.0, not v1.x. v1.x only gets additive changes and bug fixes. v2.0 carries deprecated aliases for every changed command so the migration script can find and update them automatically.</div>
+      </div>
+
+      <!-- v1.x track -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>v1.x — Additive fixes only (ship now)</h2></div>
+        <div class="card-body">
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Change</th><th>Why it's safe for v1.x</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Add <code>wksp --version</code></td><td>New flag — nothing breaks</td></tr>
+              <tr><td>2</td><td>Per-command <code>--help</code></td><td>New flag — nothing breaks</td></tr>
+              <tr><td>3</td><td><code>wksp list</code> footer for archived tasks</td><td>Output-only addition</td></tr>
+              <tr><td>4</td><td><code>wksp status &lt;task-id&gt;</code> optional arg</td><td>New positional arg with backward-compat default</td></tr>
+              <tr><td>5</td><td><code>config set</code> defaults to global outside project</td><td>Error → graceful fallback</td></tr>
+              <tr><td>6</td><td>Print <code>.code-workspace</code> path on creation</td><td>Output-only addition</td></tr>
+              <tr><td>7</td><td>Document <code>autoResume</code> and <code>WKSP_DEBUG</code> in help</td><td>Help-text only</td></tr>
+              <tr><td>8</td><td>Improve <code>reposRoot</code> prompt wording in <code>wksp init</code></td><td>String change only</td></tr>
+              <tr><td>9</td><td><code>wksp delete</code> requires typing project name</td><td>Safer — uses existing <code>confirmTyped()</code></td></tr>
+              <tr><td>10</td><td>Branch prompt: drop <code>name=new/existing</code> label; add first-run hint</td><td>Prompt simplification — no API change</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- v2.0 track -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>v2.0 — Breaking major release</h2></div>
+        <div class="card-body">
+          <p style="color:var(--text-sub); margin-bottom:14px">All changes below are breaking. v2.0 ships with a migration script and keeps v1.x command aliases for one major cycle, printing deprecation warnings.</p>
+          <table class="data-table">
+            <thead><tr><th>#</th><th>Change</th><th>Breaking surface</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Verb-first command redesign (see redesign card above)</td><td>All primary commands renamed</td></tr>
+              <tr><td>2</td><td>Revert <code>--as &lt;alias&gt;</code> from <code>wksp repo</code> (PR #3)</td><td>Removes a flag; edge use case, not common</td></tr>
+              <tr><td>3</td><td><code>--del</code> → <code>--delete</code>, <code>--to-*</code> → <code>--use-*/--exclude</code> flag renames</td><td>Flag names</td></tr>
+              <tr><td>4</td><td><code>wksp cleanup</code> redesign — kill <code>--stale</code>, kill <code>-r</code></td><td>Removes flags</td></tr>
+              <tr><td>5</td><td>Shared dependency support (node_modules / venv — see below)</td><td>New config key + structural change</td></tr>
+              <tr><td>6</td><td>Workspace export/import with AI context (see below)</td><td>New commands</td></tr>
+              <tr><td>7</td><td>Update all docs</td><td>Docs</td></tr>
+            </tbody>
+          </table>
+        </div>
+      </div>
+
+      <!-- Revert --as alias -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>Revert <code>--as &lt;alias&gt;</code> (PR #3)</h2></div>
+        <div class="card-body">
+          <div class="callout error" style="margin-bottom:14px">
+            <span class="callout-icon">🗑️</span>
+            <div class="callout-body"><strong>Decision: revert.</strong> Registering the same repo twice under different aliases is a workaround for a multi-branch workflow that should instead be handled at the task level. It adds complexity to parsing, listing, and worktree management without serving the common case. A workspace should be about distinct repos.</div>
+          </div>
+          <div class="callout warn" style="margin-bottom:14px">
+            <span class="callout-icon">⚠️</span>
+            <div class="callout-body"><strong>Side-effect to track:</strong> PR #3 bundled more than just the <code>--as</code> flag — it also changed the default branch name behavior (e.g. from <code>production</code> to <code>current</code>). Reverting the PR wholesale will undo that change too. Before reverting, diff PR #3 carefully and cherry-pick out any behavior changes that should be kept. Decisions elsewhere in this document that reference branch naming may need to be revisited if that behavior reverts.</div>
+          </div>
+          <p style="color:var(--text-sub)">Revert PR #3 (<code>feat: allow same repo registered twice via --as &lt;alias&gt;</code>) before v2.0. Any users relying on it should use separate tasks with distinct repo registrations instead.</p>
+        </div>
+      </div>
+
+      <!-- Shared node_modules / venv -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>New Feature: Shared dependencies (node_modules / venv)</h2></div>
+        <div class="card-body">
+          <p style="color:var(--text-sub); margin-bottom:14px">Problem: when a workspace has multiple tasks, each task clones its own <code>node_modules</code> (or Python venv) — usually identical. This wastes disk and slows task creation.</p>
+
+          <p style="margin-bottom:10px"><strong>Options evaluated:</strong></p>
+          <table class="data-table" style="margin-bottom:16px">
+            <thead><tr><th>Option</th><th>Pros</th><th>Cons</th></tr></thead>
+            <tbody>
+              <tr>
+                <td><strong>A.</strong> Symlink to original repo's <code>node_modules</code></td>
+                <td>Zero extra setup; always in sync with the main checkout</td>
+                <td>Breaks if the task branch has different deps; can pollute the shared install if a task runs <code>npm install</code></td>
+              </tr>
+              <tr>
+                <td><strong>B.</strong> Shared cache dir in project root</td>
+                <td>Isolated from the source repo; controlled by wksp; all tasks share one install</td>
+                <td>Requires a "link" step on task creation; cache can drift from per-task lockfiles</td>
+              </tr>
+              <tr>
+                <td><strong>C.</strong> Per-task install (current behavior, explicit opt-in)</td>
+                <td>Maximum isolation; never wrong</td>
+                <td>Slow and disk-heavy</td>
+              </tr>
+            </tbody>
+          </table>
+
+          <div class="callout info">
+            <span class="callout-icon">💡</span>
+            <div class="callout-body"><strong>Recommendation: Option B as opt-in, with Option C as default.</strong> Add a <code>sharedDeps: true</code> config flag per repo registration. When enabled, wksp creates a <code>.wksp-deps/&lt;repo-name&gt;/node_modules</code> directory in the project root and symlinks each task's <code>node_modules</code> to it. The user runs <code>wksp install --repo &lt;name&gt;</code> once to populate it. Option A is too risky. Option C stays the default — the performance win only matters when tasks &gt; 2 and repos are large.</div>
+          </div>
+          <p class="mt-4" style="color:var(--text-sub)">Same pattern applies to Python venv: <code>.wksp-deps/&lt;repo-name&gt;/.venv</code> symlinked into each task. Worth it when a repo has a heavy venv (e.g. ML dependencies) used identically across all tasks.</p>
+        </div>
+      </div>
+
+      <!-- Workspace export/import -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>New Feature: Workspace export/import with AI context <span class="meta-chip active" style="font-size:11px;padding:2px 8px;vertical-align:middle">Approved</span></h2></div>
+        <div class="card-body">
+          <p style="color:var(--text-sub); margin-bottom:14px">Use case: share a workspace with a teammate who should continue working on it — including the Claude session context, task state, and repo configuration — without manual setup.</p>
+
+          <p style="margin-bottom:8px"><strong>Export — always includes project info:</strong></p>
+          <table class="data-table" style="margin-bottom:14px">
+            <thead><tr><th>Command</th><th>What it bundles</th></tr></thead>
+            <tbody>
+              <tr><td><code>wksp export --task &lt;id&gt; [--out &lt;file&gt;]</code></td><td>Project config + repo list (with remote URLs) + the specified task's branch state and Claude session transcript. Always self-contained — no prior setup required on the receiving end.</td></tr>
+              <tr><td><code>wksp export [--out &lt;file&gt;]</code></td><td>Full project: config, all repos, all tasks, all Claude contexts.</td></tr>
+            </tbody>
+          </table>
+
+          <p style="margin-bottom:8px"><strong>Import flow:</strong></p>
+          <table class="data-table" style="margin-bottom:14px">
+            <thead><tr><th>Step</th><th>Behavior</th></tr></thead>
+            <tbody>
+              <tr><td>1. Read manifest</td><td>Parse the bundle's project name, repos, and tasks</td></tr>
+              <tr><td>2. Choose mode</td><td>Prompt: <em>"Create a new project from this export, or import into an existing project folder?"</em></td></tr>
+              <tr><td>3a. New project</td><td>Create project directory, register repos (clone from remote URL or prompt for local path), restore tasks and AI context</td></tr>
+              <tr><td>3b. Existing project</td><td>Diff the export's project config against the current project: show a comparison table (repos present/missing/renamed, config key differences). User confirms before anything is written. Only the exported task and its context are added — existing tasks and config are untouched unless the user opts in.</td></tr>
+              <tr><td>4. Seed AI context</td><td>Places Claude session transcript in each restored task directory so <code>wksp open &lt;id&gt;</code> resumes from it</td></tr>
+            </tbody>
+          </table>
+
+          <div class="callout warn">
+            <span class="callout-icon">⚠️</span>
+            <div class="callout-body"><strong>Claude context portability caveat:</strong> Claude session transcripts are stored locally (not in any cloud). The export includes the raw transcript JSON. The teammate's wksp uses it as the initial context file on <code>claude --continue</code>. This works today with Claude Code's <code>--resume</code> flag. Verify the exact flag name before implementation.</div>
+          </div>
+        </div>
+      </div>
+
+      <!-- Migration script -->
+      <div class="card mb-4">
+        <div class="card-header"><h2>Migration script (v1.x → v2.0)</h2></div>
+        <div class="card-body">
+          <p style="color:var(--text-sub); margin-bottom:14px">Ships as <code>wksp migrate</code> (or <code>npx wksp-migrate</code> for users on v1.x who haven't upgraded yet).</p>
+          <table class="data-table">
+            <thead><tr><th>Step</th><th>What it does</th></tr></thead>
+            <tbody>
+              <tr><td>1</td><td>Detect v1.x project structure (presence of <code>repos.txt</code>, task folder layout)</td></tr>
+              <tr><td>2</td><td>Scan shell scripts / package.json scripts for <code>wksp task</code>, <code>wksp repo --remove</code>, etc. and rewrite to v2.0 syntax</td></tr>
+              <tr><td>3</td><td>Remove any <code>--as &lt;alias&gt;</code> entries from <code>repos.txt</code> (with a warning listing affected entries)</td></tr>
+              <tr><td>4</td><td>Print a diff of every file changed and ask for confirmation before writing</td></tr>
+              <tr><td>5</td><td>Write a <code>.wksp-migration-log.txt</code> with timestamp and summary</td></tr>
+            </tbody>
+          </table>
+          <p class="mt-4" style="color:var(--text-sub)">Users who want to stay on v1.x: pin the npm version (<code>npm install -g wksp@1</code>). v1.x gets security fixes only after v2.0 ships.</p>
+        </div>
+      </div>
+
+      <!-- Docs -->
+      <div class="card">
+        <div class="card-header"><h2>Docs updates required for v2.0</h2></div>
+        <div class="card-body">
+          <ul style="color:var(--text-sub)">
+            <li>Rewrite the quick-start guide around verb-first commands (<code>wksp open</code> as the primary entry point)</li>
+            <li>Add a "three concepts" section first — Project → Repo → Task — before any commands</li>
+            <li>Add a migration guide page (v1.x → v2.0) with before/after examples</li>
+            <li>Document <code>sharedDeps</code> config key and the shared dependency workflow</li>
+            <li>Document <code>wksp export</code> / <code>wksp import</code> with a "handoff to teammate" walkthrough</li>
+            <li>Remove all references to <code>--as &lt;alias&gt;</code></li>
+            <li>Update command reference to reflect verb-first names as canonical; old names shown as deprecated</li>
+          </ul>
+        </div>
+      </div>
+
+    </div>
+
+  </main>
+</div>
+
+
+<script>
+  function toggleFinding(header) {
+    header.parentElement.classList.toggle('open');
+  }
+
+
+  function toggleTheme() {
+    const html = document.documentElement;
+    const isDark = html.getAttribute('data-theme') === 'dark';
+    html.setAttribute('data-theme', isDark ? 'light' : 'dark');
+    document.getElementById('theme-icon').textContent  = isDark ? '🌙' : '☀️';
+    document.getElementById('theme-label').textContent = isDark ? 'Switch to Dark' : 'Switch to Light';
+    localStorage.setItem('html-report-theme', isDark ? 'light' : 'dark');
+  }
+
+  (function () {
+    const saved = localStorage.getItem('html-report-theme');
+    if (saved === 'dark') {
+      document.documentElement.setAttribute('data-theme', 'dark');
+      document.getElementById('theme-icon').textContent  = '☀️';
+      document.getElementById('theme-label').textContent = 'Switch to Light';
+    }
+  })();
+
+  const navLinks = document.querySelectorAll('.nav-link[href^="#"]');
+  const anchors  = document.querySelectorAll('.section-anchor');
+  if (navLinks.length && anchors.length) {
+    const observer = new IntersectionObserver(
+      (entries) => entries.forEach(e => {
+        if (e.isIntersecting)
+          navLinks.forEach(l => l.classList.toggle('active', l.getAttribute('href') === '#' + e.target.id));
+      }),
+      { rootMargin: '-20% 0px -70% 0px' }
+    );
+    anchors.forEach(a => observer.observe(a));
+  }
+</script>
+</body>
+</html>

@@ -14,11 +14,18 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 - `wksp cleanup` zero-arg mode — scans all repos registered in the current project (no path required)
 - `wksp cleanup --recursive` — prune all first-level subdirectory git repos inside a given path
 - `task.json` — replaces `task-shared.txt` + `task-excluded.txt` with a single JSON file per task; existing `.txt` files continue to work (read transparently); `wksp migrate` converts them
+- **Shared dependency directories** — opt-in `sharedDeps` config key in `.wksp`; wksp creates junctions/symlinks so all worktrees of a repo share a single installed dep cache at `.wksp-cache/`
+  - `wksp task repo <id> <repo> own-deps` — switch a worktree to an independent dep install
+  - `wksp task repo <id> <repo> link-deps` — restore shared dep links
+  - Auto-opt-out on resume: if a worktree already has a real dep directory, wksp marks it as own-deps and warns instead of overwriting
+  - `task-own-deps.txt` — per-task file tracking opt-out worktrees; preserved in archive/unarchive cycle (`ownDepsRepos` field in `archived.json`)
+- `wksp init` now adds `.wksp-cache/` to the generated `.gitignore`
 
 ### Changed
 
 - `wksp cleanup` signature — `--stale` flag is no longer required; new form is `wksp cleanup [<path>] [--recursive]`; old `--stale`/`-r` syntax still works with a deprecation warning
-- `CURRENT_SCHEMA_VERSION` bumped from 1 → 2; `wksp migrate` now applies a 1→2 migration that converts legacy `.txt` task files to `task.json`
+- `CURRENT_SCHEMA_VERSION` bumped 1 → 2: `wksp migrate` converts legacy `.txt` task files to `task.json`
+- `CURRENT_SCHEMA_VERSION` bumped 2 → 3: `wksp migrate` adds `.wksp-cache/` to `.gitignore`
 
 ### Removed
 
