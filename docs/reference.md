@@ -58,9 +58,10 @@ wksp task delete PROJ-1234      # tear down worktrees and delete task folder
 wksp task rename PROJ-1234 PROJ-5678   # rename task in place
 wksp task archive PROJ-1234     # remove worktrees, move to archived-tasks/
 wksp task unarchive PROJ-1234   # restore an archived task
-wksp task share PROJ-1234 backend      # switch repo to shared path for this task
-wksp task worktree PROJ-1234 backend   # create/restore a worktree for a repo
-wksp task exclude PROJ-1234 backend    # exclude a repo from this task
+wksp task repo PROJ-1234 backend share    # switch repo to shared path for this task
+wksp task repo PROJ-1234 backend worktree # create/restore a worktree for a repo
+wksp task repo PROJ-1234 backend exclude  # exclude a repo from this task
+wksp task repo PROJ-1234                  # interactive: pick repo then mode
 ```
 
 `create` — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout), then launches Claude.
