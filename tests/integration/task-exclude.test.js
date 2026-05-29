@@ -62,14 +62,15 @@ describe('exclude at new-repo prompt', () => {
   });
   afterEach(() => cleanup(projectDir, repoDir));
 
-  test('typing "x" excludes the repo and writes task-excluded.txt', async () => {
+  test('typing "x" excludes the repo and writes task.json', async () => {
     prompts.ask.mockResolvedValueOnce('x');
 
     await runTask(projectDir, 'TASK-EX');
 
-    const excludedFile = path.join(projectDir, 'tasks', 'TASK-EX', 'task-excluded.txt');
-    expect(fs.existsSync(excludedFile)).toBe(true);
-    expect(fs.readFileSync(excludedFile, 'utf8').trim().split('\n')).toContain(path.basename(repoDir));
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-EX', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    const data = JSON.parse(fs.readFileSync(jsonFile, 'utf8'));
+    expect((data.excluded || [])).toContain(path.basename(repoDir));
   });
 
   test('excluded repo gets no worktree', async () => {
@@ -131,14 +132,16 @@ describe('--to-worktree on an excluded repo', () => {
     prompts.ask.mockResolvedValueOnce('x');
     await runTask(projectDir, 'TASK-FLIP');
 
-    const excludedFile = path.join(projectDir, 'tasks', 'TASK-FLIP', 'task-excluded.txt');
-    expect(fs.existsSync(excludedFile)).toBe(true);
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-FLIP', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).excluded).toContain(path.basename(repoDir));
 
     prompts.ask.mockReset();
     prompts.ask.mockResolvedValueOnce('feature/flipped');
     await runTask(projectDir, 'TASK-FLIP', '--to-worktree', path.basename(repoDir));
 
-    expect(fs.existsSync(excludedFile)).toBe(false);
+    // After clearing exclusion (both sets empty), task.json is deleted
+    expect(fs.existsSync(jsonFile)).toBe(false);
     const wtPath = path.join(projectDir, 'tasks', 'TASK-FLIP', WORKTREES_DIR, path.basename(repoDir));
     expect(fs.existsSync(wtPath)).toBe(true);
     expect(git.currentBranch(wtPath)).toBe('feature/flipped');
@@ -167,9 +170,9 @@ describe('new repo added after task creation can be excluded', () => {
     prompts.ask.mockResolvedValueOnce('x');
     await runTask(projectDir, 'TASK-LATE');
 
-    const excludedFile = path.join(projectDir, 'tasks', 'TASK-LATE', 'task-excluded.txt');
-    expect(fs.existsSync(excludedFile)).toBe(true);
-    expect(fs.readFileSync(excludedFile, 'utf8')).toContain(path.basename(repoB));
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-LATE', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).excluded).toContain(path.basename(repoB));
 
     const wtB = path.join(projectDir, 'tasks', 'TASK-LATE', WORKTREES_DIR, path.basename(repoB));
     expect(fs.existsSync(wtB)).toBe(false);

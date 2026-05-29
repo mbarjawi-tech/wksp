@@ -247,9 +247,9 @@ describe('--unarchive: merged case', () => {
 
     // The branch is merged into main, and main is checked out in base repo
     // → conflict resolution converts this to task-shared instead of creating a worktree on main
-    const taskSharedFile = path.join(projectDir, 'tasks', 'TASK-MERGED', 'task-shared.txt');
-    expect(fs.existsSync(taskSharedFile)).toBe(true);
-    expect(fs.readFileSync(taskSharedFile, 'utf8')).toContain(path.basename(repoDir));
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-MERGED', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).shared).toContain(path.basename(repoDir));
 
     // No new worktree directory should have been created
     const newWtPath = path.join(projectDir, 'tasks', 'TASK-MERGED', WORKTREES_DIR, path.basename(repoDir));
@@ -374,8 +374,9 @@ describe('excluded repo round-trips as excluded', () => {
     prompts.ask.mockResolvedValueOnce('x');
     await runTask(projectDir, 'TASK-XCL');
 
-    const excludedFile = path.join(projectDir, 'tasks', 'TASK-XCL', 'task-excluded.txt');
-    expect(fs.existsSync(excludedFile)).toBe(true);
+    const jsonFile = path.join(projectDir, 'tasks', 'TASK-XCL', 'task.json');
+    expect(fs.existsSync(jsonFile)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).excluded).toContain(path.basename(repoA));
 
     prompts.confirm.mockResolvedValueOnce(true);
     await runTask(projectDir, 'TASK-XCL', '--archive');
@@ -385,7 +386,9 @@ describe('excluded repo round-trips as excluded', () => {
 
     await runTask(projectDir, 'TASK-XCL', '--unarchive');
 
-    const excludedAfter = path.join(projectDir, 'tasks', 'TASK-XCL', 'task-excluded.txt');
-    expect(fs.existsSync(excludedAfter)).toBe(true);
+    // After unarchive, excluded status restored in task.json
+    const jsonAfter = path.join(projectDir, 'tasks', 'TASK-XCL', 'task.json');
+    expect(fs.existsSync(jsonAfter)).toBe(true);
+    expect(JSON.parse(fs.readFileSync(jsonAfter, 'utf8')).excluded).toContain(path.basename(repoA));
   });
 });

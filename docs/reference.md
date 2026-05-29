@@ -37,6 +37,7 @@ wksp repo remove /c/dev/old-service
 
 | Subcommand | Description |
 |---|---|
+| `list` | List all registered repos and their flags. |
 | `add <path-or-url>` | Register a repo. Use `--shared` to always use the original path (no worktree). |
 | `remove <path-or-url>` | Remove from `repos.txt`. Warns if orphaned worktrees exist. |
 
@@ -118,18 +119,23 @@ wksp status PROJ-1234  # explicit task-id
 
 ---
 
-### `wksp cleanup --stale <path>`
+### `wksp cleanup [<path>] [--recursive]`
 
-Scan a base repo for stale worktree refs (worktrees that no longer exist on disk) and prune them. Useful after manually deleting task folders.
+Prune stale git worktree refs from base repos (worktrees that no longer exist on disk). Useful after manually deleting task folders.
 
 ```bash
-wksp cleanup --stale /c/dev/backend
-wksp cleanup --stale /c/dev -r   # scan all repos in the directory
+wksp cleanup                            # scan all registered repos in the current project
+wksp cleanup /c/dev/backend             # prune a specific repo
+wksp cleanup /c/dev --recursive         # prune all git repos inside a directory
 ```
+
+With no arguments, scans every repo registered in the current project's `repos.txt`. With a path, prunes that specific repo (or its subdirectories when `--recursive` is given).
 
 | Flag | Description |
 |---|---|
-| `-r` | Scan first-level subdirectories of `<path>` for git repos. |
+| `--recursive` | Also scan first-level subdirectories of `<path>` for git repos. |
+
+> **Deprecated syntax** — `wksp cleanup --stale <path>` and `-r` still work but print a deprecation warning. Use the new syntax above.
 
 ---
 
@@ -197,7 +203,7 @@ Project-level values override global ones. If you run `set` without `--global` o
 ```json
 {
   "name": "acme",
-  "schemaVersion": 1,
+  "schemaVersion": 2,
   "reposRoot": "/c/dev/acme-repos"
 }
 ```
@@ -217,13 +223,22 @@ C:/dev/frontend
 C:/dev/company-docs  --shared
 ```
 
-### `tasks/<id>/task-shared.txt`
+### `tasks/<id>/task.json`
 
-One folder name per line (the alias, or `basename` of the repo path when no alias is set). Lists repos that use their original folder for this task instead of a worktree. Created by `--to-shared`; read on every resume.
+Records which repos use a shared path or are excluded from the task. Both keys are optional and omitted when their list is empty.
 
-### `tasks/<id>/task-excluded.txt`
+```json
+{
+  "shared": ["company-docs"],
+  "excluded": ["legacy-service"]
+}
+```
 
-One folder name per line (same convention as `task-shared.txt`). Lists repos excluded from this task entirely. Created at task creation when the user types `x` at the branch prompt; can be cleared with `--to-worktree`.
+`shared` — repos using the base path directly (no worktree), by folder name. Written when the user types `s` at the branch prompt or runs `wksp task repo … share`.
+
+`excluded` — repos excluded from the task entirely, by folder name. Written when the user types `x` at the branch prompt or runs `wksp task repo … exclude`.
+
+> **Backward compatibility** — Projects with legacy `task-shared.txt` and `task-excluded.txt` files (created before v2.2.0) continue to work without migration. Running `wksp migrate` converts them to `task.json` and removes the old files.
 
 ### `archived-tasks/<id>/archived.json`
 
