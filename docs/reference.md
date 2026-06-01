@@ -162,9 +162,9 @@ See the [Migration Guide](/migration) for a full history of what each migration 
 
 ---
 
-### `wksp config set <key> <value>` / `wksp config get [key]`
+### `wksp config set <key> <value>` / `wksp config get [key]` / `wksp config clear <key>`
 
-Read or write config values. Without `--global`, writes to the current project's `.wksp`. With `--global`, writes to `~/.wksp`.
+Read, write, or remove config values. Without `--global`, operates on the current project's `.wksp`. With `--global`, operates on `~/.wksp`.
 
 ```bash
 wksp config set reposRoot /c/dev/games     # project-level
@@ -173,12 +173,15 @@ wksp config set reposRoot /c/dev --global  # global fallback
 wksp config set autoResume false           # project-level
 wksp config set autoResume true --global   # global fallback
 
+wksp config clear autoResume              # remove project-level override (falls back to global)
+wksp config clear reposRoot --global      # remove global value
+
 wksp config get                            # effective values (project overrides global)
 wksp config get --global                   # only ~/.wksp
 wksp config get reposRoot                  # single key, effective value
 ```
 
-Project-level values override global ones. If you run `set` without `--global` outside a project directory, wksp saves to the global config automatically.
+Project-level values override global ones. If you run `set` without `--global` outside a project directory, wksp saves to the global config automatically. `clear` removes the key entirely — if a global value exists, it becomes effective again.
 
 | Key | Description |
 |---|---|

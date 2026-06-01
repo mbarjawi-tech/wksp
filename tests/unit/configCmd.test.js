@@ -32,6 +32,8 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+// ─── config set ──────────────────────────────────────────────────────────────
+
 describe('config set — inside a project', () => {
   let projectDir;
   beforeEach(() => {
@@ -39,15 +41,27 @@ describe('config set — inside a project', () => {
     config.writeProjectConfig(projectDir, { name: 'test' });
     jest.spyOn(config, 'findProjectDir').mockReturnValue(projectDir);
   });
-  afterEach(() => {
-    jest.restoreAllMocks();
-    cleanup(projectDir);
-  });
+  afterEach(() => { jest.restoreAllMocks(); cleanup(projectDir); });
 
-  test('writes to project .wksp', async () => {
+  test('writes string value to project .wksp', async () => {
     await configCmd.run(['set', 'reposRoot', '/c/dev']);
     expect(config.readProjectConfig(projectDir).reposRoot).toBe('/c/dev');
     expect(logLines.join('')).toMatch(/\.wksp/);
+  });
+
+  test('stores boolean false (not string "false") for autoResume', async () => {
+    await configCmd.run(['set', 'autoResume', 'false']);
+    expect(config.readProjectConfig(projectDir).autoResume).toBe(false);
+  });
+
+  test('stores boolean true correctly', async () => {
+    await configCmd.run(['set', 'autoResume', 'true']);
+    expect(config.readProjectConfig(projectDir).autoResume).toBe(true);
+  });
+
+  test('stores plain string as-is when not valid JSON (e.g. a path)', async () => {
+    await configCmd.run(['set', 'reposRoot', '/c/dev/my-repos']);
+    expect(config.readProjectConfig(projectDir).reposRoot).toBe('/c/dev/my-repos');
   });
 
   test('--global writes to global config regardless of project', async () => {
@@ -85,6 +99,65 @@ describe('config set — validation', () => {
   });
 });
 
+// ─── config clear ─────────────────────────────────────────────────────────────
+
+describe('config clear — inside a project', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeTempDir('wksp-cfg-clear');
+    config.writeProjectConfig(projectDir, { name: 'test', autoResume: false, reposRoot: '/c/dev' });
+    jest.spyOn(config, 'findProjectDir').mockReturnValue(projectDir);
+  });
+  afterEach(() => { jest.restoreAllMocks(); cleanup(projectDir); });
+
+  test('removes key from project config', async () => {
+    await configCmd.run(['clear', 'autoResume']);
+    expect(config.readProjectConfig(projectDir).autoResume).toBeUndefined();
+  });
+
+  test('leaves other keys intact', async () => {
+    await configCmd.run(['clear', 'autoResume']);
+    expect(config.readProjectConfig(projectDir).reposRoot).toBe('/c/dev');
+  });
+
+  test('prints confirmation message', async () => {
+    await configCmd.run(['clear', 'autoResume']);
+    expect(logLines.join('')).toMatch(/cleared/);
+  });
+
+  test('prints notice when key is not set', async () => {
+    await configCmd.run(['clear', 'nonExistentKey']);
+    expect(logLines.join('')).toMatch(/not set/);
+  });
+
+  test('--global clears from global config', async () => {
+    config.writeGlobalConfig({ reposRoot: '/c/dev' });
+    await configCmd.run(['clear', 'reposRoot', '--global']);
+    expect(config.readGlobalConfig().reposRoot).toBeUndefined();
+  });
+});
+
+describe('config clear — outside a project', () => {
+  beforeEach(() => jest.spyOn(config, 'findProjectDir').mockReturnValue(null));
+  afterEach(() => jest.restoreAllMocks());
+
+  test('exits 1 without --global', async () => {
+    await expect(configCmd.run(['clear', 'reposRoot'])).rejects.toThrow('process.exit(1)');
+  });
+
+  test('--global still works outside a project', async () => {
+    config.writeGlobalConfig({ reposRoot: '/c/dev' });
+    await configCmd.run(['clear', 'reposRoot', '--global']);
+    expect(config.readGlobalConfig().reposRoot).toBeUndefined();
+  });
+
+  test('exits 1 when key is missing', async () => {
+    await expect(configCmd.run(['clear'])).rejects.toThrow('process.exit(1)');
+  });
+});
+
+// ─── config get ───────────────────────────────────────────────────────────────
+
 describe('config get', () => {
   beforeEach(() => {
     config.writeGlobalConfig({ reposRoot: '/c/dev', autoResume: true });
@@ -114,6 +187,8 @@ describe('config get', () => {
     expect(logLines.join('')).toContain('(not set)');
   });
 });
+
+// ─── invalid subcommand ───────────────────────────────────────────────────────
 
 describe('config — invalid subcommand', () => {
   test('exits 1 on unknown subcommand', async () => {
