@@ -72,6 +72,63 @@ describe('config set — outside a project (global fallback)', () => {
   });
 });
 
+describe('config set — JSON parsing for scalar keys', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeTempDir('wksp-cfg-json');
+    config.writeProjectConfig(projectDir, { name: 'test' });
+    jest.spyOn(config, 'findProjectDir').mockReturnValue(projectDir);
+  });
+  afterEach(() => { jest.restoreAllMocks(); cleanup(projectDir); });
+
+  test('stores boolean false (not string "false") for autoResume', async () => {
+    await configCmd.run(['set', 'autoResume', 'false']);
+    expect(config.readProjectConfig(projectDir).autoResume).toBe(false);
+  });
+
+  test('stores string as-is when not valid JSON (e.g. a path)', async () => {
+    await configCmd.run(['set', 'reposRoot', '/c/dev/my repos']);
+    expect(config.readProjectConfig(projectDir).reposRoot).toBe('/c/dev/my repos');
+  });
+});
+
+describe('config set — sharedDeps (array key)', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeTempDir('wksp-cfg-shared');
+    config.writeProjectConfig(projectDir, { name: 'test' });
+    jest.spyOn(config, 'findProjectDir').mockReturnValue(projectDir);
+  });
+  afterEach(() => { jest.restoreAllMocks(); cleanup(projectDir); });
+
+  test('adds a single entry to an empty list', async () => {
+    await configCmd.run(['set', 'sharedDeps', 'node_modules']);
+    expect(config.readProjectConfig(projectDir).sharedDeps).toEqual(['node_modules']);
+  });
+
+  test('adds multiple entries at once', async () => {
+    await configCmd.run(['set', 'sharedDeps', 'node_modules', '.venv']);
+    expect(config.readProjectConfig(projectDir).sharedDeps).toEqual(['node_modules', '.venv']);
+  });
+
+  test('appends to an existing list without duplicates', async () => {
+    config.setProjectConfig(projectDir, 'sharedDeps', ['node_modules']);
+    await configCmd.run(['set', 'sharedDeps', 'node_modules', '.venv']);
+    expect(config.readProjectConfig(projectDir).sharedDeps).toEqual(['node_modules', '.venv']);
+  });
+
+  test('--clear resets the list to empty', async () => {
+    config.setProjectConfig(projectDir, 'sharedDeps', ['node_modules']);
+    await configCmd.run(['set', 'sharedDeps', '--clear']);
+    expect(config.readProjectConfig(projectDir).sharedDeps).toEqual([]);
+  });
+
+  test('prints the full updated array', async () => {
+    await configCmd.run(['set', 'sharedDeps', 'node_modules']);
+    expect(logLines.join('')).toContain('["node_modules"]');
+  });
+});
+
 describe('config set — validation', () => {
   beforeEach(() => jest.spyOn(config, 'findProjectDir').mockReturnValue(null));
   afterEach(() => jest.restoreAllMocks());
