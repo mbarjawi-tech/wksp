@@ -14,11 +14,17 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 - `wksp cleanup` zero-arg mode — scans all repos registered in the current project (no path required)
 - `wksp cleanup --recursive` — prune all first-level subdirectory git repos inside a given path
 - `task.json` — replaces `task-shared.txt` + `task-excluded.txt` with a single JSON file per task; existing `.txt` files continue to work (read transparently); `wksp migrate` converts them
+- `wksp config clear <key> [--global]` — remove a config key entirely; project-level key reverts to global or built-in default
 
 ### Changed
 
 - `wksp cleanup` signature — `--stale` flag is no longer required; new form is `wksp cleanup [<path>] [--recursive]`; old `--stale`/`-r` syntax still works with a deprecation warning
 - `CURRENT_SCHEMA_VERSION` bumped from 1 → 2; `wksp migrate` now applies a 1→2 migration that converts legacy `.txt` task files to `task.json`
+
+### Fixed
+
+- `wksp config set` — boolean and numeric values are now stored with their correct JSON type (`false` not `"false"`, `42` not `"42"`); plain strings (e.g. paths) are stored as-is
+- `wksp init` next-steps message now shows current v2 syntax (`wksp repo add`, `wksp task create`) instead of old v1 syntax
 
 ### Removed
 
