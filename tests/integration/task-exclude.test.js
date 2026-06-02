@@ -65,7 +65,7 @@ describe('exclude at new-repo prompt', () => {
   test('typing "x" excludes the repo and writes task.json', async () => {
     prompts.ask.mockResolvedValueOnce('x');
 
-    await runTask(projectDir, 'TASK-EX');
+    await runTask(projectDir, 'create', 'TASK-EX');
 
     const jsonFile = path.join(projectDir, 'tasks', 'TASK-EX', 'task.json');
     expect(fs.existsSync(jsonFile)).toBe(true);
@@ -76,7 +76,7 @@ describe('exclude at new-repo prompt', () => {
   test('excluded repo gets no worktree', async () => {
     prompts.ask.mockResolvedValueOnce('x');
 
-    await runTask(projectDir, 'TASK-NW');
+    await runTask(projectDir, 'create', 'TASK-NW');
 
     const wtPath = path.join(projectDir, 'tasks', 'TASK-NW', WORKTREES_DIR, path.basename(repoDir));
     expect(fs.existsSync(wtPath)).toBe(false);
@@ -85,7 +85,7 @@ describe('exclude at new-repo prompt', () => {
   test('excluded repo is omitted from launch dirs and workspace file', async () => {
     prompts.ask.mockResolvedValueOnce('x');
 
-    await runTask(projectDir, 'TASK-LAUNCH');
+    await runTask(projectDir, 'create', 'TASK-LAUNCH');
 
     expect(claude.launch).toHaveBeenCalledTimes(1);
     const dirs = claude.launch.mock.calls[0][0];
@@ -109,16 +109,16 @@ describe('exclude persists across resume', () => {
 
   test('resuming an excluded task does not re-prompt for the repo', async () => {
     prompts.ask.mockResolvedValueOnce('x');
-    await runTask(projectDir, 'TASK-RESUME');
+    await runTask(projectDir, 'create', 'TASK-RESUME');
 
     prompts.ask.mockReset();
-    await runTask(projectDir, 'TASK-RESUME');
+    await runTask(projectDir, 'resume', 'TASK-RESUME');
 
     expect(prompts.ask).not.toHaveBeenCalled();
   });
 });
 
-describe('--to-worktree on an excluded repo', () => {
+describe('wksp task repo worktree — restoring an excluded repo', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('exclude-3');
@@ -130,7 +130,7 @@ describe('--to-worktree on an excluded repo', () => {
 
   test('clears the exclusion and creates a worktree on the chosen branch', async () => {
     prompts.ask.mockResolvedValueOnce('x');
-    await runTask(projectDir, 'TASK-FLIP');
+    await runTask(projectDir, 'create', 'TASK-FLIP');
 
     const jsonFile = path.join(projectDir, 'tasks', 'TASK-FLIP', 'task.json');
     expect(fs.existsSync(jsonFile)).toBe(true);
@@ -138,7 +138,7 @@ describe('--to-worktree on an excluded repo', () => {
 
     prompts.ask.mockReset();
     prompts.ask.mockResolvedValueOnce('feature/flipped');
-    await runTask(projectDir, 'TASK-FLIP', '--to-worktree', path.basename(repoDir));
+    await runTask(projectDir, 'repo', 'TASK-FLIP', path.basename(repoDir), 'worktree');
 
     // After clearing exclusion (both sets empty), task.json is deleted
     expect(fs.existsSync(jsonFile)).toBe(false);
@@ -162,13 +162,13 @@ describe('new repo added after task creation can be excluded', () => {
 
   test('on next launch, the late-added repo can be excluded too', async () => {
     prompts.ask.mockResolvedValueOnce('feature/work');
-    await runTask(projectDir, 'TASK-LATE');
+    await runTask(projectDir, 'create', 'TASK-LATE');
 
     addRepo(projectDir, repoB, false);
 
     prompts.ask.mockReset();
     prompts.ask.mockResolvedValueOnce('x');
-    await runTask(projectDir, 'TASK-LATE');
+    await runTask(projectDir, 'resume', 'TASK-LATE');
 
     const jsonFile = path.join(projectDir, 'tasks', 'TASK-LATE', 'task.json');
     expect(fs.existsSync(jsonFile)).toBe(true);

@@ -121,33 +121,3 @@ describe('wksp cleanup <path> --recursive', () => {
   });
 });
 
-// ─── deprecated aliases ───────────────────────────────────────────────────────
-
-describe('wksp cleanup — deprecated alias handling', () => {
-  let repoDir;
-  beforeEach(() => {
-    repoDir = makeTempDir('cleanup-depr');
-    makeGitRepo(repoDir);
-  });
-  afterEach(() => cleanup(repoDir));
-
-  test('--stale <path> still works and prints deprecation warning', async () => {
-    await cleanupCmd.run(['--stale', repoDir]);
-    expect(warnLines.some(l => l.includes('Deprecated') && l.includes('--stale'))).toBe(true);
-    expect(logLines.some(l => l.includes('Pruning') || l.includes('Pruned'))).toBe(true);
-  });
-
-  test('-r is rewritten to --recursive with a deprecation warning', async () => {
-    const parentDir = makeTempDir('cleanup-r-flag');
-    const sub = path.join(parentDir, 'subrepo');
-    fs.mkdirSync(sub);
-    makeGitRepo(sub);
-    try {
-      await cleanupCmd.run([parentDir, '-r']);
-      expect(warnLines.some(l => l.includes('Deprecated') && l.includes('-r'))).toBe(true);
-      expect(logLines.some(l => l.includes('Pruning'))).toBe(true);
-    } finally {
-      cleanup(parentDir);
-    }
-  });
-});

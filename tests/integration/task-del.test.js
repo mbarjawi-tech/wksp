@@ -64,12 +64,12 @@ async function createTaskWithWorktree(projectDir, repoDir, taskId, branch) {
 
 async function runDel(projectDir, taskId) {
   config.findProjectDir.mockReturnValue(projectDir);
-  await taskCmd.run([taskId, '--del']);
+  await taskCmd.run(['delete', taskId]);
 }
 
 // ─── --del: no worktrees ──────────────────────────────────────────────────────
 
-describe('--del with no worktrees', () => {
+describe('wksp task delete — no worktrees', () => {
   let projectDir;
   beforeEach(() => { projectDir = makeProject('del-empty'); });
   afterEach(()  => cleanup(projectDir));
@@ -97,7 +97,7 @@ describe('--del with no worktrees', () => {
 
 // ─── --del: user says YES to branch deletion ──────────────────────────────────
 
-describe('--del: user chooses to delete branches', () => {
+describe('wksp task delete — user chooses to delete branches', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('del-yes');
@@ -123,7 +123,7 @@ describe('--del: user chooses to delete branches', () => {
 
 // ─── --del: user says NO to branch deletion ───────────────────────────────────
 
-describe('--del: user keeps branches', () => {
+describe('wksp task delete — user keeps branches', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('del-no');
@@ -152,7 +152,7 @@ describe('--del: user keeps branches', () => {
 
 // ─── --del: unmerged commits → force delete ───────────────────────────────────
 
-describe('--del: unmerged commits → force delete', () => {
+describe('wksp task delete — unmerged commits → force delete', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('del-force');
@@ -180,7 +180,7 @@ describe('--del: unmerged commits → force delete', () => {
 
 // ─── --del: unmerged commits → keep branch ────────────────────────────────────
 
-describe('--del: unmerged commits → keep branch', () => {
+describe('wksp task delete — unmerged commits → keep branch', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('del-keep');

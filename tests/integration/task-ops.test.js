@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 const fs   = require('fs');
 const path = require('path');
 const { makeTempDir, makeGitRepo, makeProject, cleanup } = require('../helpers');
@@ -51,7 +51,7 @@ async function runTask(projectDir, ...args) {
   await taskCmd.run(args);
 }
 
-// ─── .code-workspace stdout ────────────────────────────────────────────────
+// â”€â”€â”€ .code-workspace stdout â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
 describe('.code-workspace filename printed to stdout', () => {
   let projectDir, repoDir;
@@ -65,15 +65,15 @@ describe('.code-workspace filename printed to stdout', () => {
 
   test('logs a line containing the .code-workspace filename on task creation', async () => {
     prompts.ask.mockResolvedValueOnce('feature/ws-test');
-    await runTask(projectDir, 'TASK-WS');
+    await runTask(projectDir, 'create', 'TASK-WS');
     expect(logLines.some(l => l.includes('.code-workspace'))).toBe(true);
     expect(logLines.some(l => l.includes('TASK-WS'))).toBe(true);
   });
 });
 
-// ─── task rename ──────────────────────────────────────────────────────────
+// â”€â”€â”€ task rename â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe('wksp task --rename', () => {
+describe('wksp task rename', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('rename-1');
@@ -85,9 +85,9 @@ describe('wksp task --rename', () => {
 
   test('renames the task folder', async () => {
     prompts.ask.mockResolvedValueOnce('feature/rename-branch');
-    await runTask(projectDir, 'OLD-TASK');
+    await runTask(projectDir, 'create', 'OLD-TASK');
 
-    await runTask(projectDir, 'OLD-TASK', '--rename', 'NEW-TASK');
+    await runTask(projectDir, 'rename', 'OLD-TASK', 'NEW-TASK');
 
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'OLD-TASK'))).toBe(false);
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'NEW-TASK'))).toBe(true);
@@ -95,9 +95,9 @@ describe('wksp task --rename', () => {
 
   test('renames the .code-workspace file', async () => {
     prompts.ask.mockResolvedValueOnce('feature/rename-ws');
-    await runTask(projectDir, 'OLD-WS');
+    await runTask(projectDir, 'create', 'OLD-WS');
 
-    await runTask(projectDir, 'OLD-WS', '--rename', 'NEW-WS');
+    await runTask(projectDir, 'rename', 'OLD-WS', 'NEW-WS');
 
     const newTaskDir = path.join(projectDir, 'tasks', 'NEW-WS');
     expect(fs.existsSync(path.join(newTaskDir, 'test-project--NEW-WS.code-workspace'))).toBe(true);
@@ -106,9 +106,9 @@ describe('wksp task --rename', () => {
 
   test('updates ## Task: header in CLAUDE.md', async () => {
     prompts.ask.mockResolvedValueOnce('feature/rename-md');
-    await runTask(projectDir, 'OLD-MD');
+    await runTask(projectDir, 'create', 'OLD-MD');
 
-    await runTask(projectDir, 'OLD-MD', '--rename', 'NEW-MD');
+    await runTask(projectDir, 'rename', 'OLD-MD', 'NEW-MD');
 
     const claudeMd = fs.readFileSync(
       path.join(projectDir, 'tasks', 'NEW-MD', 'CLAUDE.md'), 'utf8'
@@ -118,57 +118,24 @@ describe('wksp task --rename', () => {
   });
 
   test('exits 1 if the old task does not exist', async () => {
-    await expect(runTask(projectDir, 'GHOST', '--rename', 'NEW')).rejects.toThrow('process.exit(1)');
+    await expect(runTask(projectDir, 'rename', 'GHOST', 'NEW')).rejects.toThrow('process.exit(1)');
   });
 
   test('exits 1 if the new name is already taken', async () => {
     prompts.ask.mockResolvedValueOnce('feature/a');
-    await runTask(projectDir, 'TASK-A');
+    await runTask(projectDir, 'create', 'TASK-A');
     prompts.ask.mockResolvedValueOnce('feature/b');
-    await runTask(projectDir, 'TASK-B');
+    await runTask(projectDir, 'create', 'TASK-B');
 
-    await expect(runTask(projectDir, 'TASK-A', '--rename', 'TASK-B')).rejects.toThrow('process.exit(1)');
+    await expect(runTask(projectDir, 'rename', 'TASK-A', 'TASK-B')).rejects.toThrow('process.exit(1)');
   });
 });
 
-// ─── task --to-shared (share) ──────────────────────────────────────────────
+// â”€â”€â”€ task --to-exclude â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe('wksp task --to-shared', () => {
-  let projectDir, repoDir;
-  beforeEach(() => {
-    projectDir = makeProject('shared-1');
-    repoDir    = makeTempDir('repo-shared-1');
-    makeGitRepo(repoDir);
-    addRepo(projectDir, repoDir, false);
-  });
-  afterEach(() => cleanup(projectDir, repoDir));
+// â”€â”€â”€ task repo (v2 scripted) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-  test('removes the worktree and writes task-shared.txt', async () => {
-    prompts.ask.mockResolvedValueOnce('feature/to-share');
-    await runTask(projectDir, 'TASK-SH');
-
-    const wtPath = path.join(projectDir, 'tasks', 'TASK-SH', WORKTREES_DIR, path.basename(repoDir));
-    expect(fs.existsSync(wtPath)).toBe(true);
-
-    prompts.confirm.mockResolvedValueOnce(false); // no uncommitted changes prompt
-    await runTask(projectDir, 'TASK-SH', '--to-shared', path.basename(repoDir));
-
-    expect(fs.existsSync(wtPath)).toBe(false);
-    const jsonFile = path.join(projectDir, 'tasks', 'TASK-SH', 'task.json');
-    expect(fs.existsSync(jsonFile)).toBe(true);
-    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).shared).toContain(path.basename(repoDir));
-  });
-
-  test('exits 1 when no repo arg given', async () => {
-    prompts.ask.mockResolvedValueOnce('feature/sh-noarg');
-    await runTask(projectDir, 'TASK-NOARG');
-    await expect(runTask(projectDir, 'TASK-NOARG', '--to-shared')).rejects.toThrow('process.exit(1)');
-  });
-});
-
-// ─── task repo (v2 scripted) ──────────────────────────────────────────────
-
-describe('wksp task repo — scripted', () => {
+describe('wksp task repo â€” scripted', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('repo-cmd-1');
@@ -180,7 +147,7 @@ describe('wksp task repo — scripted', () => {
 
   test('share mode removes the worktree and writes task.json', async () => {
     prompts.ask.mockResolvedValueOnce('feature/repo-share');
-    await runTask(projectDir, 'TASK-RS');
+    await runTask(projectDir, 'create', 'TASK-RS');
 
     const wtPath = path.join(projectDir, 'tasks', 'TASK-RS', WORKTREES_DIR, path.basename(repoDir));
     expect(fs.existsSync(wtPath)).toBe(true);
@@ -195,7 +162,7 @@ describe('wksp task repo — scripted', () => {
 
   test('exclude mode removes the worktree and writes task.json', async () => {
     prompts.ask.mockResolvedValueOnce('feature/repo-excl');
-    await runTask(projectDir, 'TASK-RE');
+    await runTask(projectDir, 'create', 'TASK-RE');
 
     const wtPath = path.join(projectDir, 'tasks', 'TASK-RE', WORKTREES_DIR, path.basename(repoDir));
     expect(fs.existsSync(wtPath)).toBe(true);
@@ -216,7 +183,7 @@ describe('wksp task repo — scripted', () => {
 
   test('exits 1 when repo not registered', async () => {
     prompts.ask.mockResolvedValueOnce('feature/repo-notfound');
-    await runTask(projectDir, 'TASK-RNF');
+    await runTask(projectDir, 'create', 'TASK-RNF');
     await expect(
       runTask(projectDir, 'repo', 'TASK-RNF', 'nonexistent-repo', 'share')
     ).rejects.toThrow('process.exit(1)');
@@ -224,16 +191,16 @@ describe('wksp task repo — scripted', () => {
 
   test('exits 1 on unknown mode', async () => {
     prompts.ask.mockResolvedValueOnce('feature/repo-badmode');
-    await runTask(projectDir, 'TASK-RBM');
+    await runTask(projectDir, 'create', 'TASK-RBM');
     await expect(
       runTask(projectDir, 'repo', 'TASK-RBM', path.basename(repoDir), 'badmode')
     ).rejects.toThrow('process.exit(1)');
   });
 });
 
-// ─── task repo (v2 interactive) ───────────────────────────────────────────
+// â”€â”€â”€ task repo (v2 interactive) â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€â”€
 
-describe('wksp task repo — interactive', () => {
+describe('wksp task repo â€” interactive', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('repo-inter-1');
@@ -245,7 +212,7 @@ describe('wksp task repo — interactive', () => {
 
   test('prompts for both repo and mode when neither given', async () => {
     prompts.ask.mockResolvedValueOnce('feature/inter-both');
-    await runTask(projectDir, 'TASK-IB');
+    await runTask(projectDir, 'create', 'TASK-IB');
 
     prompts.ask
       .mockResolvedValueOnce(path.basename(repoDir)) // repo name prompt
@@ -260,7 +227,7 @@ describe('wksp task repo — interactive', () => {
 
   test('prompts only for mode when repo given but mode omitted', async () => {
     prompts.ask.mockResolvedValueOnce('feature/inter-mode');
-    await runTask(projectDir, 'TASK-IM');
+    await runTask(projectDir, 'create', 'TASK-IM');
 
     prompts.ask.mockResolvedValueOnce('share'); // mode prompt only
 
@@ -272,46 +239,3 @@ describe('wksp task repo — interactive', () => {
   });
 });
 
-// ─── task --to-exclude ────────────────────────────────────────────────────
-
-describe('wksp task --to-exclude', () => {
-  let projectDir, repoDir;
-  beforeEach(() => {
-    projectDir = makeProject('excl-cmd-1');
-    repoDir    = makeTempDir('repo-excl-cmd-1');
-    makeGitRepo(repoDir);
-    addRepo(projectDir, repoDir, false);
-  });
-  afterEach(() => cleanup(projectDir, repoDir));
-
-  test('removes the worktree and writes task-excluded.txt', async () => {
-    prompts.ask.mockResolvedValueOnce('feature/to-excl');
-    await runTask(projectDir, 'TASK-EX2');
-
-    const wtPath = path.join(projectDir, 'tasks', 'TASK-EX2', WORKTREES_DIR, path.basename(repoDir));
-    expect(fs.existsSync(wtPath)).toBe(true);
-
-    await runTask(projectDir, 'TASK-EX2', '--to-exclude', path.basename(repoDir));
-
-    expect(fs.existsSync(wtPath)).toBe(false);
-    const jsonFile = path.join(projectDir, 'tasks', 'TASK-EX2', 'task.json');
-    expect(fs.existsSync(jsonFile)).toBe(true);
-    expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).excluded).toContain(path.basename(repoDir));
-  });
-
-  test('is idempotent — no error if already excluded', async () => {
-    prompts.ask.mockResolvedValueOnce('x');
-    await runTask(projectDir, 'TASK-IDEM');
-
-    // Second --to-exclude on already-excluded repo should not throw
-    await expect(
-      runTask(projectDir, 'TASK-IDEM', '--to-exclude', path.basename(repoDir))
-    ).resolves.not.toThrow();
-  });
-
-  test('exits 1 when no repo arg given', async () => {
-    prompts.ask.mockResolvedValueOnce('feature/ex-noarg');
-    await runTask(projectDir, 'TASK-EXNOARG');
-    await expect(runTask(projectDir, 'TASK-EXNOARG', '--to-exclude')).rejects.toThrow('process.exit(1)');
-  });
-});

@@ -92,8 +92,6 @@ Branch for backend [main, s=shared, x=exclude]:
 | `unarchive` | `--branch <repo>=<branch>` | Override the branch used for a specific repo. |
 | `unarchive` | `--shared <repo>` | Restore a specific repo as task-shared instead of a worktree. |
 
-> **v1 syntax** (`wksp task <id> --del`, `wksp task <id> --archive`, etc.) still works in v2 but prints a deprecation warning. It will be removed in v2.1.0.
-
 ---
 
 ### `wksp list`
@@ -134,8 +132,6 @@ With no arguments, scans every repo registered in the current project's `repos.t
 | Flag | Description |
 |---|---|
 | `--recursive` | Also scan first-level subdirectories of `<path>` for git repos. |
-
-> **Deprecated syntax** — `wksp cleanup --stale <path>` and `-r` still work but print a deprecation warning. Use the new syntax above.
 
 ---
 

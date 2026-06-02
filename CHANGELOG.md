@@ -4,6 +4,16 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 2.5.0
+
+### Removed
+
+- v1 positional syntax for `wksp task` — `wksp task <id>`, `wksp task <id> --del`, `--archive`, `--unarchive`, `--rename`, `--to-shared`, `--to-worktree`, `--to-exclude` no longer work; use the v2 verb-first subcommands (`wksp task create/resume/delete/archive/unarchive/rename/repo`)
+- v1 positional syntax for `wksp repo` — `wksp repo <path>` and `wksp repo <path> --remove` no longer work; use `wksp repo add` / `wksp repo remove`
+- `wksp cleanup --stale <path>` and `-r` flag no longer work; use `wksp cleanup <path>` and `--recursive`
+
+---
+
 ## [2.4.0] — 2026-06-02
 
 ### Added
