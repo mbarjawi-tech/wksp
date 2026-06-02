@@ -145,6 +145,40 @@ Destroy the entire project: tear down all worktrees for all tasks, then delete t
 
 ---
 
+### `wksp export <task-id>`
+
+Bundle a task into a portable `.wksp-bundle` file — project config, repo registrations, branch state, and optionally the Claude session transcript. The importer can reconstruct the full task on any machine.
+
+All repos must have their changes committed and pushed before export.
+
+```bash
+wksp export PROJ-1234                            # write acme--PROJ-1234.wksp-bundle in cwd
+wksp export PROJ-1234 --out ~/Desktop/task.wksp-bundle
+wksp export PROJ-1234 --with-session             # include Claude session transcript
+```
+
+| Flag | Description |
+|---|---|
+| `--out <file>` | Output path. Default: `./<project>--<task-id>.wksp-bundle` in the current directory. |
+| `--with-session` | Include the most recent Claude session transcript (`.jsonl`) for this task. Opt-in — sessions can be large. |
+
+---
+
+### `wksp import <file>`
+
+Read a `.wksp-bundle` and interactively rebuild the project and task on the current machine. Supports two modes:
+
+- **New project** — scaffolds a fresh project folder, clones repos, and creates the task.
+- **Add to existing project** — adds the task to a project already set up locally; reconciles repos by remote URL.
+
+```bash
+wksp import acme--PROJ-1234.wksp-bundle
+```
+
+All prompts show a default; pressing Enter accepts it. Repos that cannot be resolved can be skipped and added later with `wksp task repo <id> <repo> worktree`.
+
+---
+
 ### `wksp migrate`
 
 Detect and apply any pending project schema migrations. Safe to run multiple times — does nothing if the project is already current.
@@ -242,6 +276,47 @@ Records which repos use a shared path or are excluded from the task. Both keys a
 `excluded` — repos excluded from the task entirely, by folder name. Written when the user types `x` at the branch prompt or runs `wksp task repo … exclude`.
 
 > **Backward compatibility** — Projects with legacy `task-shared.txt` and `task-excluded.txt` files (created before v2.2.0) continue to work without migration. Running `wksp migrate` converts them to `task.json` and removes the old files.
+
+### `<name>--<task-id>.wksp-bundle`
+
+Produced by `wksp export`. A UTF-8 JSON file containing everything needed to reconstruct the project and task on another machine. See [Export / Import](/export-import) for the full field reference.
+
+```json
+{
+  "bundleVersion": 1,
+  "exportedAt": "2026-06-01T19:00:00.000Z",
+  "exportedBy": { "machine": "Mutas-lenovo" },
+  "project": { "name": "acme", "schemaVersion": 2 },
+  "repos": [
+    {
+      "folderName": "backend",
+      "remoteUrl": "https://github.com/org/backend",
+      "localPath": "C:/dev/backend",
+      "isSharedRepo": false,
+      "hasRemote": true
+    }
+  ],
+  "task": {
+    "id": "PROJ-1234",
+    "claudeMd": "## Task: PROJ-1234\n...",
+    "shared": [],
+    "excluded": [],
+    "repos": [
+      {
+        "folderName": "backend",
+        "branch": "feature/PROJ-1234",
+        "baseBranch": "main",
+        "tipSha": "abc123def456",
+        "remoteUrl": "https://github.com/org/backend",
+        "status": "worktree"
+      }
+    ]
+  },
+  "session": null
+}
+```
+
+---
 
 ### `archived-tasks/<id>/archived.json`
 
