@@ -32,7 +32,7 @@ describe('readRepos', () => {
     addRepo(projectDir, p, false);
     const repos = readRepos(projectDir);
     expect(repos).toHaveLength(1);
-    expect(repos[0].raw).toBe(p);
+    expect(repos[0].raw).toBe(p.replace(/\\/g, '/'));
     expect(repos[0].shared).toBe(false);
     expect(repos[0].folderName).toBe('api');
   });

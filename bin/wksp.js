@@ -18,6 +18,8 @@ const COMMANDS = {
   delete:  () => require('../lib/commands/delete'),
   config:  () => require('../lib/commands/configCmd'),
   migrate: () => require('../lib/commands/migrate'),
+  'export': () => require('../lib/commands/export'),
+  'import': () => require('../lib/commands/importCmd'),
 };
 
 function printHelp() {
@@ -42,6 +44,8 @@ function printHelp() {
     wksp status [<task-id>]          Show task repo/branch status
     wksp delete                      Delete entire project (destructive, requires confirmation)
     wksp migrate [--dry-run]         Apply pending project schema migrations
+    wksp export <task-id>                Bundle a task for handoff (--out <file>, --with-session)
+    wksp import <file>                   Restore a task from a .wksp-bundle
     wksp config set <key> <value>    Set a config value
       --global                         Write to global config (~/.wksp)
     wksp config get [key]            Show config (merged global + project)
@@ -69,7 +73,7 @@ if (!loader) {
 }
 
 // Warn if the project's schema is outdated (skip for migrate itself and global-only commands).
-if (cmd !== 'migrate' && cmd !== 'init') {
+if (cmd !== 'migrate' && cmd !== 'init' && cmd !== 'export' && cmd !== 'import') {
   const config = require('../lib/config');
   const projectDir = config.findProjectDir();
   if (projectDir) {

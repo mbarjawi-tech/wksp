@@ -8,6 +8,8 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ### Added
 
+- `wksp export <task-id>` — bundle a task into a portable `.wksp-bundle` file containing project config, repo registrations, branch state, and optionally the Claude session transcript; `--out <file>` to control output path; `--with-session` to include the session
+- `wksp import <file>` — read a `.wksp-bundle` and interactively rebuild the project and task; supports creating a new project (Mode 1) or adding the task to an existing project (Mode 2); reconciles repos by remote URL
 - `wksp migrate` — detect and apply pending project schema migrations; `--dry-run` flag to preview without writing
 - `schemaVersion` field in `.wksp` — written by `wksp init` from v2.2.0 onwards; any wksp command warns and suggests `wksp migrate` when the project schema is outdated
 - `wksp repo list` — new subcommand listing all registered repos and their flags
@@ -20,9 +22,11 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 - `wksp cleanup` signature — `--stale` flag is no longer required; new form is `wksp cleanup [<path>] [--recursive]`; old `--stale`/`-r` syntax still works with a deprecation warning
 - `CURRENT_SCHEMA_VERSION` bumped from 1 → 2; `wksp migrate` now applies a 1→2 migration that converts legacy `.txt` task files to `task.json`
+- `repos.txt` paths are now always written with forward slashes, regardless of how the path was provided or which command registered the repo
 
 ### Fixed
 
+- `wksp delete` — no longer crashes with `EBUSY` when run from inside the project folder on Windows; also prints a hint to `cd ..` after the project folder is removed
 - `wksp config set` — boolean and numeric values are now stored with their correct JSON type (`false` not `"false"`, `42` not `"42"`); plain strings (e.g. paths) are stored as-is
 - `wksp init` next-steps message now shows current v2 syntax (`wksp repo add`, `wksp task create`) instead of old v1 syntax
 
