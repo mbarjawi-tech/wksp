@@ -1,4 +1,4 @@
-'use strict';
+﻿'use strict';
 const fs   = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
@@ -53,7 +53,7 @@ function gitCmd(cwd, cmd) {
   return execSync(`git ${cmd}`, { cwd, encoding: 'utf8', stdio: 'pipe' }).trim();
 }
 
-describe('--archive: happy path', () => {
+describe('wksp task archive â€” happy path', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('arch-1');
@@ -68,13 +68,13 @@ describe('--archive: happy path', () => {
 
   test('removes worktrees, writes manifest, moves folder to archived-tasks/', async () => {
     prompts.ask.mockResolvedValueOnce('feature/archived');
-    await runTask(projectDir, 'TASK-A');
+    await runTask(projectDir, 'create', 'TASK-A');
 
     const wtPath = path.join(projectDir, 'tasks', 'TASK-A', WORKTREES_DIR, path.basename(repoDir));
     expect(fs.existsSync(wtPath)).toBe(true);
 
     prompts.confirm.mockResolvedValueOnce(true); // Confirm archive
-    await runTask(projectDir, 'TASK-A', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-A');
 
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-A'))).toBe(false);
     const archivedDir = path.join(projectDir, 'archived-tasks', 'TASK-A');
@@ -95,7 +95,7 @@ describe('--archive: happy path', () => {
   });
 });
 
-describe('--archive --delete-branches', () => {
+describe('wksp task archive --delete-branches', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('arch-del');
@@ -107,10 +107,10 @@ describe('--archive --delete-branches', () => {
 
   test('removes branches from base repos in addition to worktrees', async () => {
     prompts.ask.mockResolvedValueOnce('feature/to-delete');
-    await runTask(projectDir, 'TASK-DEL');
+    await runTask(projectDir, 'create', 'TASK-DEL');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-DEL', '--archive', '--delete-branches');
+    await runTask(projectDir, 'archive', 'TASK-DEL', '--delete-branches');
 
     expect(git.branchExistsLocally(repoDir, 'feature/to-delete')).toBe(false);
 
@@ -119,7 +119,7 @@ describe('--archive --delete-branches', () => {
   });
 });
 
-describe('--archive refuses with uncommitted changes unless --force', () => {
+describe('wksp task archive â€” refuses with uncommitted changes unless --force', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('arch-uncommit');
@@ -134,31 +134,31 @@ describe('--archive refuses with uncommitted changes unless --force', () => {
 
   test('errors out when there are uncommitted changes and no --force', async () => {
     prompts.ask.mockResolvedValueOnce('feature/dirty');
-    await runTask(projectDir, 'TASK-DIRTY');
+    await runTask(projectDir, 'create', 'TASK-DIRTY');
 
     const wtPath = path.join(projectDir, 'tasks', 'TASK-DIRTY', WORKTREES_DIR, path.basename(repoDir));
     fs.writeFileSync(path.join(wtPath, 'dirty.txt'), 'wip');
 
-    await expect(runTask(projectDir, 'TASK-DIRTY', '--archive')).rejects.toThrow(/process\.exit/);
+    await expect(runTask(projectDir, 'archive', 'TASK-DIRTY')).rejects.toThrow(/process\.exit/);
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-DIRTY'))).toBe(true);
   });
 
   test('proceeds with --force, recording the uncommitted flag in the manifest', async () => {
     prompts.ask.mockResolvedValueOnce('feature/dirty');
-    await runTask(projectDir, 'TASK-DIRTY-FORCE');
+    await runTask(projectDir, 'create', 'TASK-DIRTY-FORCE');
 
     const wtPath = path.join(projectDir, 'tasks', 'TASK-DIRTY-FORCE', WORKTREES_DIR, path.basename(repoDir));
     fs.writeFileSync(path.join(wtPath, 'dirty.txt'), 'wip');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-DIRTY-FORCE', '--archive', '--force');
+    await runTask(projectDir, 'archive', 'TASK-DIRTY-FORCE', '--force');
 
     const manifest = archive.readManifest(path.join(projectDir, 'archived-tasks', 'TASK-DIRTY-FORCE'));
     expect(manifest.repos[0].uncommittedAtArchive).toBe(true);
   });
 });
 
-describe('--unarchive: light path (present-local)', () => {
+describe('wksp task unarchive â€” light path (present-local)', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('un-light');
@@ -173,14 +173,14 @@ describe('--unarchive: light path (present-local)', () => {
 
   test('round-trips: archive then unarchive recreates the worktree on the same branch', async () => {
     prompts.ask.mockResolvedValueOnce('feature/back');
-    await runTask(projectDir, 'TASK-BACK');
+    await runTask(projectDir, 'create', 'TASK-BACK');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-BACK', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-BACK');
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-BACK'))).toBe(false);
 
     // No confirm needed for light path (everything present-local)
-    await runTask(projectDir, 'TASK-BACK', '--unarchive');
+    await runTask(projectDir, 'unarchive', 'TASK-BACK');
 
     const wtPath = path.join(projectDir, 'tasks', 'TASK-BACK', WORKTREES_DIR, path.basename(repoDir));
     expect(fs.existsSync(wtPath)).toBe(true);
@@ -189,7 +189,7 @@ describe('--unarchive: light path (present-local)', () => {
   });
 });
 
-describe('--unarchive --dry-run', () => {
+describe('wksp task unarchive --dry-run', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('un-dry');
@@ -204,19 +204,19 @@ describe('--unarchive --dry-run', () => {
 
   test('prints the plan but does not move the folder', async () => {
     prompts.ask.mockResolvedValueOnce('feature/dry');
-    await runTask(projectDir, 'TASK-DRY');
+    await runTask(projectDir, 'create', 'TASK-DRY');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-DRY', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-DRY');
 
-    await runTask(projectDir, 'TASK-DRY', '--unarchive', '--dry-run');
+    await runTask(projectDir, 'unarchive', 'TASK-DRY', '--dry-run');
 
     expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-DRY'))).toBe(true);
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-DRY'))).toBe(false);
   });
 });
 
-describe('--unarchive: merged case', () => {
+describe('wksp task unarchive â€” merged case', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('un-merged');
@@ -228,7 +228,7 @@ describe('--unarchive: merged case', () => {
 
   test('when archived branch was merged and deleted, unarchive marks repo as task-shared (main is checked out in base repo)', async () => {
     prompts.ask.mockResolvedValueOnce('feature/merged-work');
-    await runTask(projectDir, 'TASK-MERGED');
+    await runTask(projectDir, 'create', 'TASK-MERGED');
 
     const wtPath = path.join(projectDir, 'tasks', 'TASK-MERGED', WORKTREES_DIR, path.basename(repoDir));
     fs.writeFileSync(path.join(wtPath, 'work.txt'), 'feature work');
@@ -236,17 +236,17 @@ describe('--unarchive: merged case', () => {
     gitCmd(wtPath, 'commit -m "feature commit"');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-MERGED', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-MERGED');
 
     // Merge the work into main and delete the feature branch
     gitCmd(repoDir, 'merge --no-ff feature/merged-work -m "merge feature"');
     gitCmd(repoDir, 'branch -D feature/merged-work');
 
     prompts.confirm.mockResolvedValueOnce(true); // confirm preview
-    await runTask(projectDir, 'TASK-MERGED', '--unarchive');
+    await runTask(projectDir, 'unarchive', 'TASK-MERGED');
 
     // The branch is merged into main, and main is checked out in base repo
-    // → conflict resolution converts this to task-shared instead of creating a worktree on main
+    // â†’ conflict resolution converts this to task-shared instead of creating a worktree on main
     const jsonFile = path.join(projectDir, 'tasks', 'TASK-MERGED', 'task.json');
     expect(fs.existsSync(jsonFile)).toBe(true);
     expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).shared).toContain(path.basename(repoDir));
@@ -257,7 +257,7 @@ describe('--unarchive: merged case', () => {
   });
 });
 
-describe('--unarchive: drift — new repo added since archive', () => {
+describe('wksp task unarchive â€” drift: new repo added since archive', () => {
   let projectDir, repoA, repoB;
   beforeEach(() => {
     projectDir = makeProject('un-drift');
@@ -274,26 +274,26 @@ describe('--unarchive: drift — new repo added since archive', () => {
 
   test('newly-added repo is deferred to next launch (prompt action)', async () => {
     prompts.ask.mockResolvedValueOnce('feature/drift');
-    await runTask(projectDir, 'TASK-DRIFT');
+    await runTask(projectDir, 'create', 'TASK-DRIFT');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-DRIFT', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-DRIFT');
 
     addRepo(projectDir, repoB, false);
 
     prompts.confirm.mockResolvedValueOnce(true); // unarchive preview confirm (drift is "interesting")
-    await runTask(projectDir, 'TASK-DRIFT', '--unarchive');
+    await runTask(projectDir, 'unarchive', 'TASK-DRIFT');
 
     // repoA worktree restored
     const wtA = path.join(projectDir, 'tasks', 'TASK-DRIFT', WORKTREES_DIR, path.basename(repoA));
     expect(fs.existsSync(wtA)).toBe(true);
-    // repoB not yet — will be prompted on next `wksp task <id>`
+    // repoB not yet â€” will be prompted on next `wksp task <id>`
     const wtB = path.join(projectDir, 'tasks', 'TASK-DRIFT', WORKTREES_DIR, path.basename(repoB));
     expect(fs.existsSync(wtB)).toBe(false);
   });
 });
 
-describe('--del on archived task', () => {
+describe('wksp task delete on archived task', () => {
   let projectDir, repoDir;
   beforeEach(() => {
     projectDir = makeProject('del-arch');
@@ -308,28 +308,28 @@ describe('--del on archived task', () => {
 
   test('deletes the archived folder without complaining about missing worktrees', async () => {
     prompts.ask.mockResolvedValueOnce('feature/del-arch');
-    await runTask(projectDir, 'TASK-DARCH');
+    await runTask(projectDir, 'create', 'TASK-DARCH');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-DARCH', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-DARCH');
 
     prompts.confirm.mockResolvedValueOnce(true); // confirm del
-    await runTask(projectDir, 'TASK-DARCH', '--del');
+    await runTask(projectDir, 'delete', 'TASK-DARCH');
 
     expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-DARCH'))).toBe(false);
-    // Branch was kept on archive (default) — still there
+    // Branch was kept on archive (default) â€” still there
     expect(git.branchExistsLocally(repoDir, 'feature/del-arch')).toBe(true);
   });
 
-  test('--del --delete-branches removes the kept branches too', async () => {
+  test('delete --delete-branches removes the kept branches too', async () => {
     prompts.ask.mockResolvedValueOnce('feature/del-arch-2');
-    await runTask(projectDir, 'TASK-DARCH-2');
+    await runTask(projectDir, 'create', 'TASK-DARCH-2');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-DARCH-2', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-DARCH-2');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-DARCH-2', '--del', '--delete-branches');
+    await runTask(projectDir, 'delete', 'TASK-DARCH-2', '--delete-branches');
 
     expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-DARCH-2'))).toBe(false);
     expect(git.branchExistsLocally(repoDir, 'feature/del-arch-2')).toBe(false);
@@ -347,15 +347,15 @@ describe('shared repo round-trips as shared', () => {
   afterEach(() => cleanup(projectDir, repoDir));
 
   test('a project-shared repo gets status:shared in manifest and stays shared on unarchive', async () => {
-    await runTask(projectDir, 'TASK-SHARED');
+    await runTask(projectDir, 'create', 'TASK-SHARED');
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-SHARED', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-SHARED');
 
     const manifest = archive.readManifest(path.join(projectDir, 'archived-tasks', 'TASK-SHARED'));
     expect(manifest.repos[0].status).toBe('shared');
 
-    await runTask(projectDir, 'TASK-SHARED', '--unarchive');
+    await runTask(projectDir, 'unarchive', 'TASK-SHARED');
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-SHARED'))).toBe(true);
   });
 });
@@ -370,21 +370,21 @@ describe('excluded repo round-trips as excluded', () => {
   });
   afterEach(() => cleanup(projectDir, repoA));
 
-  test('a project repo excluded via prompt stays excluded after archive → unarchive', async () => {
+  test('a project repo excluded via prompt stays excluded after archive â†’ unarchive', async () => {
     prompts.ask.mockResolvedValueOnce('x');
-    await runTask(projectDir, 'TASK-XCL');
+    await runTask(projectDir, 'create', 'TASK-XCL');
 
     const jsonFile = path.join(projectDir, 'tasks', 'TASK-XCL', 'task.json');
     expect(fs.existsSync(jsonFile)).toBe(true);
     expect(JSON.parse(fs.readFileSync(jsonFile, 'utf8')).excluded).toContain(path.basename(repoA));
 
     prompts.confirm.mockResolvedValueOnce(true);
-    await runTask(projectDir, 'TASK-XCL', '--archive');
+    await runTask(projectDir, 'archive', 'TASK-XCL');
 
     const manifest = archive.readManifest(path.join(projectDir, 'archived-tasks', 'TASK-XCL'));
     expect(manifest.repos[0].status).toBe('excluded');
 
-    await runTask(projectDir, 'TASK-XCL', '--unarchive');
+    await runTask(projectDir, 'unarchive', 'TASK-XCL');
 
     // After unarchive, excluded status restored in task.json
     const jsonAfter = path.join(projectDir, 'tasks', 'TASK-XCL', 'task.json');
