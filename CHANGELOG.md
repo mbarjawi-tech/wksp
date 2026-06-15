@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 2.7.0
+
+### Added
+
+- `wksp task resume|delete|archive` no longer needs the full task name. Omit the id to pick from a numbered list of live tasks (sorted by most-recent activity, with worktree count and a relative date), or pass part of a name — e.g. `wksp task resume isa` — and a unique substring match is used; multiple matches drop into the picker, and an exact name always wins. Line-based prompt only, no new dependencies
+
+---
+
 ## [2.6.0] — 2026-06-15
 
 ### Added
