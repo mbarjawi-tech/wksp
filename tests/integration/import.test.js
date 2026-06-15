@@ -198,6 +198,12 @@ describe('import — Mode 1, repo found in reposRoot', () => {
     expect(fs.existsSync(wtDir)).toBe(true);
     const branch = git.currentBranch(wtDir);
     expect(branch).toBe('feature/m1-test');
+
+    // Imported task must be brought up to the current schema: WORKLOG.md created and
+    // the Work log section appended to its CLAUDE.md (the bundle is schema v2).
+    const importedTaskDir = path.join(projectDir, 'tasks', 'TASK-M1');
+    expect(fs.existsSync(path.join(importedTaskDir, 'WORKLOG.md'))).toBe(true);
+    expect(fs.readFileSync(path.join(importedTaskDir, 'CLAUDE.md'), 'utf8')).toContain('## Work log');
   });
 });
 

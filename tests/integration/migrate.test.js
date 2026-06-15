@@ -203,6 +203,128 @@ describe('schema 1 → 2 — dry-run', () => {
   });
 });
 
+// ─── schema 2 → 3 (WORKLOG.md + Work log section) ────────────────────────────
+
+describe('schema 2 → 3 — adds WORKLOG.md and Work log section', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeProject('mig-2to3');
+    config.setProjectConfig(projectDir, 'schemaVersion', 2);
+    const taskDir = path.join(projectDir, 'tasks', 'TASK-WL');
+    fs.mkdirSync(taskDir, { recursive: true });
+    fs.writeFileSync(path.join(taskDir, 'CLAUDE.md'), '## Task: TASK-WL\n## Goal: test\n');
+  });
+  afterEach(() => cleanup(projectDir));
+
+  test('creates WORKLOG.md in task dir', async () => {
+    await runMigrate(projectDir);
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-WL', 'WORKLOG.md'))).toBe(true);
+  });
+
+  test('appends Work log section to CLAUDE.md', async () => {
+    await runMigrate(projectDir);
+    const content = fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-WL', 'CLAUDE.md'), 'utf8');
+    expect(content).toContain('## Work log');
+    expect(content).toContain('WORKLOG.md');
+  });
+
+  test('bumps schemaVersion to 3', async () => {
+    await runMigrate(projectDir);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
+  });
+
+  test('does not duplicate Work log section if already present', async () => {
+    const taskDir = path.join(projectDir, 'tasks', 'TASK-WL');
+    const existing = fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8') + '\n## Work log\nalready here\n';
+    fs.writeFileSync(path.join(taskDir, 'CLAUDE.md'), existing);
+
+    await runMigrate(projectDir);
+
+    const content = fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8');
+    expect(content.split('## Work log').length).toBe(2); // exactly one occurrence
+  });
+});
+
+describe('schema 2 → 3 — dry-run', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeProject('mig-2to3-dry');
+    config.setProjectConfig(projectDir, 'schemaVersion', 2);
+    const taskDir = path.join(projectDir, 'tasks', 'TASK-DRY');
+    fs.mkdirSync(taskDir, { recursive: true });
+    fs.writeFileSync(path.join(taskDir, 'CLAUDE.md'), '## Task: TASK-DRY\n');
+  });
+  afterEach(() => cleanup(projectDir));
+
+  test('does not create WORKLOG.md in dry-run', async () => {
+    await runMigrate(projectDir, '--dry-run');
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-DRY', 'WORKLOG.md'))).toBe(false);
+  });
+
+  test('does not modify CLAUDE.md in dry-run', async () => {
+    const before = fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-DRY', 'CLAUDE.md'), 'utf8');
+    await runMigrate(projectDir, '--dry-run');
+    const after = fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-DRY', 'CLAUDE.md'), 'utf8');
+    expect(after).toBe(before);
+  });
+
+  test('does not write schemaVersion in dry-run', async () => {
+    await runMigrate(projectDir, '--dry-run');
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(2);
+  });
+});
+
+// ─── --repair (re-apply steps on an already-current project) ─────────────────
+
+describe('--repair — backfills missing artifacts on a current project', () => {
+  let projectDir, taskDir;
+  beforeEach(() => {
+    projectDir = makeProject('mig-repair');
+    // Project is stamped at the current schema, but a task is missing its WORKLOG —
+    // exactly the state produced by `wksp import` or a task from an older wksp.
+    config.setProjectConfig(projectDir, 'schemaVersion', config.CURRENT_SCHEMA_VERSION);
+    taskDir = path.join(projectDir, 'tasks', 'TASK-OLD');
+    fs.mkdirSync(taskDir, { recursive: true });
+    fs.writeFileSync(path.join(taskDir, 'CLAUDE.md'), '## Task: TASK-OLD\n');
+  });
+  afterEach(() => cleanup(projectDir));
+
+  test('plain migrate does NOT touch the task (short-circuits)', async () => {
+    await runMigrate(projectDir);
+    expect(logLines.some(l => l.includes('Already up to date'))).toBe(true);
+    expect(fs.existsSync(path.join(taskDir, 'WORKLOG.md'))).toBe(false);
+  });
+
+  test('--repair creates the missing WORKLOG.md', async () => {
+    await runMigrate(projectDir, '--repair');
+    expect(fs.existsSync(path.join(taskDir, 'WORKLOG.md'))).toBe(true);
+  });
+
+  test('--repair adds the missing Work log section to CLAUDE.md', async () => {
+    await runMigrate(projectDir, '--repair');
+    expect(fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8')).toContain('## Work log');
+  });
+
+  test('--repair leaves schemaVersion at current', async () => {
+    await runMigrate(projectDir, '--repair');
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
+  });
+
+  test('--repair is idempotent — re-running does not duplicate anything', async () => {
+    await runMigrate(projectDir, '--repair');
+    const firstWorklog = fs.readFileSync(path.join(taskDir, 'WORKLOG.md'), 'utf8');
+    await runMigrate(projectDir, '--repair');
+    expect(fs.readFileSync(path.join(taskDir, 'WORKLOG.md'), 'utf8')).toBe(firstWorklog);
+    expect(fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8').split('## Work log').length).toBe(2);
+  });
+
+  test('--repair --dry-run reports without writing', async () => {
+    await runMigrate(projectDir, '--repair', '--dry-run');
+    expect(fs.existsSync(path.join(taskDir, 'WORKLOG.md'))).toBe(false);
+    expect(logLines.some(l => l.includes('Dry run complete'))).toBe(true);
+  });
+});
+
 // ─── not inside a project ─────────────────────────────────────────────────────
 
 describe('not inside a project', () => {

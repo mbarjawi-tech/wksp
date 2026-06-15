@@ -4,6 +4,20 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 2.6.0
+
+### Added
+
+- Each new task now gets a `WORKLOG.md` file — Claude appends a brief entry after each meaningful set of changes, providing a running record of what was done and why
+- `wksp migrate` schema 2 → 3: adds a `## Work log` instruction to existing task `CLAUDE.md` files and creates `WORKLOG.md` for tasks that don't have one
+- `wksp migrate --repair`: re-applies every migration step even when the project is already stamped at the current schema. Backfills per-task artifacts (e.g. `WORKLOG.md`) that are missing because a task was created by an older wksp or brought in via `wksp import`. Idempotent — only fills in what is missing
+
+### Fixed
+
+- `wksp import` now runs schema migrations on the imported task instead of just stamping the project at the current version. Previously an imported task could be missing the artifacts of its stamped schema (e.g. `WORKLOG.md`), and `wksp migrate` would then report "already up to date" and never create them
+
+---
+
 ## [2.5.0] — 2026-06-02
 
 ### Removed

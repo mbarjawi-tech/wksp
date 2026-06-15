@@ -44,6 +44,7 @@ function printHelp() {
     wksp status [<task-id>]          Show task repo/branch status
     wksp delete                      Delete entire project (destructive, requires confirmation)
     wksp migrate [--dry-run]         Apply pending project schema migrations
+      --repair                         Re-apply all steps to backfill missing task files
     wksp export <task-id>                Bundle a task for handoff (--out <file>, --with-session)
     wksp import <file>                   Restore a task from a .wksp-bundle
     wksp config set <key> <value>    Set a config value
