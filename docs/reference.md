@@ -295,6 +295,7 @@ Produced by `wksp export`. A UTF-8 JSON file containing everything needed to rec
   "task": {
     "id": "PROJ-1234",
     "claudeMd": "## Task: PROJ-1234\n...",
+    "worklogMd": "# Work Log: PROJ-1234\n...",
     "shared": [],
     "excluded": [],
     "repos": [

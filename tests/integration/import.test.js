@@ -67,6 +67,8 @@ function makeBundle(opts = {}) {
     task: {
       id:       taskId,
       claudeMd: `## Task: ${taskId}\n`,
+      // undefined is dropped by JSON.stringify — omitting worklogMd mimics a pre-2.8.0 bundle
+      worklogMd: opts.worklogMd,
       shared:   opts.shared   || [],
       excluded: opts.excluded || [],
       repos:    taskRepos,
@@ -390,6 +392,48 @@ describe('import — Mode 2, repo matched by remoteUrl (different folderName)', 
     expect(fs.existsSync(taskDir)).toBe(true);
     const logCalls = console.log.mock.calls.map(a => a.join(' ')).join('\n');
     expect(logCalls).toMatch(/same remote/i);
+  });
+});
+
+// ─── WORKLOG.md restored from bundle ─────────────────────────────────────────
+
+describe('import — WORKLOG.md', () => {
+  let projectDir, bundleDir;
+  beforeEach(() => {
+    projectDir = makeProject('imp-worklog');
+    bundleDir  = makeTempDir('imp-worklog-bundle');
+    config.findProjectDir.mockReturnValue(projectDir);
+    config.readProjectConfig.mockReturnValue({ name: 'imp-worklog', schemaVersion: 2 });
+  });
+  afterEach(() => cleanup(projectDir, bundleDir));
+
+  test('restores WORKLOG.md content from the bundle', async () => {
+    const worklog = '# Work Log: TASK-WL\n- 2026-07-01: shipped the widget\n- 2026-07-03: fixed the frobnicator\n';
+    const bundle = makeBundle({ projectName: 'imp-worklog', taskId: 'TASK-WL', worklogMd: worklog });
+    const bundlePath = path.join(bundleDir, 'test.wksp-bundle');
+    writeBundle(bundlePath, bundle);
+
+    prompts.ask.mockResolvedValueOnce('2'); // existing project
+    prompts.confirm.mockResolvedValue(true);
+
+    await importCmd.run([bundlePath]);
+
+    const worklogPath = path.join(projectDir, 'tasks', 'TASK-WL', 'WORKLOG.md');
+    expect(fs.readFileSync(worklogPath, 'utf8')).toBe(worklog);
+  });
+
+  test('bundle without worklogMd (pre-2.8.0) gets an empty WORKLOG.md via migration', async () => {
+    const bundle = makeBundle({ projectName: 'imp-worklog', taskId: 'TASK-WL2' });
+    const bundlePath = path.join(bundleDir, 'test.wksp-bundle');
+    writeBundle(bundlePath, bundle);
+
+    prompts.ask.mockResolvedValueOnce('2'); // existing project
+    prompts.confirm.mockResolvedValue(true);
+
+    await importCmd.run([bundlePath]);
+
+    const worklogPath = path.join(projectDir, 'tasks', 'TASK-WL2', 'WORKLOG.md');
+    expect(fs.readFileSync(worklogPath, 'utf8')).toBe('# Work Log: TASK-WL2\n');
   });
 });
 

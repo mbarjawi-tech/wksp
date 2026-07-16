@@ -128,6 +128,22 @@ describe('export — happy path', () => {
     expect(bundle.task.repos[0].branch).toBe('feature/task-1');
   });
 
+  test('bundle includes task WORKLOG.md content', async () => {
+    const worklog = '# Work Log: TASK-1\n- 2026-07-01: wired up the export flow\n';
+    fs.writeFileSync(path.join(projectDir, 'tasks', 'TASK-1', 'WORKLOG.md'), worklog);
+    const outFile = path.join(outDir, 'bundle.wksp-bundle');
+    await runExport(projectDir, 'exp-happy', 'TASK-1', '--out', outFile);
+    const bundle = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    expect(bundle.task.worklogMd).toBe(worklog);
+  });
+
+  test('worklogMd is an empty string when the task has no WORKLOG.md', async () => {
+    const outFile = path.join(outDir, 'bundle.wksp-bundle');
+    await runExport(projectDir, 'exp-happy', 'TASK-1', '--out', outFile);
+    const bundle = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    expect(bundle.task.worklogMd).toBe('');
+  });
+
   test('session is null when --with-session not passed', async () => {
     const outFile = path.join(outDir, 'bundle.wksp-bundle');
     await runExport(projectDir, 'exp-happy', 'TASK-1', '--out', outFile);

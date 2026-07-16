@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 2.8.0
+
+### Fixed
+
+- `wksp export` now includes the task's `WORKLOG.md` in the bundle (`task.worklogMd`), and `wksp import` restores it. Previously the work log was left behind on export and the imported task started with an empty `WORKLOG.md` — the running record of the work was silently lost on handoff. Bundles from older wksp versions (no `worklogMd` field) still import fine: the schema migration backfills an empty `WORKLOG.md` as before
+
+---
+
 ## [2.7.0] — 2026-07-07
 
 ### Added

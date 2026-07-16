@@ -57,6 +57,7 @@ A single UTF-8 JSON file with extension `.wksp-bundle`.
   "task": {
     "id": "PROJ-1234",
     "claudeMd": "## Task: PROJ-1234\n...",
+    "worklogMd": "# Work Log: PROJ-1234\n- 2026-06-01: ...",
     "shared": ["company-docs"],
     "excluded": ["legacy-service"],
     "repos": [
@@ -95,6 +96,8 @@ A single UTF-8 JSON file with extension `.wksp-bundle`.
 - `localPath` — absolute path on the exporting machine; included for reference only, not used on import.
 - `isSharedRepo` — `true` if the repo is registered with `--shared` in `repos.txt` (never gets a worktree).
 - `hasRemote` — `true` if `remoteUrl` is non-null.
+
+**`task.worklogMd`** — the task's `WORKLOG.md` content (the running record of what was done). Absent in bundles created by wksp < 2.8.0; on import the schema migration backfills an empty `WORKLOG.md` in that case.
 
 **`task.repos[]`** — one entry per non-excluded repo.
 - `status` — `"worktree"` | `"shared"` | `"excluded"`.
@@ -244,7 +247,7 @@ Before writing anything, print the full plan:
 1. `mkdir` project dir, scaffold `.wksp`, `repos.txt`, `CLAUDE.md`, `tasks/`.
 2. For each repo: clone (if needed) and register in `repos.txt`.
 3. Fetch each repo's remote refs (`git fetch origin`).
-4. Create task dir, write `CLAUDE.md` from bundle, write `task.json`.
+4. Create task dir, write `CLAUDE.md` and `WORKLOG.md` from bundle, write `task.json`.
 5. For each worktree repo:
    - Check if `branch` exists locally or on remote after fetch.
    - If found: `git worktree add <worktreePath> <branch>`.
