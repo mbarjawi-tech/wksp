@@ -34,6 +34,8 @@ git enforces one rule: the same branch cannot be checked out in two worktrees at
 
 **Excluded** — a repo that is omitted from a specific task entirely. No worktree, not added to the VS Code workspace, not passed to Claude. Useful when a repo is irrelevant to a particular task.
 
+**Hub** — a reserved planning task, always named `hub`, that every project gets. Unlike a normal task it has **no worktree**; instead it holds the project's feature backlog, cross-cutting design, open decisions, and cross-task references — the connective tissue between repos and tasks. `wksp init` creates it automatically (older projects add one with `wksp task create hub`). The project `CLAUDE.md` points AI at the hub *conditionally* — consult it when a request touches project-wide design, references another task, or asks "what to work on next"; skip it for work scoped to a single repo or task. See [reference](/reference#the-hub).
+
 ## Mental model
 
 ```
@@ -42,6 +44,10 @@ acme/                        ← project root (holds config + all tasks)
   CLAUDE.md                     ← project-wide conventions for Claude
 
   tasks/
+    hub/                        ← reserved planning task (no worktrees)
+      CLAUDE.md                 ← feature backlog, cross-cutting design, open decisions
+      WORKLOG.md
+
     PROJ-1234/                  ← one task (feature branch set)
       CLAUDE.md                 ← task-specific notes and goals
       acme--PROJ-1234.code-workspace

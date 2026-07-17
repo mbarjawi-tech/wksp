@@ -35,6 +35,8 @@ wksp task PROJ-1234
 
 At the branch prompt, press Enter to use the current branch, type a branch name to create or check out one, `s` to use the repo shared (no worktree), or `x` to exclude the repo from this task.
 
+Every project also gets a **hub** — a reserved, worktree-less planning task for the feature backlog, cross-cutting design, and open decisions. `wksp init` creates it; open it with `wksp task resume hub`. See [docs/concepts.md](docs/concepts.md#key-vocabulary).
+
 ## Documentation
 
 The docs live in `docs/` as Markdown and are powered by [VitePress](https://vitepress.dev).
