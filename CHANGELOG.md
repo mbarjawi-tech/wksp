@@ -6,6 +6,10 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ## [Unreleased] — 2.8.0
 
+### Added
+
+- The **hub** is now a first-class wksp concept — a reserved, worktree-less planning task that holds a project's feature backlog, cross-cutting design, and open decisions. `wksp init` auto-creates a `hub` task and its project `CLAUDE.md` now ships a `## wksp vocabulary` block plus a conditional pointer to the hub. Add a hub to an existing project with `wksp task create hub`; the name is reserved (you can't create a normal task called `hub`), and `delete`/`rename` of the hub warn first. Scaffolding only — no schema bump and no forced backfill, so existing projects are untouched until they opt in
+
 ### Fixed
 
 - `wksp export` now includes the task's `WORKLOG.md` in the bundle (`task.worklogMd`), and `wksp import` restores it. Previously the work log was left behind on export and the imported task started with an empty `WORKLOG.md` — the running record of the work was silently lost on handoff. Bundles from older wksp versions (no `worklogMd` field) still import fine: the schema migration backfills an empty `WORKLOG.md` as before
