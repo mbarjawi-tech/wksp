@@ -8,7 +8,7 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ### Added
 
-- The **hub** is now a first-class wksp concept — a reserved, worktree-less planning task that holds a project's feature backlog, cross-cutting design, and open decisions. `wksp init` auto-creates a `hub` task and its project `CLAUDE.md` now ships a `## wksp vocabulary` block plus a conditional pointer to the hub. Add a hub to an existing project with `wksp task create hub`; the name is reserved (you can't create a normal task called `hub`), and `delete`/`rename` of the hub warn first. Scaffolding only — no schema bump and no forced backfill, so existing projects are untouched until they opt in
+- The **hub** is now a first-class wksp concept — a reserved, worktree-less planning task that holds a project's feature backlog, cross-cutting design, and open decisions. `wksp init` auto-creates a `hub` task (opt out with `wksp init --no-hub`) and its project `CLAUDE.md` now ships a `## wksp vocabulary` block plus a conditional pointer to the hub. Add a hub to an existing project with `wksp task create hub`, which explains what the hub is and asks before creating it; the name is reserved (you can't create a normal task called `hub`), and `delete`/`rename` of the hub warn first. Scaffolding only — no schema bump and no forced backfill, so existing projects are untouched until they opt in
 
 ### Fixed
 

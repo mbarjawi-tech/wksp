@@ -62,6 +62,7 @@ describe('wksp task create hub', () => {
   afterEach(() => cleanup(projectDir, repoDir));
 
   test('scaffolds a worktree-less hub even when repos are registered', async () => {
+    prompts.ask.mockResolvedValue('');  // Enter = Yes
     await runTask(projectDir, 'create', 'hub');
 
     const hubDir = path.join(projectDir, 'tasks', 'hub');
@@ -88,11 +89,20 @@ describe('wksp task create hub', () => {
   });
 
   test('errors when a hub already exists', async () => {
+    prompts.ask.mockResolvedValue('y');
     await runTask(projectDir, 'create', 'hub');
     claude.launch.mockReset();
     await expect(runTask(projectDir, 'create', 'hub')).rejects.toThrow('process.exit(1)');
     expect(claude.launch).not.toHaveBeenCalled();
     expect(logLines.some(l => l.includes('already exists'))).toBe(true);
+  });
+
+  test('explains the hub and does nothing when the prompt is declined', async () => {
+    prompts.ask.mockResolvedValue('n');
+    await runTask(projectDir, 'create', 'hub');
+    expect(logLines.some(l => l.includes("this project's planning task"))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'hub'))).toBe(false);
+    expect(claude.launch).not.toHaveBeenCalled();
   });
 });
 
@@ -111,6 +121,7 @@ describe('hub delete / rename guards', () => {
   let projectDir;
   beforeEach(async () => {
     projectDir = makeProject('hub-guard');
+    prompts.ask.mockResolvedValue('y');   // confirm hub creation
     await runTask(projectDir, 'create', 'hub');
     claude.launch.mockReset();
   });

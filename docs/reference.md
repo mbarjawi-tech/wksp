@@ -13,10 +13,11 @@
 
 ### `wksp init [name]`
 
-Create a new project. Scaffolds `.wksp`, `repos.txt`, `CLAUDE.md`, `tasks/`, and a reserved [`hub`](#the-hub) planning task. Prompts for `reposRoot` if not already set (skippable — you can add it later with `wksp config set`).
+Create a new project. Scaffolds `.wksp`, `repos.txt`, `CLAUDE.md`, `tasks/`, and a reserved [`hub`](#the-hub) planning task (pass `--no-hub` to skip it). Prompts for `reposRoot` if not already set (skippable — you can add it later with `wksp config set`).
 
 ```bash
 wksp init acme
+wksp init acme --no-hub   # skip the planning hub (add one later with: wksp task create hub)
 ```
 
 ---
@@ -68,7 +69,7 @@ wksp task repo PROJ-1234                  # interactive: pick repo then mode
 
 `hub` is a **reserved task id** — the project's planning task. It has no worktree; it holds the feature backlog, cross-cutting design, open decisions, and cross-task references (`tasks/hub/CLAUDE.md` + its `WORKLOG.md`).
 
-- `wksp init` creates it automatically. Add one to an older project with `wksp task create hub`.
+- `wksp init` creates it automatically (opt out with `wksp init --no-hub`). Add one to an older project with `wksp task create hub` — it explains what the hub is and asks before creating it.
 - Because the name is reserved, `wksp task create hub` always makes the planning task (never a normal worktree task); running it when a hub already exists is an error.
 - `wksp task delete hub` and `wksp task rename hub …` warn before proceeding, since the hub carries project-wide context that lives nowhere else.
 - Need code in the hub for a one-off? Pull a repo in with `wksp task repo hub <repo> worktree` — but real features should get their own task.
