@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 2.9.0
+
+### Fixed
+
+- `wksp task rename` now migrates the task's Claude session history to match the new name. Claude keys transcripts by the task's absolute folder path, so renaming a task used to orphan all of its history — `wksp task resume` and the last-activity column in `wksp status` would then find nothing. Rename now detects the sessions under the old key and, after printing exactly what it will move and asking (default Yes), re-keys the directory under `~/.claude/projects` — touching only this task's two encoded dirs. `--no-migrate-sessions` skips the move (printing the manual command); `--yes`/`-y` auto-confirms for scripts/CI. If a directory already exists under the new key the two are merged: non-colliding sessions are moved across and `memory/` is merged file-by-file preferring the newer copy, never overwriting existing history. The `# Work Log:` heading in `WORKLOG.md` is now renamed too, matching the existing `## Task:` rewrite in `CLAUDE.md`
+
+---
+
 ## [2.8.0] — 2026-07-17
 
 ### Added
