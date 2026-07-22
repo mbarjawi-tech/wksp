@@ -38,6 +38,7 @@ export default defineConfig({
           { text: 'All Commands & Flags', link: '/reference' },
           { text: 'Migration Guide', link: '/migration' },
           { text: 'Export / Import', link: '/export-import' },
+          { text: 'AI Providers', link: '/providers' },
           { text: 'Changelog', link: '/changelog' },
         ],
       },

@@ -17,6 +17,7 @@ const COMMANDS = {
   status:  () => require('../lib/commands/status'),
   delete:  () => require('../lib/commands/delete'),
   config:  () => require('../lib/commands/configCmd'),
+  providers: () => require('../lib/commands/providers'),
   migrate: () => require('../lib/commands/migrate'),
   'export': () => require('../lib/commands/export'),
   'import': () => require('../lib/commands/importCmd'),
@@ -52,10 +53,13 @@ function printHelp() {
       --global                         Write to global config (~/.wksp)
     wksp config get [key]            Show config (merged global + project)
       --global                         Show only global config
+    wksp providers [--json]          List AI providers; show which is configured
 
   Config keys:
     reposRoot    Directory where GitHub repos are cloned (only needed for GitHub URLs)
     autoResume   true/false — auto-resume last Claude session on wksp task (default: true)
+    aiProvider   Which AI tool wksp launches (default: claude). Built-ins: claude, none.
+                   Add your own via customProviders. See docs/providers.md and wksp providers.
 
   Debug:
     WKSP_DEBUG=1   Print full stack traces on errors
@@ -75,7 +79,7 @@ if (!loader) {
 }
 
 // Warn if the project's schema is outdated (skip for migrate itself and global-only commands).
-if (cmd !== 'migrate' && cmd !== 'init' && cmd !== 'export' && cmd !== 'import') {
+if (cmd !== 'migrate' && cmd !== 'init' && cmd !== 'export' && cmd !== 'import' && cmd !== 'providers') {
   const config = require('../lib/config');
   const projectDir = config.findProjectDir();
   if (projectDir) {

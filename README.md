@@ -2,6 +2,8 @@
 
 Workspace CLI for Claude Code. Manage multi-repo development with git worktrees — each task gets its own isolated set of branches, so you can work on multiple features simultaneously without ever branch-switching.
 
+wksp defaults to Claude but is AI-tool-agnostic: point the `aiProvider` config key at another built-in or a custom launcher (see [docs/providers.md](docs/providers.md)).
+
 ## Install
 
 ```bash
