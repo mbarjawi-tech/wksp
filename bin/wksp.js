@@ -36,6 +36,7 @@ function printHelp() {
     wksp task delete <id>            Tear down worktrees and delete task folder
     wksp task rename <id> <new-id>   Rename a task in place
     wksp task archive <id>           Archive the task
+    wksp task finish <id>            Finish a merged task: archive, delete branches, update base repos
     wksp task unarchive <id>         Restore an archived task
     wksp task repo <id> [repo] [mode]  Switch a repo's mode (share/worktree/exclude)
     wksp cleanup --stale <path>      Prune stale worktree refs from a base repo

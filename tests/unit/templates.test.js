@@ -33,6 +33,12 @@ describe('taskClaudeMd', () => {
     expect(md).toContain('## Goal: (describe the task here)');
     expect(md).toContain('## Work log');
   });
+
+  test('teaches the safe merge / finish pattern', () => {
+    expect(md).toContain('## Finishing this task');
+    expect(md).toContain('gh pr merge');
+    expect(md).toContain('wksp task finish PROJ-1234');
+  });
 });
 
 describe('hubClaudeMd', () => {

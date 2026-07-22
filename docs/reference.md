@@ -55,6 +55,7 @@ wksp task delete PROJ-1234      # tear down worktrees and delete task folder
 wksp task rename PROJ-1234 PROJ-5678   # rename task in place
 wksp task archive PROJ-1234     # remove worktrees, move to archived-tasks/
 wksp task unarchive PROJ-1234   # restore an archived task
+wksp task finish PROJ-1234      # verify merged, archive + delete branches, ff base repos
 wksp task repo PROJ-1234 backend share    # switch repo to shared path for this task
 wksp task repo PROJ-1234 backend worktree # create/restore a worktree for a repo
 wksp task repo PROJ-1234 backend exclude  # exclude a repo from this task
@@ -66,6 +67,8 @@ wksp task repo PROJ-1234                  # interactive: pick repo then mode
 `resume` — scans existing worktrees, detects any new repos added since last run (prompts for branches for those), then launches Claude.
 
 `rename` — renames the task folder, repairs worktrees, renames the `.code-workspace` file, and updates the `## Task:` / `# Work Log:` headings. Because Claude keys session transcripts by the task's folder path, rename also offers to move that history under the new key so `resume` and `status` keep finding it — it shows what it will move and asks (default Yes). Use `--no-migrate-sessions` to skip the move, or `--yes` / `-y` to auto-confirm.
+
+`finish` (alias: `done`) — the post-merge completion verb. Fetches each base repo and verifies the task's branches are merged into the default branch — a squash- or rebase-merged PR legitimately shows as unmerged, so finish warns and asks before continuing. It then archives the task exactly like `archive` but with branch deletion defaulted (`--keep-branches` opts out), and finally fast-forwards each base repo's default branch — only when that repo is clean and already sitting on it; otherwise it prints the `git pull --ff-only` command and leaves the repo alone. Merge PRs from inside a task with `gh pr merge <pr> --repo <owner>/<repo>` — the `--repo` flag keeps gh from trying to check out the default branch locally, which fails inside a worktree.
 
 #### The hub
 
@@ -100,6 +103,10 @@ Branch for backend [main, s=shared, x=exclude]:
 | `delete` | `--delete-branches` | Also delete local branches when tearing down. |
 | `archive` | `--delete-branches` | Delete local branches during archive. |
 | `archive` | `--force` | Archive even when uncommitted changes exist. |
+| `finish` | `--keep-branches` | Keep local branches instead of deleting them. |
+| `finish` | `--force` | Finish even when uncommitted changes exist. |
+| `finish` | `--reason <text>` | Record a reason in the archive manifest (default: "finished"). |
+| `finish` | `--yes`, `-y` | Skip confirmations (scripts/CI). |
 | `unarchive` | `--dry-run` | Show restore plan without applying it. |
 | `unarchive` | `--fetch` | Fetch remote refs in all base repos before classifying. |
 | `unarchive` | `--skip <repo>` | Skip a specific repo during restore. |
@@ -412,6 +419,11 @@ agreed designs, open decisions, and cross-task references. It normally has **no 
 
 ## Notes
 <!-- decisions, constraints, references, links to tickets... -->
+
+## Finishing this task
+When the work is merged, clean up from inside the task — never check out the default branch here.
+- Merge PRs with `gh pr merge <pr> --repo <owner>/<repo>` (the `--repo` flag keeps gh off the local checkout).
+- After the merge lands, suggest `wksp task finish PROJ-1234` — verifies merged, archives, deletes branches, ff base repos.
 
 ## Conflict policy
 The project-level CLAUDE.md defines shared conventions. This file adds task-specific context only.
