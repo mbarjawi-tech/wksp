@@ -7,8 +7,10 @@ jest.mock('../../lib/prompts', () => ({
   open: jest.fn(), close: jest.fn(), ask: jest.fn(), confirm: jest.fn(),
 }));
 
-jest.mock('../../lib/claude', () => ({
-  launch: jest.fn(), findLastSession: jest.fn().mockReturnValue(null),
+jest.mock('../../lib/providers/claude', () => ({
+  name: 'claude', instructionFile: 'CLAUDE.md',
+  launch: jest.fn(),
+  sessions: { findLast: jest.fn().mockReturnValue(null) },
 }));
 
 jest.mock('../../lib/config', () => {
@@ -22,7 +24,7 @@ jest.mock('../../lib/config', () => {
 });
 
 const prompts = require('../../lib/prompts');
-const claude  = require('../../lib/claude');
+const claude  = require('../../lib/providers/claude');
 const config  = require('../../lib/config');
 const taskCmd = require('../../lib/commands/task');
 
@@ -37,8 +39,8 @@ beforeEach(() => {
   prompts.confirm.mockReset();
   prompts.open.mockReset();
   prompts.close.mockReset();
-  claude.findLastSession.mockReset();
-  claude.findLastSession.mockReturnValue(null);
+  claude.sessions.findLast.mockReset();
+  claude.sessions.findLast.mockReturnValue(null);
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -48,7 +50,7 @@ function mkTask(projectDir, id) {
 
 // Make recency deterministic: map task-dir basename → session mtime (ms).
 function setRecency(map) {
-  claude.findLastSession.mockImplementation(taskDir => {
+  claude.sessions.findLast.mockImplementation(taskDir => {
     const ms = map[path.basename(taskDir)];
     return ms ? { id: 's', mtime: ms } : null;
   });

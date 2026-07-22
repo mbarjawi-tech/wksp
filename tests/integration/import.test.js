@@ -20,12 +20,14 @@ jest.mock('../../lib/prompts', () => ({
   confirm: jest.fn(),
 }));
 
-jest.mock('../../lib/claude', () => {
-  const actual = jest.requireActual('../../lib/claude');
+jest.mock('../../lib/providers/claude', () => {
+  const actual = jest.requireActual('../../lib/providers/claude');
   return {
     ...actual,
     launch: jest.fn(),
-    findLastSession: jest.fn().mockReturnValue(null),
+    // Stub session lookup; keep the real placeTranscript so import writes the
+    // transcript into the (os.homedir-spied) fake ~/.claude.
+    sessions: { ...actual.sessions, findLast: jest.fn().mockReturnValue(null) },
   };
 });
 
@@ -453,7 +455,7 @@ describe('import — session placed correctly', () => {
   test('places session jsonl in ~/.claude/projects/<encoded>/<id>.jsonl', async () => {
     jest.spyOn(os, 'homedir').mockReturnValue(tempHome);
 
-    const { encodeProjectPath } = require('../../lib/claude');
+    const { encodeProjectPath } = require('../../lib/providers/claude');
 
     config.findProjectDir.mockReturnValue(projectDir);
     config.readProjectConfig.mockReturnValue({ name: 'imp-sess', schemaVersion: 2 });

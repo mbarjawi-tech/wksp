@@ -18,12 +18,14 @@ jest.mock('../../lib/prompts', () => ({
   confirm: jest.fn(),
 }));
 
-jest.mock('../../lib/claude', () => {
-  const actual = jest.requireActual('../../lib/claude');
+jest.mock('../../lib/providers/claude', () => {
+  const actual = jest.requireActual('../../lib/providers/claude');
   return {
     ...actual,
-    launch:          jest.fn(),
-    findLastSession: jest.fn().mockReturnValue(null),
+    launch:   jest.fn(),
+    // Stub session lookup; keep the real readTranscript so the transcript is read
+    // from the (os.homedir-spied) fake ~/.claude in the session-present test.
+    sessions: { ...actual.sessions, findLast: jest.fn().mockReturnValue(null) },
   };
 });
 
@@ -39,7 +41,7 @@ jest.mock('../../lib/config', () => {
 
 const prompts  = require('../../lib/prompts');
 const config   = require('../../lib/config');
-const claudeMod = require('../../lib/claude');
+const claudeMod = require('../../lib/providers/claude');
 const exportCmd = require('../../lib/commands/export');
 
 // ─── Helpers ─────────────────────────────────────────────────────────────────
@@ -78,7 +80,7 @@ beforeEach(() => {
   prompts.confirm.mockReset();
   prompts.open.mockReset();
   prompts.close.mockReset();
-  claudeMod.findLastSession.mockReturnValue(null);
+  claudeMod.sessions.findLast.mockReturnValue(null);
 });
 afterEach(() => jest.restoreAllMocks());
 
@@ -327,7 +329,7 @@ describe('export — --with-session, no session', () => {
     const wtDir = path.join(taskDir, WORKTREES_DIR, path.basename(repoDir));
     git.addWorktree(repoDir, wtDir, 'feature/nosess', 'main');
     gitCmd(wtDir, 'push origin feature/nosess');
-    claudeMod.findLastSession.mockReturnValue(null);
+    claudeMod.sessions.findLast.mockReturnValue(null);
   });
   afterEach(() => cleanup(projectDir, repoDir, originDir, outDir));
 
@@ -361,7 +363,7 @@ describe('export — --with-session, session present', () => {
     gitCmd(wtDir, 'push origin feature/sess');
 
     // Set up a fake session file
-    const { encodeProjectPath } = require('../../lib/claude');
+    const { encodeProjectPath } = require('../../lib/providers/claude');
     const encoded  = encodeProjectPath(taskDir);
     const sessDir  = path.join(tempHome, '.claude', 'projects', encoded);
     fs.mkdirSync(sessDir, { recursive: true });
@@ -369,7 +371,7 @@ describe('export — --with-session, session present', () => {
 
     // Mock os.homedir to return tempHome — need to re-require after mock
     jest.spyOn(os, 'homedir').mockReturnValue(tempHome);
-    claudeMod.findLastSession.mockReturnValue({ id: 'abc123', mtime: Date.now() });
+    claudeMod.sessions.findLast.mockReturnValue({ id: 'abc123', mtime: Date.now() });
   });
   afterEach(() => {
     jest.restoreAllMocks();

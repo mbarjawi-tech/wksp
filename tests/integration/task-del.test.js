@@ -18,7 +18,10 @@ jest.mock('../../lib/prompts', () => ({
   confirmTyped: jest.fn(),
 }));
 
-jest.mock('../../lib/claude', () => ({ launch: jest.fn(), findLastSession: jest.fn().mockReturnValue(null) }));
+jest.mock('../../lib/providers/claude', () => ({
+  name: 'claude', instructionFile: 'CLAUDE.md',
+  launch: jest.fn(), sessions: { findLast: jest.fn().mockReturnValue(null) },
+}));
 
 jest.mock('../../lib/config', () => {
   const actual = jest.requireActual('../../lib/config');

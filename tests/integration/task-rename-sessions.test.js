@@ -12,8 +12,8 @@ jest.mock('../../lib/prompts', () => ({
 
 // Keep the real path-encoding / migration helpers; only stub the launcher so no
 // real `claude` process is spawned during `task create`.
-jest.mock('../../lib/claude', () => {
-  const actual = jest.requireActual('../../lib/claude');
+jest.mock('../../lib/providers/claude', () => {
+  const actual = jest.requireActual('../../lib/providers/claude');
   return { ...actual, launch: jest.fn() };
 });
 
@@ -30,7 +30,7 @@ jest.mock('../../lib/config', () => {
 
 const prompts = require('../../lib/prompts');
 const config  = require('../../lib/config');
-const claude  = require('../../lib/claude');
+const claude  = require('../../lib/providers/claude');
 const taskCmd = require('../../lib/commands/task');
 
 let logLines, homeDir;
@@ -96,7 +96,7 @@ describe('wksp task rename — session-history migration', () => {
     expect(fs.existsSync(oldDir)).toBe(false);
     expect(fs.existsSync(path.join(newDir, 'sess-1.jsonl'))).toBe(true);
     // resume / status resolve history under the new key.
-    expect(claude.findLastSession(newTaskDir)).toMatchObject({ id: 'sess-1' });
+    expect(claude.sessions.findLast(newTaskDir)).toMatchObject({ id: 'sess-1' });
   });
 
   test('declining leaves the source intact and prints the manual move command', async () => {
