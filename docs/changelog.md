@@ -4,6 +4,22 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 3.1.0
+
+### Added
+
+- `wksp task finish --no-archive` (alias `--delete`) — finish a merged task without keeping an archive. It runs the same merged-verification and fast-forwards each base repo's default branch, but then deletes the task outright (worktrees, local branches, and the task folder) instead of moving it to `archived-tasks/`. The delete path has its own confirmation that clearly flags it as irreversible with no archive kept. The base-repo fast-forward still runs (before the worktrees are torn down)
+
+### Fixed
+
+- `wksp task delete` can now reach archived tasks by partial name and from the picker, not just by exact id. A partial that matches no live task falls back to matching archived tasks, and the delete picker lists archived tasks marked `(archived)`. `resume`, `archive`, and `finish` are unchanged — only `delete` reaches into `archived-tasks/`
+
+### Changed
+
+- Docs audited and corrected to v3.0.0: the `docs/examples/*.md` walkthroughs now use the verb-first task syntax (`wksp task create/resume/delete`, `wksp task archive/unarchive`, `wksp task repo <id> <repo> share|worktree|exclude`) instead of the removed v1 positional flags; obsolete `task-shared.txt` / `task-excluded.txt` references become `task.json`; the `wksp cleanup --stale` form becomes `wksp cleanup`. `docs/export-import.md` documents the canonical `task.agentsMd` bundle field (with `claudeMd` kept for back-compat) and bumps the example `schemaVersion` to `4`; `bin/wksp.js --help` notes the `AGENTS.md` + one-line `@AGENTS.md` `CLAUDE.md` include pattern and the current `wksp cleanup` usage
+
+---
+
 ## [3.0.0] — 2026-07-22
 
 ### Added
