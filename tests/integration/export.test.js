@@ -88,6 +88,7 @@ afterEach(() => jest.restoreAllMocks());
 
 describe('export — happy path', () => {
   let projectDir, repoDir, originDir, outDir;
+  const agentsContent = '## Task: TASK-1\n## Goal: test\n';
   beforeEach(() => {
     projectDir = makeProject('exp-happy');
     outDir     = makeTempDir('exp-out');
@@ -95,6 +96,9 @@ describe('export — happy path', () => {
     addRepo(projectDir, repoDir, false);
     const taskDir = path.join(projectDir, 'tasks', 'TASK-1');
     fs.mkdirSync(path.join(taskDir, WORKTREES_DIR), { recursive: true });
+    // Write AGENTS.md + CLAUDE.md include (as task create would do)
+    fs.writeFileSync(path.join(taskDir, 'AGENTS.md'), agentsContent);
+    fs.writeFileSync(path.join(taskDir, 'CLAUDE.md'), '@AGENTS.md\n');
     const wtDir = path.join(taskDir, WORKTREES_DIR, path.basename(repoDir));
     git.addWorktree(repoDir, wtDir, 'feature/task-1', 'main');
     // Push the branch so it's not "unpushed"
@@ -159,6 +163,20 @@ describe('export — happy path', () => {
     const bundle = JSON.parse(fs.readFileSync(outFile, 'utf8'));
     expect(bundle.exportedBy).toBeDefined();
     expect(typeof bundle.exportedBy.machine).toBe('string');
+  });
+
+  test('bundle has task.agentsMd with AGENTS.md content', async () => {
+    const outFile = path.join(outDir, 'bundle.wksp-bundle');
+    await runExport(projectDir, 'exp-happy', 'TASK-1', '--out', outFile);
+    const bundle = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    expect(bundle.task.agentsMd).toBe(agentsContent);
+  });
+
+  test('bundle task.claudeMd equals task.agentsMd for backward compat', async () => {
+    const outFile = path.join(outDir, 'bundle.wksp-bundle');
+    await runExport(projectDir, 'exp-happy', 'TASK-1', '--out', outFile);
+    const bundle = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+    expect(bundle.task.claudeMd).toBe(bundle.task.agentsMd);
   });
 });
 

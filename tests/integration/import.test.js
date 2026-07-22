@@ -60,21 +60,26 @@ function makeBundle(opts = {}) {
   const taskId      = opts.taskId      || 'TASK-1';
   const repos       = opts.repos       || [];
   const taskRepos   = opts.taskRepos   || [];
+  const task = {
+    id:       taskId,
+    claudeMd: `## Task: ${taskId}\n`,
+    // undefined is dropped by JSON.stringify — omitting worklogMd mimics a pre-2.8.0 bundle
+    worklogMd: opts.worklogMd,
+    shared:   opts.shared   || [],
+    excluded: opts.excluded || [],
+    repos:    taskRepos,
+  };
+  // agentsMd is the new canonical field; when present it takes precedence over claudeMd
+  if (opts.agentsMd !== undefined) {
+    task.agentsMd = opts.agentsMd;
+  }
   return {
     bundleVersion: BUNDLE_VERSION,
     exportedAt:    new Date().toISOString(),
     exportedBy:    { machine: 'test-machine' },
     project: { name: projectName, schemaVersion: 2 },
     repos,
-    task: {
-      id:       taskId,
-      claudeMd: `## Task: ${taskId}\n`,
-      // undefined is dropped by JSON.stringify — omitting worklogMd mimics a pre-2.8.0 bundle
-      worklogMd: opts.worklogMd,
-      shared:   opts.shared   || [],
-      excluded: opts.excluded || [],
-      repos:    taskRepos,
-    },
+    task,
     session: opts.session || null,
   };
 }
@@ -204,10 +209,11 @@ describe('import — Mode 1, repo found in reposRoot', () => {
     expect(branch).toBe('feature/m1-test');
 
     // Imported task must be brought up to the current schema: WORKLOG.md created and
-    // the Work log section appended to its CLAUDE.md (the bundle is schema v2).
+    // AGENTS.md with Work log section (migrations convert legacy claudeMd → AGENTS.md + include).
     const importedTaskDir = path.join(projectDir, 'tasks', 'TASK-M1');
     expect(fs.existsSync(path.join(importedTaskDir, 'WORKLOG.md'))).toBe(true);
-    expect(fs.readFileSync(path.join(importedTaskDir, 'CLAUDE.md'), 'utf8')).toContain('## Work log');
+    expect(fs.readFileSync(path.join(importedTaskDir, 'AGENTS.md'), 'utf8')).toContain('## Work log');
+    expect(fs.readFileSync(path.join(importedTaskDir, 'CLAUDE.md'), 'utf8')).toBe('@AGENTS.md\n');
   });
 });
 
@@ -436,6 +442,43 @@ describe('import — WORKLOG.md', () => {
 
     const worklogPath = path.join(projectDir, 'tasks', 'TASK-WL2', 'WORKLOG.md');
     expect(fs.readFileSync(worklogPath, 'utf8')).toBe('# Work Log: TASK-WL2\n');
+  });
+});
+
+// ─── Bundle with agentsMd field ──────────────────────────────────────────────
+
+describe('import — bundle with agentsMd', () => {
+  let projectDir, bundleDir;
+  beforeEach(() => {
+    projectDir = makeProject('imp-agents');
+    bundleDir  = makeTempDir('imp-agents-bundle');
+    config.findProjectDir.mockReturnValue(projectDir);
+    config.readProjectConfig.mockReturnValue({ name: 'imp-agents', schemaVersion: 2 });
+  });
+  afterEach(() => cleanup(projectDir, bundleDir));
+
+  test('writes AGENTS.md with agentsMd content and CLAUDE.md as the one-line include', async () => {
+    const agentsContent = '## Task: X\ncustom agents content\n';
+    const bundle = makeBundle({
+      projectName: 'imp-agents',
+      taskId: 'TASK-AGENTS',
+      agentsMd: agentsContent,
+    });
+    const bundlePath = path.join(bundleDir, 'test.wksp-bundle');
+    writeBundle(bundlePath, bundle);
+
+    prompts.ask.mockResolvedValueOnce('2'); // existing project
+    prompts.confirm.mockResolvedValue(true);
+
+    await importCmd.run([bundlePath]);
+
+    const taskDir = path.join(projectDir, 'tasks', 'TASK-AGENTS');
+    // Migrations may append sections (e.g. ## Work log) to AGENTS.md, so check
+    // that the original content is present rather than an exact match.
+    const writtenAgentsMd = fs.readFileSync(path.join(taskDir, 'AGENTS.md'), 'utf8');
+    expect(writtenAgentsMd).toContain('## Task: X');
+    expect(writtenAgentsMd).toContain('custom agents content');
+    expect(fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8')).toBe('@AGENTS.md\n');
   });
 });
 

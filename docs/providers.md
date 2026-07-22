@@ -8,7 +8,7 @@ A *provider* is a small adapter that knows how to launch a tool (and, optionally
 
 Providers come in two tiers:
 
-- **baseline** — launch + instruction files only. wksp opens the task's context directories in the tool and scaffolds the instruction file (`CLAUDE.md`). No session awareness: resume always starts a fresh session, `wksp status` falls back to the task folder's modification time for last-activity, `wksp task rename` can't migrate chat history, and `wksp export --with-session` has nothing to capture.
+- **baseline** — launch + instruction files only. wksp opens the task's context directories in the tool and scaffolds the instruction files (`AGENTS.md`, plus a one-line `CLAUDE.md` include). No session awareness: resume always starts a fresh session, `wksp status` falls back to the task folder's modification time for last-activity, `wksp task rename` can't migrate chat history, and `wksp export --with-session` has nothing to capture.
 - **full** — everything baseline does, plus **session awareness**: resume the last session, show real last-activity in `wksp status`, migrate transcripts on rename, and export/import session transcripts in a bundle.
 
 Every session feature degrades cleanly on a baseline provider — the feature simply isn't offered, nothing errors.
@@ -62,7 +62,7 @@ The `--json` shape is stable:
       "builtin": true,
       "tier": "baseline",
       "capabilities": { "sessions": false },
-      "instructionFile": "CLAUDE.md"
+      "instructionFile": "AGENTS.md"
     }
   ]
 }
@@ -93,7 +93,7 @@ You can teach wksp to launch any CLI tool declaratively — no code, no PR — v
 
 If a placeholder is absent from your `command`, that data simply isn't passed. There is no resume placeholder: baseline providers have no session awareness, so resume always launches fresh.
 
-`instructionFile` defaults to `CLAUDE.md` if omitted.
+`instructionFile` defaults to `AGENTS.md` if omitted — the canonical instruction file wksp scaffolds everywhere.
 
 To use one, point `aiProvider` at its name:
 

@@ -1,10 +1,12 @@
 'use strict';
 const fs   = require('fs');
+const os   = require('os');
 const path = require('path');
-const { makeProject, cleanup } = require('../helpers');
+const { makeProject, makeTempDir, cleanup } = require('../helpers');
 
 jest.mock('../../lib/prompts', () => ({
   open: jest.fn(), close: jest.fn(), ask: jest.fn(), confirm: jest.fn(),
+  confirmDefaultYes: jest.fn(),
 }));
 
 jest.mock('../../lib/config', () => {
@@ -12,7 +14,10 @@ jest.mock('../../lib/config', () => {
   return { ...actual, findProjectDir: jest.fn() };
 });
 
+const prompts    = require('../../lib/prompts');
 const config     = require('../../lib/config');
+const claude     = require('../../lib/providers/claude');
+const templates  = require('../../lib/templates');
 const migrateCmd = require('../../lib/commands/migrate');
 
 let logLines, warnLines;
@@ -221,11 +226,13 @@ describe('schema 2 → 3 — adds WORKLOG.md and Work log section', () => {
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-WL', 'WORKLOG.md'))).toBe(true);
   });
 
-  test('appends Work log section to CLAUDE.md', async () => {
+  test('appends Work log section (landing in AGENTS.md after the v4 conversion)', async () => {
     await runMigrate(projectDir);
-    const content = fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-WL', 'CLAUDE.md'), 'utf8');
+    const content = fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-WL', 'AGENTS.md'), 'utf8');
     expect(content).toContain('## Work log');
     expect(content).toContain('WORKLOG.md');
+    expect(fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-WL', 'CLAUDE.md'), 'utf8'))
+      .toBe(templates.CLAUDE_INCLUDE);
   });
 
   test('bumps schemaVersion to 3', async () => {
@@ -240,7 +247,7 @@ describe('schema 2 → 3 — adds WORKLOG.md and Work log section', () => {
 
     await runMigrate(projectDir);
 
-    const content = fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8');
+    const content = fs.readFileSync(path.join(taskDir, 'AGENTS.md'), 'utf8');
     expect(content.split('## Work log').length).toBe(2); // exactly one occurrence
   });
 });
@@ -300,9 +307,10 @@ describe('--repair — backfills missing artifacts on a current project', () => 
     expect(fs.existsSync(path.join(taskDir, 'WORKLOG.md'))).toBe(true);
   });
 
-  test('--repair adds the missing Work log section to CLAUDE.md', async () => {
+  test('--repair adds the missing Work log section (in the canonical AGENTS.md)', async () => {
     await runMigrate(projectDir, '--repair');
-    expect(fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8')).toContain('## Work log');
+    expect(fs.readFileSync(path.join(taskDir, 'AGENTS.md'), 'utf8')).toContain('## Work log');
+    expect(fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8')).toBe(templates.CLAUDE_INCLUDE);
   });
 
   test('--repair leaves schemaVersion at current', async () => {
@@ -313,15 +321,226 @@ describe('--repair — backfills missing artifacts on a current project', () => 
   test('--repair is idempotent — re-running does not duplicate anything', async () => {
     await runMigrate(projectDir, '--repair');
     const firstWorklog = fs.readFileSync(path.join(taskDir, 'WORKLOG.md'), 'utf8');
+    const firstAgents  = fs.readFileSync(path.join(taskDir, 'AGENTS.md'), 'utf8');
     await runMigrate(projectDir, '--repair');
     expect(fs.readFileSync(path.join(taskDir, 'WORKLOG.md'), 'utf8')).toBe(firstWorklog);
-    expect(fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8').split('## Work log').length).toBe(2);
+    expect(fs.readFileSync(path.join(taskDir, 'AGENTS.md'), 'utf8')).toBe(firstAgents);
+    expect(fs.readFileSync(path.join(taskDir, 'AGENTS.md'), 'utf8').split('## Work log').length).toBe(2);
+    expect(fs.readFileSync(path.join(taskDir, 'CLAUDE.md'), 'utf8')).toBe(templates.CLAUDE_INCLUDE);
   });
 
   test('--repair --dry-run reports without writing', async () => {
     await runMigrate(projectDir, '--repair', '--dry-run');
     expect(fs.existsSync(path.join(taskDir, 'WORKLOG.md'))).toBe(false);
     expect(logLines.some(l => l.includes('Dry run complete'))).toBe(true);
+  });
+});
+
+// ─── schema 3 → 4 (root-as-hub) ──────────────────────────────────────────────
+
+describe('schema 3 → 4 — root-as-hub', () => {
+  let projectDir, homeDir;
+
+  const HUB_CLAUDE_MD = [
+    '## Task: hub',
+    '',
+    'Custom intro the user wrote about this project.',
+    '',
+    '## Feature backlog',
+    '- item one: build the thing',
+    '',
+    '## Open decisions',
+    '- decide X or Y',
+    '',
+    templates.WORK_LOG_SECTION,
+  ].join('\n');
+
+  beforeEach(() => {
+    // Isolate ~/.claude and ~/.wksp under a fake home (see task-rename-sessions).
+    homeDir = makeTempDir('fake-home-migrate');
+    jest.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    prompts.confirmDefaultYes.mockReset();
+
+    projectDir = makeProject('mig-3to4');
+    config.setProjectConfig(projectDir, 'schemaVersion', 3);
+
+    // A 2.8.0-style hub with user content, plus a normal task.
+    const hubDir = path.join(projectDir, 'tasks', 'hub');
+    fs.mkdirSync(path.join(hubDir, 'worktrees'), { recursive: true });
+    fs.writeFileSync(path.join(hubDir, 'CLAUDE.md'), HUB_CLAUDE_MD);
+    fs.writeFileSync(path.join(hubDir, 'WORKLOG.md'), '# Work Log: hub\n- 2026-07-01: decided the roadmap\n');
+
+    const taskDir = path.join(projectDir, 'tasks', 'TASK-A');
+    fs.mkdirSync(taskDir, { recursive: true });
+    fs.writeFileSync(path.join(taskDir, 'CLAUDE.md'), '## Task: TASK-A\ncustom task notes\n\n## Work log\nrules here\n');
+    fs.writeFileSync(path.join(taskDir, 'WORKLOG.md'), '# Work Log: TASK-A\n');
+
+    // A 2.8.0-template project CLAUDE.md at the root.
+    fs.writeFileSync(path.join(projectDir, 'CLAUDE.md'), '## Project: mig-3to4\nmy conventions\n');
+  });
+  afterEach(() => cleanup(projectDir, homeDir));
+
+  test('merges the hub instruction file into PLANNING.md, dropping template boilerplate', async () => {
+    await runMigrate(projectDir);
+    const planning = fs.readFileSync(path.join(projectDir, 'PLANNING.md'), 'utf8');
+    expect(planning).toContain('# Planning —');
+    expect(planning).toContain('- item one: build the thing');
+    expect(planning).toContain('- decide X or Y');
+    expect(planning).toContain('Custom intro the user wrote');
+    expect(planning).not.toContain('## Task: hub');
+    expect(planning).not.toContain('## Work log'); // template section stripped
+  });
+
+  test('merges the hub worklog into the root WORKLOG.md and removes tasks/hub/', async () => {
+    await runMigrate(projectDir);
+    const worklog = fs.readFileSync(path.join(projectDir, 'WORKLOG.md'), 'utf8');
+    expect(worklog).toContain('# Work Log:');
+    expect(worklog).toContain('- 2026-07-01: decided the roadmap');
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'hub'))).toBe(false);
+  });
+
+  test('converts root and task CLAUDE.md files to AGENTS.md + include', async () => {
+    await runMigrate(projectDir);
+
+    expect(fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8')).toContain('my conventions');
+    expect(fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf8')).toBe(templates.CLAUDE_INCLUDE);
+
+    const taskAgents = fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-A', 'AGENTS.md'), 'utf8');
+    expect(taskAgents).toContain('custom task notes');
+    expect(fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-A', 'CLAUDE.md'), 'utf8')).toBe(templates.CLAUDE_INCLUDE);
+  });
+
+  test('stamps schemaVersion 4', async () => {
+    await runMigrate(projectDir);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(4);
+  });
+
+  test('does not prompt when there is no hub session history', async () => {
+    await runMigrate(projectDir);
+    expect(prompts.confirmDefaultYes).not.toHaveBeenCalled();
+  });
+
+  test('offers to re-key hub session history and moves it on Yes', async () => {
+    const hubKeyDir = path.join(homeDir, '.claude', 'projects',
+      claude.encodeProjectPath(path.join(projectDir, 'tasks', 'hub')));
+    fs.mkdirSync(hubKeyDir, { recursive: true });
+    fs.writeFileSync(path.join(hubKeyDir, 's1.jsonl'), '{"type":"session"}\n');
+    prompts.confirmDefaultYes.mockResolvedValue(true);
+
+    await runMigrate(projectDir);
+
+    const rootKeyDir = path.join(homeDir, '.claude', 'projects', claude.encodeProjectPath(projectDir));
+    expect(prompts.confirmDefaultYes).toHaveBeenCalledTimes(1);
+    expect(fs.existsSync(hubKeyDir)).toBe(false);
+    expect(fs.existsSync(path.join(rootKeyDir, 's1.jsonl'))).toBe(true);
+  });
+
+  test('leaves session history in place when declined, recoverable via --repair', async () => {
+    const hubKeyDir = path.join(homeDir, '.claude', 'projects',
+      claude.encodeProjectPath(path.join(projectDir, 'tasks', 'hub')));
+    fs.mkdirSync(hubKeyDir, { recursive: true });
+    fs.writeFileSync(path.join(hubKeyDir, 's1.jsonl'), '{"type":"session"}\n');
+    prompts.confirmDefaultYes.mockResolvedValue(false);
+
+    await runMigrate(projectDir);
+    expect(fs.existsSync(path.join(hubKeyDir, 's1.jsonl'))).toBe(true);
+    expect(logLines.some(l => l.includes('--repair'))).toBe(true);
+
+    // The offer repeats on --repair even though tasks/hub/ is gone (pure path math).
+    prompts.confirmDefaultYes.mockResolvedValue(true);
+    await runMigrate(projectDir, '--repair');
+    expect(fs.existsSync(hubKeyDir)).toBe(false);
+  });
+
+  test('hub with live worktrees is left in place with a warning', async () => {
+    // Simulate a pulled-in worktree: a non-empty dir under tasks/hub/worktrees
+    // with a .git file makes discoverWorktrees see (and reject) it as corrupted,
+    // which still counts as "has worktrees" for the guard.
+    const wtDir = path.join(projectDir, 'tasks', 'hub', 'worktrees', 'repo');
+    fs.mkdirSync(wtDir, { recursive: true });
+    fs.writeFileSync(path.join(wtDir, '.git'), 'gitdir: /nonexistent\n');
+
+    await runMigrate(projectDir);
+
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'hub', 'CLAUDE.md'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'PLANNING.md'))).toBe(true); // fresh scaffold, no merge
+    const planning = fs.readFileSync(path.join(projectDir, 'PLANNING.md'), 'utf8');
+    expect(planning).not.toContain('- item one: build the thing');
+  });
+
+  test('dry-run reports without touching anything', async () => {
+    await runMigrate(projectDir, '--dry-run');
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'hub'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'PLANNING.md'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, 'AGENTS.md'))).toBe(false);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(3);
+  });
+
+  test('is idempotent — a second run changes nothing', async () => {
+    await runMigrate(projectDir);
+    const planning = fs.readFileSync(path.join(projectDir, 'PLANNING.md'), 'utf8');
+    const worklog  = fs.readFileSync(path.join(projectDir, 'WORKLOG.md'), 'utf8');
+    const agents   = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8');
+
+    await runMigrate(projectDir, '--repair');
+
+    expect(fs.readFileSync(path.join(projectDir, 'PLANNING.md'), 'utf8')).toBe(planning);
+    expect(fs.readFileSync(path.join(projectDir, 'WORKLOG.md'), 'utf8')).toBe(worklog);
+    expect(fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8')).toBe(agents);
+  });
+});
+
+describe('schema 3 → 4 — pre-2.8.0 project (no hub)', () => {
+  let projectDir, homeDir;
+  beforeEach(() => {
+    homeDir = makeTempDir('fake-home-nohub');
+    jest.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    projectDir = makeProject('mig-nohub');
+    config.setProjectConfig(projectDir, 'schemaVersion', 3);
+  });
+  afterEach(() => cleanup(projectDir, homeDir));
+
+  test('scaffolds PLANNING.md, root WORKLOG.md, and a fresh AGENTS.md', async () => {
+    await runMigrate(projectDir);
+    expect(fs.readFileSync(path.join(projectDir, 'PLANNING.md'), 'utf8')).toContain('## Feature backlog');
+    expect(fs.readFileSync(path.join(projectDir, 'WORKLOG.md'), 'utf8')).toContain('# Work Log:');
+    expect(fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8')).toContain('## wksp vocabulary');
+    expect(fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf8')).toBe(templates.CLAUDE_INCLUDE);
+    expect(prompts.confirmDefaultYes).not.toHaveBeenCalled();
+  });
+
+  test('modernizes an unedited 2.8.0 project template during conversion', async () => {
+    // Recreate the frozen 2.8.0 template blocks around user content.
+    fs.writeFileSync(path.join(projectDir, 'CLAUDE.md'), [
+      '## Project: mig-nohub',
+      '',
+      "- **hub** — the project's planning task (no worktree). Holds the feature backlog, cross-cutting design, open decisions, and cross-task references — the connective tissue between repos and tasks. Here the hub is `tasks/hub/`.",
+      'user line kept',
+      '## Where things live',
+      '',
+      "- **The hub** (`tasks/hub/`) — the project's planning task and source of truth for project-wide plans: the feature backlog, agreed designs, open decisions, and how tasks relate (`tasks/hub/CLAUDE.md` + its `WORKLOG.md`). Consult it when a request touches project-wide design, references another task, or asks \"what to work on next.\" Don't load it for work scoped to a single repo or task.",
+      '',
+      'trailing user line',
+    ].join('\n') + '\n');
+
+    await runMigrate(projectDir);
+
+    const agents = fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8');
+    expect(agents).toContain('user line kept');
+    expect(agents).toContain('trailing user line');
+    expect(agents).not.toContain('tasks/hub');
+    expect(agents).toContain('## The project root is the planning hub');
+  });
+
+  test('warns instead of clobbering when AGENTS.md and a real CLAUDE.md both exist', async () => {
+    fs.writeFileSync(path.join(projectDir, 'AGENTS.md'), 'hand-written agents file\n');
+    fs.writeFileSync(path.join(projectDir, 'CLAUDE.md'), 'hand-written claude file\n');
+
+    await runMigrate(projectDir);
+
+    expect(fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8')).toBe('hand-written agents file\n');
+    expect(fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf8')).toBe('hand-written claude file\n');
+    expect(logLines.some(l => l.includes('merge'))).toBe(true);
   });
 });
 

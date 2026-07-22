@@ -34,22 +34,23 @@ git enforces one rule: the same branch cannot be checked out in two worktrees at
 
 **Excluded** — a repo that is omitted from a specific task entirely. No worktree, not added to the VS Code workspace, not passed to Claude. Useful when a repo is irrelevant to a particular task.
 
-**Hub** — a reserved planning task, always named `hub`, that every project gets. Unlike a normal task it has **no worktree**; instead it holds the project's feature backlog, cross-cutting design, open decisions, and cross-task references — the connective tissue between repos and tasks. `wksp init` creates it automatically (older projects add one with `wksp task create hub`). The project `CLAUDE.md` points AI at the hub *conditionally* — consult it when a request touches project-wide design, references another task, or asks "what to work on next"; skip it for work scoped to a single repo or task. See [reference](/reference#the-hub).
+**The root is the planning hub** — the project root itself is the planning surface. It holds `PLANNING.md` (the living feature backlog, open decisions, and research pointers), a root `WORKLOG.md`, and the project-wide `AGENTS.md`. `wksp start` (no arguments) launches a planning session there — no repos are checked out at the root, so planning stays separate from implementation; when a discussion turns into work, a task is created for it. See [reference](/reference#wksp-start).
+
+**Instruction files** — `AGENTS.md` is the canonical instruction file at the root and in every task. The `claude` provider reads `CLAUDE.md`, so wksp also writes a one-line `CLAUDE.md` containing `@AGENTS.md` — one source of truth, readable by any tool.
 
 ## Mental model
 
 ```
-acme/                        ← project root (holds config + all tasks)
+acme/                        ← project root = the planning hub (config + all tasks)
   repos.txt                     ← which repos belong to this project
-  CLAUDE.md                     ← project-wide conventions for Claude
+  AGENTS.md                     ← project-wide conventions (canonical instruction file)
+  CLAUDE.md                     ← one-line "@AGENTS.md" include for Claude
+  PLANNING.md                   ← feature backlog, open decisions, research pointers
+  WORKLOG.md                    ← running record of planning work
 
   tasks/
-    hub/                        ← reserved planning task (no worktrees)
-      CLAUDE.md                 ← feature backlog, cross-cutting design, open decisions
-      WORKLOG.md
-
     PROJ-1234/                  ← one task (feature branch set)
-      CLAUDE.md                 ← task-specific notes and goals
+      AGENTS.md                 ← task-specific notes and goals (+ CLAUDE.md include)
       acme--PROJ-1234.code-workspace
       worktrees/
         backend/                    ← on feature/PROJ-1234
@@ -63,7 +64,7 @@ acme/                        ← project root (holds config + all tasks)
   archived-tasks/
     PROJ-9999/                  ← done task, worktrees removed, context kept
       archived.json             ← branch names + tip SHAs for rehydration
-      CLAUDE.md
+      AGENTS.md
 ```
 
 Opening `acme--PROJ-1234.code-workspace` in VS Code gives you all repos in the sidebar, scoped to the task's branches. You can have both workspace files open in separate VS Code windows — no state to manage.

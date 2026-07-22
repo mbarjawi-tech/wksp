@@ -21,29 +21,44 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
-describe('wksp init hub scaffolding', () => {
+describe('wksp init root scaffolding', () => {
   let base, cwd;
   beforeEach(() => { base = makeTempDir('init'); cwd = process.cwd(); process.chdir(base); });
   afterEach(() => { process.chdir(cwd); cleanup(base); });
 
-  test('auto-creates a worktree-less hub by default', async () => {
+  test('creates AGENTS.md with wksp vocabulary', async () => {
     await initCmd.run(['acme']);
     const projectDir = path.join(base, 'acme');
 
     expect(fs.existsSync(path.join(projectDir, '.wksp'))).toBe(true);
-    const hubDir = path.join(projectDir, 'tasks', 'hub');
-    expect(fs.existsSync(path.join(hubDir, 'CLAUDE.md'))).toBe(true);
-    expect(fs.readFileSync(path.join(hubDir, 'CLAUDE.md'), 'utf8')).toContain('## Feature backlog');
-    // The project CLAUDE.md ships the vocabulary + hub pointer.
-    expect(fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf8')).toContain('## wksp vocabulary');
+    expect(fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8')).toContain('## wksp vocabulary');
   });
 
-  test('--no-hub skips the hub but still scaffolds the project', async () => {
-    await initCmd.run(['lean', '--no-hub']);
-    const projectDir = path.join(base, 'lean');
+  test('creates CLAUDE.md as the one-line include', async () => {
+    await initCmd.run(['acme']);
+    const projectDir = path.join(base, 'acme');
 
-    expect(fs.existsSync(path.join(projectDir, '.wksp'))).toBe(true);
-    expect(fs.existsSync(path.join(projectDir, 'tasks'))).toBe(true);
+    expect(fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf8')).toBe('@AGENTS.md\n');
+  });
+
+  test('creates PLANNING.md with feature backlog section', async () => {
+    await initCmd.run(['acme']);
+    const projectDir = path.join(base, 'acme');
+
+    expect(fs.readFileSync(path.join(projectDir, 'PLANNING.md'), 'utf8')).toContain('## Feature backlog');
+  });
+
+  test('creates WORKLOG.md', async () => {
+    await initCmd.run(['acme']);
+    const projectDir = path.join(base, 'acme');
+
+    expect(fs.existsSync(path.join(projectDir, 'WORKLOG.md'))).toBe(true);
+  });
+
+  test('does NOT create tasks/hub/', async () => {
+    await initCmd.run(['acme']);
+    const projectDir = path.join(base, 'acme');
+
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'hub'))).toBe(false);
   });
 });

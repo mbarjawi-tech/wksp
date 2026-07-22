@@ -4,6 +4,22 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 3.0.0
+
+### Added
+
+- `wksp start [task-id]` — the unified entry point. With no arguments it launches the configured AI tool at the **project root** for a planning session, resuming the last root session (sessions key off the root path, so typing the tool's own command there lands in the same history). With an id it resumes that task — partial names match exactly like `wksp task resume` — or, when nothing matches, offers to create the task (default Yes)
+- The project root is now the planning surface: `wksp init` scaffolds `PLANNING.md` (the living feature backlog, open decisions, and research pointers — kept out of the instruction file so backlog content doesn't ride into every task session) and a root `WORKLOG.md`. The root instruction file ships the planning-role guard text (repos are checked out inside tasks, not at the root; when a discussion turns into implementation, create a task) and a docs-structure rule: `PLANNING.md` stays readable in one pass, sections graduate to files under `docs/` when they outgrow a screenful, and everything that moves out leaves a one-line link behind
+
+### Changed
+
+- **Breaking:** the reserved `hub` task from v2.8.0 is gone — the project root replaces it as the planning surface. `wksp task create hub` now creates a perfectly normal task, the reserved-name guards on delete/rename are removed, and `wksp init --no-hub` no longer exists. Dogfooding showed the hub was a task pretending not to be one: reserved-name special cases, a never-used `worktrees/` folder, and `wksp task resume hub` as a heavyweight spelling of "start working on my project"
+- **Breaking:** instruction files are canonicalized to **`AGENTS.md`**. Scaffolding (init, task create, import) writes the content to `AGENTS.md` and puts a one-line `@AGENTS.md` include in `CLAUDE.md`, so Claude reads the same content while any other tool reads `AGENTS.md` natively (no symlinks — they need elevation on Windows). The `none` provider and the `customProviders` default now report `AGENTS.md` as their instruction file; `claude` keeps `CLAUDE.md`. Task rename now rewrites the `## Task:` heading in `AGENTS.md`
+- `wksp migrate` schema 3 → 4 converts existing projects across all three starting states (pre-2.8.0 without a hub, 2.8.0 with `tasks/hub/`, or a user-renamed hub): merges the hub's instruction file into a new root `PLANNING.md` (template boilerplate stripped, user content kept) and its worklog into the root `WORKLOG.md`, removes `tasks/hub/` (unless it still has worktrees — then it warns and leaves it for `--repair`), scaffolds the planning files fresh when there was no hub, and converts every instruction file (root and every task, live and archived) to `AGENTS.md` + include — modernizing unedited 2.8.0 template blocks and never rewriting user prose. Because Claude keys chat history by folder path, the migration also offers — behind a prompt (default Yes), since it touches `~/.claude` — to re-key the hub's session directory to the project root so `wksp start` resumes it; a declined or skipped move stays recoverable via `wksp migrate --repair`, which re-offers even after `tasks/hub/` is gone
+- Task bundles now carry the instruction file as `task.agentsMd` (additive field — no bundle version bump). For backward compatibility `task.claudeMd` keeps carrying the same meaningful content, so older wksp versions import new bundles cleanly; importing an older bundle writes `CLAUDE.md` and the schema migration converts it
+
+---
+
 ## [2.10.0] — 2026-07-22
 
 ### Added
