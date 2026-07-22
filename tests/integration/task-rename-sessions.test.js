@@ -166,4 +166,26 @@ describe('wksp task rename — session-history migration', () => {
     expect(prompts.confirmDefaultYes).not.toHaveBeenCalled();
     expect(fs.existsSync(path.join(projectDir, 'tasks', 'NEW-NONE'))).toBe(true);
   });
+
+  test('warns that chat history may be lost when a collision leaves history behind', async () => {
+    const oldDir = await createTaskWithSession(projectDir, 'OLD-COL');
+    fs.writeFileSync(path.join(oldDir, 'sess-2.jsonl'), '{"type":"session"}\n'); // non-colliding
+
+    // Pre-seed the NEW key with a colliding sess-1.jsonl so the merge can't move it.
+    const newDir = sessionDir(path.join(projectDir, 'tasks', 'NEW-COL'));
+    fs.mkdirSync(newDir, { recursive: true });
+    fs.writeFileSync(path.join(newDir, 'sess-1.jsonl'), 'TARGET-KEPT');
+
+    await runTask(projectDir, 'rename', 'OLD-COL', 'NEW-COL');
+
+    // Non-colliding session moved; colliding target preserved; source retains the clash.
+    expect(fs.existsSync(path.join(newDir, 'sess-2.jsonl'))).toBe(true);
+    expect(fs.readFileSync(path.join(newDir, 'sess-1.jsonl'), 'utf8')).toBe('TARGET-KEPT');
+    expect(fs.existsSync(path.join(oldDir, 'sess-1.jsonl'))).toBe(true);
+
+    // The user is warned loudly, with the paths to recover the stranded history.
+    const joined = logLines.join('\n');
+    expect(joined).toMatch(/you may lose it/i);
+    expect(joined).toContain(oldDir);
+  });
 });
