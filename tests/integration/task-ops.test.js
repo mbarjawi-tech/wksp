@@ -7,13 +7,14 @@ const git = require('../../lib/git');
 const { WORKTREES_DIR } = require('../../lib/worktrees');
 
 jest.mock('../../lib/prompts', () => ({
-  open: jest.fn(), close: jest.fn(), ask: jest.fn(), confirm: jest.fn(),
+  open: jest.fn(), close: jest.fn(), ask: jest.fn(),
+  confirm: jest.fn(), confirmDefaultYes: jest.fn(),
 }));
 
-jest.mock('../../lib/claude', () => ({
-  launch:          jest.fn(),
-  findLastSession: jest.fn().mockReturnValue(null),
-}));
+jest.mock('../../lib/claude', () => {
+  const actual = jest.requireActual('../../lib/claude');
+  return { ...actual, launch: jest.fn(), findLastSession: jest.fn().mockReturnValue(null) };
+});
 
 jest.mock('../../lib/config', () => {
   const actual = jest.requireActual('../../lib/config');

@@ -65,6 +65,8 @@ wksp task repo PROJ-1234                  # interactive: pick repo then mode
 
 `resume` — scans existing worktrees, detects any new repos added since last run (prompts for branches for those), then launches Claude.
 
+`rename` — renames the task folder, repairs worktrees, renames the `.code-workspace` file, and updates the `## Task:` / `# Work Log:` headings. Because Claude keys session transcripts by the task's folder path, rename also offers to move that history under the new key so `resume` and `status` keep finding it — it shows what it will move and asks (default Yes). Use `--no-migrate-sessions` to skip the move, or `--yes` / `-y` to auto-confirm.
+
 #### The hub
 
 `hub` is a **reserved task id** — the project's planning task. It has no worktree; it holds the feature backlog, cross-cutting design, open decisions, and cross-task references (`tasks/hub/CLAUDE.md` + its `WORKLOG.md`).
