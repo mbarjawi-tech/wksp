@@ -152,3 +152,30 @@ The following deprecated syntaxes will be **removed** in v2.3.0:
 If you have scripts or aliases using the old syntax, update them to the v2 verb-first forms before upgrading to v2.3.0. Both the [reference](/reference) and the deprecation warnings printed at runtime show the replacement syntax.
 
 No `wksp migrate` step will be needed for this change — it's CLI syntax only, no file format changes.
+
+---
+
+## v2.x → v3.0.0 — root-as-hub *(schema 3 → 4)*
+
+v3.0.0 reverts the v2.8.0 reserved `hub` task and makes the **project root the planning surface**, and canonicalizes instruction files to **AGENTS.md**.
+
+### What changes
+
+- The reserved `hub` task is gone: no `wksp task create hub` special-casing, no reserved-name guards. `wksp init --no-hub` is removed.
+- New `wksp start [task-id]` command: no args → planning session at the project root; with an id → create/resume that task.
+- The root gains `PLANNING.md` (feature backlog + open decisions) and a root `WORKLOG.md`.
+- `AGENTS.md` becomes the canonical instruction file at the root and in every task. `CLAUDE.md` becomes a one-line `@AGENTS.md` include so Claude keeps reading the same content. Other tools read `AGENTS.md` natively.
+
+### Migration path
+
+```bash
+wksp migrate --dry-run   # preview
+wksp migrate             # apply
+```
+
+The schema 3 → 4 step handles all three starting states — pre-2.8.0 projects (no hub), 2.8.0 projects (with `tasks/hub/`), and projects whose hub was renamed (treated as a normal task):
+
+1. **`tasks/hub/` merges into the root.** The hub's instruction file becomes `PLANNING.md` (template boilerplate stripped, your backlog and decisions kept); the hub `WORKLOG.md` merges into the root `WORKLOG.md`; then `tasks/hub/` is removed. A hub that still has worktrees is left in place with a warning — move that work to a real task and re-run `wksp migrate --repair`.
+2. **Missing planning files are scaffolded.** Projects that never had a hub get a fresh `PLANNING.md` and root `WORKLOG.md`.
+3. **Instruction files are converted.** At the root and in every task (live and archived): existing `CLAUDE.md` content moves to `AGENTS.md`, and `CLAUDE.md` is rewritten to the one-line include. Unedited 2.8.0 template blocks referencing the hub are modernized; your own prose is never rewritten. If both a real `AGENTS.md` and a real `CLAUDE.md` already exist, wksp warns and leaves both for you to merge.
+4. **Hub chat history is offered a re-key.** Claude keys session transcripts by folder path, so hub sessions are stranded once `tasks/hub/` is gone. The migration asks (default Yes) before touching `~/.claude` and moves the hub's session directory to the project-root key so `wksp start` resumes it. Declined or skipped? Re-run `wksp migrate --repair` anytime — the offer repeats even after the hub folder is gone.

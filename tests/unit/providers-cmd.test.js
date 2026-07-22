@@ -80,7 +80,7 @@ describe('wksp providers --json', () => {
       builtin: true,
       tier: 'baseline',
       capabilities: { sessions: false },
-      instructionFile: 'CLAUDE.md',
+      instructionFile: 'AGENTS.md',
     });
 
     // Every provider row has exactly the documented keys.
@@ -106,7 +106,7 @@ describe('wksp providers --json', () => {
       builtin: false,
       tier: 'baseline',
       capabilities: { sessions: false },
-      instructionFile: 'CLAUDE.md',
+      instructionFile: 'AGENTS.md',
     });
   });
 });

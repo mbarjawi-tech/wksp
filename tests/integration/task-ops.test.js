@@ -109,17 +109,17 @@ describe('wksp task rename', () => {
     expect(fs.existsSync(path.join(newTaskDir, 'test-project--OLD-WS.code-workspace'))).toBe(false);
   });
 
-  test('updates ## Task: header in CLAUDE.md', async () => {
+  test('updates ## Task: header in AGENTS.md', async () => {
     prompts.ask.mockResolvedValueOnce('feature/rename-md');
     await runTask(projectDir, 'create', 'OLD-MD');
 
     await runTask(projectDir, 'rename', 'OLD-MD', 'NEW-MD');
 
-    const claudeMd = fs.readFileSync(
-      path.join(projectDir, 'tasks', 'NEW-MD', 'CLAUDE.md'), 'utf8'
+    const agentsMd = fs.readFileSync(
+      path.join(projectDir, 'tasks', 'NEW-MD', 'AGENTS.md'), 'utf8'
     );
-    expect(claudeMd).toMatch(/## Task: NEW-MD/);
-    expect(claudeMd).not.toMatch(/## Task: OLD-MD/);
+    expect(agentsMd).toMatch(/## Task: NEW-MD/);
+    expect(agentsMd).not.toMatch(/## Task: OLD-MD/);
   });
 
   test('exits 1 if the old task does not exist', async () => {

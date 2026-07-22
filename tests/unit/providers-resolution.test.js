@@ -69,7 +69,7 @@ describe('custom provider build + launch', () => {
     const p = getProvider('/proj');
     expect(p.name).toBe('aider');
     expect(p.builtin).toBe(false);
-    expect(p.instructionFile).toBe('CLAUDE.md');   // default
+    expect(p.instructionFile).toBe('AGENTS.md');   // default
     expect(p.sessions).toBeUndefined();            // baseline
     expect(tierOf(p)).toBe('baseline');
 
@@ -87,7 +87,7 @@ describe('custom provider build + launch', () => {
     expect(cwd).toBe('/task');
   });
 
-  test('custom instructionFile overrides the CLAUDE.md default', () => {
+  test('custom instructionFile overrides the AGENTS.md default', () => {
     config.readConfig.mockReturnValue({
       customProviders: { cursor: { command: 'cursor {cwd}', instructionFile: 'CONVENTIONS.md' } },
     });

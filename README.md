@@ -32,12 +32,12 @@ wksp repo /c/dev/frontend
 wksp repo /c/dev/company-docs --shared
 
 # Start a task — prompts for branches, creates worktrees, launches Claude
-wksp task PROJ-1234
+wksp start PROJ-1234
 ```
 
 At the branch prompt, press Enter to use the current branch, type a branch name to create or check out one, `s` to use the repo shared (no worktree), or `x` to exclude the repo from this task.
 
-Every project also gets a **hub** — a reserved, worktree-less planning task for the feature backlog, cross-cutting design, and open decisions. `wksp init` creates it; open it with `wksp task resume hub`. See [docs/concepts.md](docs/concepts.md#key-vocabulary).
+The project root is the **planning hub**: `PLANNING.md` holds the feature backlog and open decisions, and `wksp start` (no arguments) launches a planning session right there — no worktrees, no task ceremony. Instruction files are canonicalized to `AGENTS.md`; Claude reads them through a one-line `CLAUDE.md` include. See [docs/concepts.md](docs/concepts.md#key-vocabulary).
 
 ## Documentation
 

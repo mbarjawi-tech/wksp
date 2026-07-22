@@ -13,12 +13,37 @@
 
 ### `wksp init [name]`
 
-Create a new project. Scaffolds `.wksp`, `repos.txt`, `CLAUDE.md`, `tasks/`, and a reserved [`hub`](#the-hub) planning task (pass `--no-hub` to skip it). Prompts for `reposRoot` if not already set (skippable — you can add it later with `wksp config set`).
+Create a new project. Scaffolds `.wksp`, `repos.txt`, `tasks/`, and the planning surface at the root: `AGENTS.md` (project conventions — canonical instruction file), `CLAUDE.md` (a one-line `@AGENTS.md` include for Claude), `PLANNING.md` (feature backlog + open decisions), and `WORKLOG.md`. Prompts for `reposRoot` if not already set (skippable — you can add it later with `wksp config set`).
 
 ```bash
 wksp init acme
-wksp init acme --no-hub   # skip the planning hub (add one later with: wksp task create hub)
 ```
+
+---
+
+### `wksp start [task-id]`
+
+The unified entry point.
+
+```bash
+wksp start              # planning session at the project root
+wksp start PROJ-1234    # create or resume a task (partial names match)
+```
+
+With **no arguments**, launches the AI tool at the project root and resumes the last root session. The root is the [planning hub](#the-root-is-the-planning-hub): `PLANNING.md` holds the backlog and open decisions, no repos are checked out there. Typing the AI tool's own command at the root lands in the same session history — sessions key off the root path either way.
+
+With an **id**, resumes that task (partial names match, exactly like `wksp task resume`); if nothing matches, offers to create a task with that name (default Yes).
+
+#### The root is the planning hub
+
+The project root replaces the pre-3.0 reserved `hub` task as the planning surface:
+
+- `PLANNING.md` — the living overview: feature backlog, open decisions, research pointers. Scaffolded by `wksp init`; kept deliberately out of `AGENTS.md` so backlog content doesn't ride into every task session's context.
+- Root `WORKLOG.md` — running record of planning work, same conventions as task worklogs.
+- The root `AGENTS.md` ships a docs-structure rule: `PLANNING.md` stays readable in one pass; sections graduate to files under `docs/` when they outgrow a screenful; everything that moves out leaves a one-line link behind.
+- Planning is personal-by-default: root planning files are not part of `wksp export` (which stays per-task).
+
+It's scaffolding, not schema: wksp never depends on these files existing.
 
 ---
 
@@ -69,17 +94,6 @@ wksp task repo PROJ-1234                  # interactive: pick repo then mode
 `rename` — renames the task folder, repairs worktrees, renames the `.code-workspace` file, and updates the `## Task:` / `# Work Log:` headings. Because Claude keys session transcripts by the task's folder path, rename also offers to move that history under the new key so `resume` and `status` keep finding it — it shows what it will move and asks (default Yes). Use `--no-migrate-sessions` to skip the move, or `--yes` / `-y` to auto-confirm.
 
 `finish` (alias: `done`) — the post-merge completion verb. Fetches each base repo and verifies the task's branches are merged into the default branch — a squash- or rebase-merged PR legitimately shows as unmerged, so finish warns and asks before continuing. It then archives the task exactly like `archive` but with branch deletion defaulted (`--keep-branches` opts out), and finally fast-forwards each base repo's default branch — only when that repo is clean and already sitting on it; otherwise it prints the `git pull --ff-only` command and leaves the repo alone. Merge PRs from inside a task with `gh pr merge <pr> --repo <owner>/<repo>` — the `--repo` flag keeps gh from trying to check out the default branch locally, which fails inside a worktree.
-
-#### The hub
-
-`hub` is a **reserved task id** — the project's planning task. It has no worktree; it holds the feature backlog, cross-cutting design, open decisions, and cross-task references (`tasks/hub/CLAUDE.md` + its `WORKLOG.md`).
-
-- `wksp init` creates it automatically (opt out with `wksp init --no-hub`). Add one to an older project with `wksp task create hub` — it explains what the hub is and asks before creating it.
-- Because the name is reserved, `wksp task create hub` always makes the planning task (never a normal worktree task); running it when a hub already exists is an error.
-- `wksp task delete hub` and `wksp task rename hub …` warn before proceeding, since the hub carries project-wide context that lives nowhere else.
-- Need code in the hub for a one-off? Pull a repo in with `wksp task repo hub <repo> worktree` — but real features should get their own task.
-
-It's scaffolding, not schema: existing projects are never forced to have a hub, and a hub-less project stays valid.
 
 #### Branch prompt options
 
@@ -334,6 +348,7 @@ Produced by `wksp export`. A UTF-8 JSON file containing everything needed to rec
   ],
   "task": {
     "id": "PROJ-1234",
+    "agentsMd": "## Task: PROJ-1234\n...",
     "claudeMd": "## Task: PROJ-1234\n...",
     "worklogMd": "# Work Log: PROJ-1234\n...",
     "shared": [],
@@ -382,9 +397,11 @@ Written by `--archive`. Contains everything needed to rehydrate the task:
 
 ---
 
-## CLAUDE.md templates
+## Instruction-file templates
 
-### Project-level (generated by `wksp init`)
+`AGENTS.md` is the **canonical** instruction file everywhere. Because the `claude` provider reads `CLAUDE.md`, wksp writes a companion `CLAUDE.md` next to every `AGENTS.md` containing exactly one line — `@AGENTS.md` — so Claude includes the canonical file. (No symlinks: they need elevation on Windows.) Edit `AGENTS.md`; never put content in the include stub.
+
+### Project-level `AGENTS.md` (generated by `wksp init`)
 
 ```markdown
 ## Project: acme
@@ -393,44 +410,48 @@ Written by `--archive`. Contains everything needed to rehydrate the task:
 
 - **project** — this workspace: a folder grouping related repos under one idea.
 - **repo** — a git repository registered in `repos.txt`.
-- **task** — a unit of work inside the project, with its own worktree, `WORKLOG.md`, and `CLAUDE.md`.
-- **hub** — the project's planning task (no worktree). Holds the feature backlog, cross-cutting design, open decisions, and cross-task references. Here the hub is `tasks/hub/`.
+- **task** — a unit of work inside the project, with its own worktree, `WORKLOG.md`, and `AGENTS.md`.
+
+## The project root is the planning hub
+
+Sessions at the project root are for planning: the feature backlog, cross-cutting design,
+open decisions, and how tasks relate. Don't edit repo code here — repos are checked out
+inside tasks, not at the root. When a discussion turns into implementation work, suggest
+`wksp task create <id>` (or `wksp start <id>`) and continue there.
+
+- **`PLANNING.md`** is the living overview: the feature backlog, open decisions, and
+  research pointers.
+
+## Docs structure
+
+- `PLANNING.md` must stay readable in one pass — it is always loaded.
+- New topics start as sections in `PLANNING.md`; graduate a section to its own file
+  under `docs/` when it outgrows a screenful; everything that moves out leaves a
+  one-line link behind — `PLANNING.md` is the index.
 
 ## Cross-cutting conventions
 <!-- fill in: backend, frontend, branch naming, test commands... -->
 
-## Where things live
-
-- **The hub** (`tasks/hub/`) — the project's planning task and source of truth for project-wide plans. Consult it when a request touches project-wide design, references another task, or asks "what to work on next." Don't load it for work scoped to a single repo or task.
-
 ## Conflict policy
-This file defines project-wide conventions. Tasks each have their own CLAUDE.md.
-If you notice a contradiction between this file and a task's CLAUDE.md,
-flag it immediately and ask for clarification before proceeding.
+This file defines project-wide conventions. Tasks each have their own AGENTS.md.
 ```
 
-### Hub-level (generated for the reserved `hub` task)
+### `PLANNING.md` (generated by `wksp init`)
 
 ```markdown
-## Task: hub
+# Planning — acme
 
-This is the project **hub** — the planning/meta task. It holds the feature backlog,
-agreed designs, open decisions, and cross-task references. It normally has **no worktree**.
+The living overview of the *acme* project: feature backlog, open decisions, research
+pointers. Keep it readable in one pass.
 
 ## Feature backlog
-<!-- numbered candidate features / work items -->
+<!-- numbered candidate features / work items, newest thinking wins -->
 
 ## Open decisions
 <!-- decisions not yet made, with the context needed to make them -->
-
-## Conflict policy
-<!-- same as any task -->
-
-## Work log
-<!-- running record; see WORKLOG.md -->
 ```
 
-### Task-level (generated by `wksp task`)
+### Task-level `AGENTS.md` (generated by `wksp task create` / `wksp start <id>`)
 
 ```markdown
 ## Task: PROJ-1234
@@ -445,8 +466,8 @@ When the work is merged, clean up from inside the task — never check out the d
 - After the merge lands, suggest `wksp task finish PROJ-1234` — verifies merged, archives, deletes branches, ff base repos.
 
 ## Conflict policy
-The project-level CLAUDE.md defines shared conventions. This file adds task-specific context only.
-If anything here contradicts the project-level CLAUDE.md, flag the contradiction
+The project-level AGENTS.md defines shared conventions. This file adds task-specific context only.
+If anything here contradicts the project-level AGENTS.md, flag the contradiction
 and ask for clarification — do not silently resolve it yourself.
 ```
 

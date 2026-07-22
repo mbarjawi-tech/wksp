@@ -10,6 +10,7 @@ if (cmd === '--version' || cmd === '-v') {
 
 const COMMANDS = {
   init:    () => require('../lib/commands/init'),
+  start:   () => require('../lib/commands/start'),
   repo:    () => require('../lib/commands/repo'),
   task:    () => require('../lib/commands/task'),
   cleanup: () => require('../lib/commands/cleanup'),
@@ -29,6 +30,7 @@ function printHelp() {
 
   Commands:
     wksp init [name]                 Create a new project
+    wksp start [task-id]             Plan at the project root, or create/resume a task
     wksp repo add <path-or-url>      Register a repo
       --shared                         Never create a worktree; always use original path
     wksp repo remove <path-or-url>   Remove a repo from repos.txt
