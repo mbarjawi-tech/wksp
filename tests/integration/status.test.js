@@ -100,3 +100,41 @@ describe('wksp status <task-id> — explicit argument', () => {
     await expect(runStatus(projectDir, 'TASK-MISSING')).rejects.toThrow('process.exit(1)');
   });
 });
+
+describe('wksp status — --optional repos', () => {
+  let projectDir, repoDir, optDir;
+  beforeEach(() => {
+    projectDir = makeProject('status-optional');
+    repoDir    = makeTempDir('repo-status-norm');
+    optDir     = makeTempDir('repo-status-opt');
+    makeGitRepo(repoDir);
+    makeGitRepo(optDir);
+    addRepo(projectDir, repoDir, false);
+    addRepo(projectDir, optDir, { optional: true });
+  });
+  afterEach(() => cleanup(projectDir, repoDir, optDir));
+
+  test('an optional repo without a worktree shows "(optional — not in task)"', async () => {
+    const taskDir     = path.join(projectDir, 'tasks', 'TASK-OPT');
+    const worktreeDir = path.join(taskDir, WORKTREES_DIR, path.basename(repoDir));
+    git.addWorktree(repoDir, worktreeDir, 'feature/opt-status', null);
+
+    await runStatus(projectDir, 'TASK-OPT');
+
+    const out = logLines.join('\n');
+    expect(out).toContain('(optional — not in task)');
+    expect(out).toMatch(/feature\/opt-status/);
+  });
+
+  test('an optional repo pulled in as a worktree shows the (optional) marker', async () => {
+    const taskDir     = path.join(projectDir, 'tasks', 'TASK-OPT-IN');
+    git.addWorktree(repoDir, path.join(taskDir, WORKTREES_DIR, path.basename(repoDir)), 'feature/main-work', null);
+    git.addWorktree(optDir,  path.join(taskDir, WORKTREES_DIR, path.basename(optDir)),  'feature/pulled-in', null);
+
+    await runStatus(projectDir, 'TASK-OPT-IN');
+
+    const optLine = logLines.find(l => l.includes(path.basename(optDir)));
+    expect(optLine).toMatch(/feature\/pulled-in/);
+    expect(optLine).toContain('(optional)');
+  });
+});

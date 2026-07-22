@@ -65,14 +65,14 @@ describe('schema 0 → 1 — clean repos.txt', () => {
   beforeEach(() => { projectDir = makeProject('mig-clean'); });
   afterEach(() => cleanup(projectDir));
 
-  test('bumps schemaVersion without touching repos.txt', async () => {
-    const reposBefore = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
-
+  test('bumps schemaVersion; repos.txt only gets its header comment refreshed', async () => {
     await runMigrate(projectDir);
 
     expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
-    // repos.txt content unchanged
-    expect(fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8')).toBe(reposBefore);
+    // No alias entries to strip — the 3→4 step just refreshes the header comment.
+    const repos = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
+    expect(repos).toContain('[--shared] [--optional]');
+    expect(repos.split('\n').filter(l => l.trim() && !l.startsWith('#'))).toEqual([]);
     expect(logLines.some(l => l.includes('Migration complete'))).toBe(true);
   });
 });
@@ -541,6 +541,85 @@ describe('schema 3 → 4 — pre-2.8.0 project (no hub)', () => {
     expect(fs.readFileSync(path.join(projectDir, 'AGENTS.md'), 'utf8')).toBe('hand-written agents file\n');
     expect(fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf8')).toBe('hand-written claude file\n');
     expect(logLines.some(l => l.includes('merge'))).toBe(true);
+  });
+});
+
+// ─── schema 3 → 4 — repos.txt header refresh (--optional) ────────────────────
+
+describe('schema 3 → 4 — repos.txt header refresh', () => {
+  let projectDir, homeDir;
+  beforeEach(() => {
+    homeDir = makeTempDir('fake-home-reposhdr');
+    jest.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    projectDir = makeProject('mig-repos-header');
+    config.setProjectConfig(projectDir, 'schemaVersion', 3);
+  });
+  afterEach(() => cleanup(projectDir, homeDir));
+
+  test('refreshes a legacy header and leaves data lines byte-identical', async () => {
+    fs.writeFileSync(path.join(projectDir, 'repos.txt'), [
+      '# Workspace repos',
+      '# Format: <path> [--shared]',
+      '# --shared: use original path in every task, never create a worktree',
+      '',
+      'C:/dev/backend',
+      'C:/dev/company-docs  --shared',
+      '',
+    ].join('\n'));
+
+    await runMigrate(projectDir);
+
+    const repos = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
+    expect(repos).toContain('# Format: <path> [--shared] [--optional]');
+    expect(repos).toContain('# --optional:');
+    expect(repos).toContain('\nC:/dev/backend\nC:/dev/company-docs  --shared\n');
+    expect(logLines.some(l => l.includes('repos.txt') && l.includes('--optional'))).toBe(true);
+  });
+
+  test('leaves a hand-edited header alone', async () => {
+    const handEdited = [
+      '# my own notes about these repos',
+      'C:/dev/backend',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(projectDir, 'repos.txt'), handEdited);
+
+    await runMigrate(projectDir);
+
+    expect(fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8')).toBe(handEdited);
+  });
+
+  test('--dry-run reports but does not write', async () => {
+    const before = [
+      '# Workspace repos',
+      '# Format: <path> [--shared]',
+      '',
+      'C:/dev/backend',
+      '',
+    ].join('\n');
+    fs.writeFileSync(path.join(projectDir, 'repos.txt'), before);
+
+    await runMigrate(projectDir, '--dry-run');
+
+    expect(fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8')).toBe(before);
+    expect(logLines.some(l => l.includes('repos.txt') && l.includes('--optional'))).toBe(true);
+  });
+
+  test('is idempotent — a second run (via --repair) changes nothing', async () => {
+    fs.writeFileSync(path.join(projectDir, 'repos.txt'), [
+      '# Workspace repos',
+      '# Format: <path> [--shared]',
+      '',
+      'C:/dev/backend',
+      '',
+    ].join('\n'));
+
+    await runMigrate(projectDir);
+    const afterFirst = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
+
+    await runMigrate(projectDir, '--repair');
+
+    expect(fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8')).toBe(afterFirst);
   });
 });
 

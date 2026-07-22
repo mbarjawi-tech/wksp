@@ -58,13 +58,14 @@ Register and manage repos within the current project.
 wksp repo add /c/dev/backend
 wksp repo add https://github.com/your-org/frontend
 wksp repo add /c/dev/company-docs --shared
+wksp repo add /c/dev/scratch-tools --optional
 wksp repo remove /c/dev/old-service
 ```
 
 | Subcommand | Description |
 |---|---|
 | `list` | List all registered repos and their flags. |
-| `add <path-or-url>` | Register a repo. Use `--shared` to always use the original path (no worktree). |
+| `add <path-or-url>` | Register a repo. Use `--shared` to always use the original path (no worktree). Use `--optional` for a repo only some tasks need — tasks exclude it silently instead of prompting; pull it in with `wksp task repo <id> <repo> worktree`. |
 | `remove <path-or-url>` | Remove from `repos.txt`. Warns if orphaned worktrees exist. |
 
 ---
@@ -87,9 +88,9 @@ wksp task repo PROJ-1234 backend exclude  # exclude a repo from this task
 wksp task repo PROJ-1234                  # interactive: pick repo then mode
 ```
 
-`create` — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout), then launches Claude.
+`create` — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout), then launches Claude. Repos registered `--optional` are skipped silently — they start excluded, and the launch summary shows them as `(optional)`.
 
-`resume` — scans existing worktrees, detects any new repos added since last run (prompts for branches for those), then launches Claude.
+`resume` — scans existing worktrees, detects any new repos added since last run (prompts for branches for those; `--optional` repos are recorded as excluded without a prompt), then launches Claude.
 
 `rename` — renames the task folder, repairs worktrees, renames the `.code-workspace` file, and updates the `## Task:` / `# Work Log:` headings. Because Claude keys session transcripts by the task's folder path, rename also offers to move that history under the new key so `resume` and `status` keep finding it — it shows what it will move and asks (default Yes). Use `--no-migrate-sessions` to skip the move, or `--yes` / `-y` to auto-confirm.
 
@@ -109,6 +110,8 @@ Branch for backend [main, s=shared, x=exclude]:
 | A branch name | Create or check out that branch in a new worktree. If the branch is new, a follow-up asks which branch to base it on (defaults to the repo's default branch). |
 | `s` | Use the base repo path directly for this task (task-shared). No worktree created. |
 | `x` | Exclude this repo from this task entirely. No worktree, not in workspace, not passed to Claude. |
+
+Repos registered with `--optional` never reach this prompt — they start excluded. Pull one into a task with `wksp task repo <id> <repo> worktree` (answer `s` at the branch prompt to use it shared instead).
 
 #### Flags
 
@@ -302,13 +305,18 @@ Presence of this file marks the directory as a wksp project. Commands walk up th
 ### `<project>/repos.txt`
 
 ```
-# Format: <path> [--shared]
+# Format: <path> [--shared] [--optional]
 # Any path format is accepted (Windows backslash, forward slash, POSIX)
 
 C:/dev/backend
 C:/dev/frontend
 C:/dev/company-docs  --shared
+C:/dev/scratch-tools  --optional
 ```
+
+`--shared` — never gets a worktree; every task uses the original path directly.
+
+`--optional` — excluded from tasks by default: creating or resuming a task records it as excluded silently instead of prompting. Pull it into a task with `wksp task repo <id> <repo> worktree`.
 
 ### `tasks/<id>/task.json`
 
@@ -323,7 +331,7 @@ Records which repos use a shared path or are excluded from the task. Both keys a
 
 `shared` — repos using the base path directly (no worktree), by folder name. Written when the user types `s` at the branch prompt or runs `wksp task repo … share`.
 
-`excluded` — repos excluded from the task entirely, by folder name. Written when the user types `x` at the branch prompt or runs `wksp task repo … exclude`.
+`excluded` — repos excluded from the task entirely, by folder name. Written when the user types `x` at the branch prompt or runs `wksp task repo … exclude`. Repos registered `--optional` are recorded here automatically (and silently) the first time the task launches.
 
 > **Backward compatibility** — Projects with legacy `task-shared.txt` and `task-excluded.txt` files (created before v2.2.0) continue to work without migration. Running `wksp migrate` converts them to `task.json` and removes the old files.
 

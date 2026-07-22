@@ -24,7 +24,7 @@ git enforces one rule: the same branch cannot be checked out in two worktrees at
 
 **Project** — a named group of repos, tracked in a folder with a `.wksp` marker. Corresponds to a product or team area (e.g. `acme`). Holds all your tasks.
 
-**Repo** — a git repository registered in the project's `repos.txt`. Can be local or cloned from GitHub. Marked `--shared` if you only ever read from it.
+**Repo** — a git repository registered in the project's `repos.txt`. Can be local or cloned from GitHub. Marked `--shared` if you only ever read from it, `--optional` if only some tasks need it.
 
 **Task** — a unit of work (a ticket, a feature, a bug fix). Each task gets its own subfolder under `tasks/` and its own set of git worktrees, one per repo.
 
@@ -33,6 +33,8 @@ git enforces one rule: the same branch cannot be checked out in two worktrees at
 **Shared** — a repo that does not get a worktree for a specific task. The base repo folder is used directly instead. Useful for docs or reference repos you only read, or when you need the default branch in a task but it's already checked out in the base clone.
 
 **Excluded** — a repo that is omitted from a specific task entirely. No worktree, not added to the VS Code workspace, not passed to Claude. Useful when a repo is irrelevant to a particular task.
+
+**Optional** — a repo only some tasks need, registered with `wksp repo add <path> --optional`. Tasks skip it silently: it starts excluded (no branch prompt), and a task that needs it pulls it in with `wksp task repo <id> <repo> worktree`. Where `--shared` and per-task exclusion answer "how does this repo participate", `--optional` flips the default from opt-out to opt-in.
 
 **The root is the planning hub** — the project root itself is the planning surface. It holds `PLANNING.md` (the living feature backlog, open decisions, and research pointers), a root `WORKLOG.md`, and the project-wide `AGENTS.md`. `wksp start` (no arguments) launches a planning session there — no repos are checked out at the root, so planning stays separate from implementation; when a discussion turns into work, a task is created for it. See [reference](/reference#wksp-start).
 

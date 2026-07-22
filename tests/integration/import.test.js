@@ -184,7 +184,7 @@ describe('import — Mode 1, repo found in reposRoot', () => {
     const bundle = makeBundle({
       projectName: 'my-project',
       taskId: 'TASK-M1',
-      repos: [{ folderName: repoName, remoteUrl, localPath: repoDir, isSharedRepo: false, hasRemote: true }],
+      repos: [{ folderName: repoName, remoteUrl, localPath: repoDir, isSharedRepo: false, isOptionalRepo: true, hasRemote: true }],
       taskRepos: [{ folderName: repoName, branch: 'feature/m1-test', baseBranch: 'main', tipSha: null, remoteUrl, status: 'worktree' }],
     });
     const bundlePath = path.join(bundleDir, 'test.wksp-bundle');
@@ -207,6 +207,10 @@ describe('import — Mode 1, repo found in reposRoot', () => {
     expect(fs.existsSync(wtDir)).toBe(true);
     const branch = git.currentBranch(wtDir);
     expect(branch).toBe('feature/m1-test');
+
+    // The bundle's isOptionalRepo flag carries through to the registration.
+    expect(fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8'))
+      .toMatch(new RegExp(`${repoName}\\s+--optional`));
 
     // Imported task must be brought up to the current schema: WORKLOG.md created and
     // AGENTS.md with Work log section (migrations convert legacy claudeMd → AGENTS.md + include).

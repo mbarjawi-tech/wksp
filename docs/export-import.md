@@ -95,6 +95,7 @@ A single UTF-8 JSON file with extension `.wksp-bundle`.
 - `remoteUrl` — git remote `origin` URL. `null` if the repo has no remote.
 - `localPath` — absolute path on the exporting machine; included for reference only, not used on import.
 - `isSharedRepo` — `true` if the repo is registered with `--shared` in `repos.txt` (never gets a worktree).
+- `isOptionalRepo` — `true` if the repo is registered with `--optional` in `repos.txt` (excluded from tasks by default). Absent in bundles created before the flag existed, which means `false`.
 - `hasRemote` — `true` if `remoteUrl` is non-null.
 
 **`task.worklogMd`** — the task's `WORKLOG.md` content (the running record of what was done). Absent in bundles created by wksp < 2.8.0; on import the schema migration backfills an empty `WORKLOG.md` in that case.
