@@ -238,6 +238,25 @@ Project-level values override global ones. If you run `set` without `--global` o
 |---|---|
 | `reposRoot` | Directory where GitHub URLs are cloned. |
 | `autoResume` | `true` (default) to auto-resume the last Claude session; `false` to prompt each time. |
+| `aiProvider` | Which AI tool wksp launches. Built-ins: `claude` (default, full session support) and `none` (launches nothing). Custom providers add more names. See [AI Providers](/providers). |
+| `customProviders` | Object mapping a provider name to `{ command, instructionFile? }` to launch any CLI tool (baseline tier). See [AI Providers](/providers). |
+
+---
+
+### `wksp providers`
+
+List the AI providers wksp can launch and show which one is configured (the `aiProvider` key). Works inside or outside a project — outside, only global config is consulted.
+
+```bash
+wksp providers          # human-readable list, configured provider marked with *
+wksp providers --json   # stable machine shape for agent self-checks
+```
+
+| Flag | Description |
+|---|---|
+| `--json` | Emit a machine-readable list: `{ configured, providers: [{ name, builtin, tier, capabilities: { sessions }, instructionFile }] }`. |
+
+See [AI Providers](/providers) for tiers, the `none` provider, and declarative `customProviders`.
 
 ---
 
@@ -264,7 +283,7 @@ Project-level values override global ones. If you run `set` without `--global` o
 
 `schemaVersion` is written by `wksp init` and updated by `wksp migrate`. Projects created before v2.1.0 have no `schemaVersion` field (implicitly version 0).
 
-Presence of this file marks the directory as a wksp project. Commands walk up the directory tree to find it — identical to how `git` finds `.git`. Project-level `reposRoot` and `autoResume` override the global values for that project.
+Presence of this file marks the directory as a wksp project. Commands walk up the directory tree to find it — identical to how `git` finds `.git`. Project-level `reposRoot`, `autoResume`, and `aiProvider` override the global values for that project.
 
 ### `<project>/repos.txt`
 
