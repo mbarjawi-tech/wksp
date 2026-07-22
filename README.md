@@ -27,15 +27,16 @@ wksp init acme
 cd acme
 
 # Register repos
-wksp repo /c/dev/backend
-wksp repo /c/dev/frontend
-wksp repo /c/dev/company-docs --shared
+wksp repo add /c/dev/backend
+wksp repo add /c/dev/frontend
+wksp repo add /c/dev/company-docs --shared
+wksp repo add /c/dev/scratch-tools --optional
 
 # Start a task — prompts for branches, creates worktrees, launches Claude
 wksp start PROJ-1234
 ```
 
-At the branch prompt, press Enter to use the current branch, type a branch name to create or check out one, `s` to use the repo shared (no worktree), or `x` to exclude the repo from this task.
+At the branch prompt, press Enter to use the current branch, type a branch name to create or check out one, `s` to use the repo shared (no worktree), or `x` to exclude the repo from this task. Repos registered `--optional` are never prompted for — they start excluded from every task, and a task that needs one pulls it in with `wksp task repo <id> <repo> worktree`.
 
 The project root is the **planning hub**: `PLANNING.md` holds the feature backlog and open decisions, and `wksp start` (no arguments) launches a planning session right there — no worktrees, no task ceremony. Instruction files are canonicalized to `AGENTS.md`; Claude reads them through a one-line `CLAUDE.md` include. See [docs/concepts.md](docs/concepts.md#key-vocabulary).
 

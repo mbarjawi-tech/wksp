@@ -123,6 +123,22 @@ describe('export — happy path', () => {
     expect(bundle.repos).toHaveLength(1);
     expect(bundle.repos[0].folderName).toBe(path.basename(repoDir));
     expect(bundle.repos[0].hasRemote).toBe(true);
+    expect(bundle.repos[0].isOptionalRepo).toBe(false);
+  });
+
+  test('bundle records --optional registrations as isOptionalRepo', async () => {
+    const optDir = makeTempDir('exp-opt-repo');
+    makeGitRepo(optDir);
+    addRepo(projectDir, optDir, { optional: true });
+    try {
+      const outFile = path.join(outDir, 'bundle.wksp-bundle');
+      await runExport(projectDir, 'exp-happy', 'TASK-1', '--out', outFile);
+      const bundle = JSON.parse(fs.readFileSync(outFile, 'utf8'));
+      const entry = bundle.repos.find(r => r.folderName === path.basename(optDir));
+      expect(entry.isOptionalRepo).toBe(true);
+    } finally {
+      cleanup(optDir);
+    }
   });
 
   test('task repos array has worktree entry with branch', async () => {

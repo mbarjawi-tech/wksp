@@ -42,7 +42,27 @@ describe('readRepos', () => {
     addRepo(projectDir, p, true);
     const repos = readRepos(projectDir);
     expect(repos[0].shared).toBe(true);
+    expect(repos[0].optional).toBe(false);
     expect(repos[0].folderName).toBe('docs');
+  });
+
+  test('parses --optional flag', () => {
+    const p = repoPath('tools');
+    addRepo(projectDir, p, { optional: true });
+    const repos = readRepos(projectDir);
+    expect(repos[0].optional).toBe(true);
+    expect(repos[0].shared).toBe(false);
+    expect(repos[0].folderName).toBe('tools');
+  });
+
+  test('parses --shared and --optional together, in either order', () => {
+    const p = repoPath('both');
+    fs.appendFileSync(path.join(projectDir, 'repos.txt'),
+      `${p.replace(/\\/g, '/')}  --optional  --shared\n`);
+    const repos = readRepos(projectDir);
+    expect(repos[0].shared).toBe(true);
+    expect(repos[0].optional).toBe(true);
+    expect(repos[0].raw).toBe(p.replace(/\\/g, '/'));
   });
 
   test('folderName is always basename of path', () => {
@@ -83,6 +103,21 @@ describe('addRepo', () => {
     const p = repoPath('api');
     addRepo(projectDir, p, false);
     expect(() => addRepo(projectDir, p, false)).toThrow('already registered');
+  });
+
+  test('writes --optional to the file and survives a round-trip', () => {
+    addRepo(projectDir, repoPath('api'),   false);
+    addRepo(projectDir, repoPath('tools'), { optional: true });
+    const raw = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
+    expect(raw).toMatch(/tools {2}--optional/);
+    const repos = readRepos(projectDir);
+    expect(repos.map(r => r.optional)).toEqual([false, true]);
+  });
+
+  test('rewriting the file documents --optional in the header comment', () => {
+    addRepo(projectDir, repoPath('api'), false);
+    const raw = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
+    expect(raw).toContain('# Format: <path> [--shared] [--optional]');
   });
 });
 

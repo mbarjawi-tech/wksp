@@ -72,6 +72,14 @@ describe('wksp repo add', () => {
     expect(logLines.some(l => l.includes('--shared'))).toBe(true);
   });
 
+  test('adds with --optional flag and prints the pull-in hint', async () => {
+    await runRepo(projectDir, 'add', repoDir, '--optional');
+    const reposTxt = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
+    expect(reposTxt).toMatch(/--optional/);
+    expect(logLines.some(l => l.includes('(--optional)'))).toBe(true);
+    expect(logLines.some(l => l.includes(`wksp task repo <task-id> ${path.basename(repoDir)} worktree`))).toBe(true);
+  });
+
   test('exits 1 when no path given', async () => {
     await expect(runRepo(projectDir, 'add')).rejects.toThrow('process.exit(1)');
   });
@@ -131,6 +139,14 @@ describe('wksp repo list', () => {
     await runRepo(projectDir, 'list');
     const out = logLines.join('\n');
     expect(out).toContain('--shared');
+  });
+
+  test('shows --optional flag for optional repos', async () => {
+    await runRepo(projectDir, 'add', repoDir, '--optional');
+    logLines = [];
+    await runRepo(projectDir, 'list');
+    const out = logLines.join('\n');
+    expect(out).toContain('--optional');
   });
 
   test('prints helpful message when no repos are registered', async () => {
