@@ -105,10 +105,10 @@ Existing worktrees are untouched.
 ## Remove a repo
 
 ```bash
-wksp repo /c/dev/old-service --remove
+wksp repo remove /c/dev/old-service
 ```
 
-The entry is removed from `repos.txt`. If any tasks still have a worktree for that repo, wksp prints a warning — you can clean those up with `wksp task <id> --del` or `wksp cleanup --stale`.
+The entry is removed from `repos.txt`. If any tasks still have a worktree for that repo, wksp prints a warning — you can clean those up with `wksp task delete <id>` or `wksp cleanup`.
 
 ---
 

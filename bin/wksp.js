@@ -42,8 +42,8 @@ function printHelp() {
     wksp task finish <id>            Finish a merged task: archive, delete branches, update base repos
     wksp task unarchive <id>         Restore an archived task
     wksp task repo <id> [repo] [mode]  Switch a repo's mode (share/worktree/exclude)
-    wksp cleanup --stale <path>      Prune stale worktree refs from a base repo
-      -r                               Scan first-level subdirectories too
+    wksp cleanup [<path>]            Prune stale worktree refs (all project repos, or one path)
+      --recursive                      Scan first-level subdirectories too
     wksp list [--archived] [--all]   List tasks in current project
     wksp status [<task-id>]          Show task repo/branch status
     wksp delete                      Delete entire project (destructive, requires confirmation)
@@ -62,6 +62,11 @@ function printHelp() {
     autoResume   true/false — auto-resume last Claude session on wksp task (default: true)
     aiProvider   Which AI tool wksp launches (default: claude). Built-ins: claude, none.
                    Add your own via customProviders. See docs/providers.md and wksp providers.
+
+  Instruction files:
+    AGENTS.md is the canonical instruction file wksp writes at the project root
+    and in each task. CLAUDE.md is generated as a one-line "@AGENTS.md" include so
+    Claude picks up the same content — edit AGENTS.md, not CLAUDE.md.
 
   Debug:
     WKSP_DEBUG=1   Print full stack traces on errors

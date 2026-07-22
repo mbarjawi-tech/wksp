@@ -10,7 +10,7 @@ Sometimes a task genuinely has nothing to do with a particular repo. Enter `x` a
 Branch for notifications [main, s=shared, x=exclude]: x
 ```
 
-`notifications` is written to `task-excluded.txt` for this task. It won't appear in the VS Code workspace and won't be passed to Claude. The exclusion persists on every resume — you're not asked again.
+`notifications` is recorded as excluded in this task's `task.json`. It won't appear in the VS Code workspace and won't be passed to Claude. The exclusion persists on every resume — you're not asked again.
 
 This is per-task and doesn't affect other tasks or `repos.txt`.
 
@@ -21,7 +21,7 @@ You created a task and gave `services` a worktree on `feature/PROJ-1234`. Now yo
 Remove the worktree and switch to shared for this task:
 
 ```bash
-wksp task PROJ-1234 --to-shared services
+wksp task repo PROJ-1234 services share
 ```
 
 If the worktree has uncommitted changes, wksp lists them and asks before removing:
@@ -33,14 +33,14 @@ services has uncommitted changes:
 Remove worktree anyway? [y/N]:
 ```
 
-After `--to-shared`, `services`'s base path is used directly for this task. The worktree is gone; the base repo is untouched.
+After switching to `share`, `services`'s base path is used directly for this task. The worktree is gone; the base repo is untouched.
 
 ## Converting back to a worktree
 
 You changed your mind — `services` does need changes after all. Or you used `x` to exclude it but now need to include it:
 
 ```bash
-wksp task PROJ-1234 --to-worktree services
+wksp task repo PROJ-1234 services worktree
 ```
 
 This is the "ensure a worktree exists" command. It:
@@ -69,9 +69,9 @@ Two clean escapes:
 
 | Mode | How to set | What it means |
 |---|---|---|
-| Worktree | default, or `--to-worktree` | Isolated checkout on a task branch. The standard mode for repos you're changing. |
-| Shared | `s` at prompt, or `--to-shared` | Uses the base repo path directly. The original clone's current branch. |
-| Excluded | `x` at prompt | Omitted entirely. Not in workspace, not passed to Claude. |
+| Worktree | default, or `wksp task repo <id> <repo> worktree` | Isolated checkout on a task branch. The standard mode for repos you're changing. |
+| Shared | `s` at prompt, or `wksp task repo <id> <repo> share` | Uses the base repo path directly. The original clone's current branch. |
+| Excluded | `x` at prompt, or `wksp task repo <id> <repo> exclude` | Omitted entirely. Not in workspace, not passed to Claude. |
 
 All three modes are per-task only. Other tasks are unaffected. `repos.txt` is unchanged.
 

@@ -94,7 +94,7 @@ wksp task repo PROJ-1234                  # interactive: pick repo then mode
 
 `rename` — renames the task folder, repairs worktrees, renames the `.code-workspace` file, and updates the `## Task:` / `# Work Log:` headings. Because Claude keys session transcripts by the task's folder path, rename also offers to move that history under the new key so `resume` and `status` keep finding it — it shows what it will move and asks (default Yes). Use `--no-migrate-sessions` to skip the move, or `--yes` / `-y` to auto-confirm.
 
-`finish` (alias: `done`) — the post-merge completion verb. Fetches each base repo and verifies the task's branches are merged into the default branch — a squash- or rebase-merged PR legitimately shows as unmerged, so finish warns and asks before continuing. It then archives the task exactly like `archive` but with branch deletion defaulted (`--keep-branches` opts out), and finally fast-forwards each base repo's default branch — only when that repo is clean and already sitting on it; otherwise it prints the `git pull --ff-only` command and leaves the repo alone. Merge PRs from inside a task with `gh pr merge <pr> --repo <owner>/<repo>` — the `--repo` flag keeps gh from trying to check out the default branch locally, which fails inside a worktree.
+`finish` (alias: `done`) — the post-merge completion verb. Fetches each base repo and verifies the task's branches are merged into the default branch — a squash- or rebase-merged PR legitimately shows as unmerged, so finish warns and asks before continuing. It then archives the task exactly like `archive` but with branch deletion defaulted (`--keep-branches` opts out), and finally fast-forwards each base repo's default branch — only when that repo is clean and already sitting on it; otherwise it prints the `git pull --ff-only` command and leaves the repo alone. Pass `--no-archive` (alias `--delete`) to skip the archive entirely — finish still verifies merged and fast-forwards the base repos, but then deletes the task outright (worktrees, branches, and folder). That path is irreversible and uses a distinct confirmation. Merge PRs from inside a task with `gh pr merge <pr> --repo <owner>/<repo>` — the `--repo` flag keeps gh from trying to check out the default branch locally, which fails inside a worktree.
 
 #### Branch prompt options
 
@@ -121,6 +121,7 @@ Repos registered with `--optional` never reach this prompt — they start exclud
 | `archive` | `--delete-branches` | Delete local branches during archive. |
 | `archive` | `--force` | Archive even when uncommitted changes exist. |
 | `finish` | `--keep-branches` | Keep local branches instead of deleting them. |
+| `finish` | `--no-archive`, `--delete` | Delete the task outright instead of archiving (irreversible; still verifies merged and fast-forwards base repos). |
 | `finish` | `--force` | Finish even when uncommitted changes exist. |
 | `finish` | `--reason <text>` | Record a reason in the archive manifest (default: "finished"). |
 | `finish` | `--yes`, `-y` | Skip confirmations (scripts/CI). |
