@@ -11,9 +11,13 @@ jest.mock('../../lib/prompts', () => ({
   confirm: jest.fn(), confirmDefaultYes: jest.fn(),
 }));
 
-jest.mock('../../lib/claude', () => {
-  const actual = jest.requireActual('../../lib/claude');
-  return { ...actual, launch: jest.fn(), findLastSession: jest.fn().mockReturnValue(null) };
+jest.mock('../../lib/providers/claude', () => {
+  const actual = jest.requireActual('../../lib/providers/claude');
+  return {
+    ...actual,
+    launch: jest.fn(),
+    sessions: { ...actual.sessions, findLast: jest.fn().mockReturnValue(null) },
+  };
 });
 
 jest.mock('../../lib/config', () => {
@@ -29,7 +33,7 @@ jest.mock('../../lib/config', () => {
 
 const prompts = require('../../lib/prompts');
 const config  = require('../../lib/config');
-const claude  = require('../../lib/claude');
+const claude  = require('../../lib/providers/claude');
 const taskCmd = require('../../lib/commands/task');
 
 let logLines;

@@ -2,9 +2,9 @@
 const fs   = require('fs');
 const path = require('path');
 const { makeTempDir, cleanup } = require('../helpers');
-const {
-  encodeProjectPath, sessionDirsFor, migrateSessionDir,
-} = require('../../lib/claude');
+const claude = require('../../lib/providers/claude');
+const { encodeProjectPath } = claude;
+const { dirsFor: sessionDirsFor, migrate: migrateSessionDir } = claude.sessions;
 
 // Build a fake encoded session dir with the given entries.
 //   files: { 'name.jsonl': 'contents', ... }

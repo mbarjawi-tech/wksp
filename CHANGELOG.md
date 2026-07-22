@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 2.10.0
+
+### Changed
+
+- Internal groundwork for supporting agentic tools other than Claude. All of wksp's Claude coupling — the launch flags and `CLAUDE_CODE_ADDITIONAL_DIRECTORIES_CLAUDE_MD` env var, the `~/.claude/projects` session store, and the path-encoding that keys transcripts by folder — now lives behind a small provider interface in `lib/providers/`, resolved at call time via `getProvider()`. A provider must implement `launch`, and may optionally expose a `sessions` capability (finding, migrating, reading, and placing transcripts); callers fall back to their existing no-session paths when a provider omits it. This is a pure extraction with no user-facing change in this release — configuration to actually select a different provider comes later
+
+---
+
 ## [2.9.0] — 2026-07-22
 
 ### Added

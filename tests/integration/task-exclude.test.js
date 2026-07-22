@@ -13,9 +13,10 @@ jest.mock('../../lib/prompts', () => ({
   confirm: jest.fn(),
 }));
 
-jest.mock('../../lib/claude', () => ({
-  launch:           jest.fn(),
-  findLastSession:  jest.fn().mockReturnValue(null),
+jest.mock('../../lib/providers/claude', () => ({
+  name: 'claude', instructionFile: 'CLAUDE.md',
+  launch:   jest.fn(),
+  sessions: { findLast: jest.fn().mockReturnValue(null) },
 }));
 
 jest.mock('../../lib/config', () => {
@@ -31,7 +32,7 @@ jest.mock('../../lib/config', () => {
 jest.spyOn(process, 'exit').mockImplementation(code => { throw new Error(`process.exit(${code})`); });
 
 const prompts = require('../../lib/prompts');
-const claude  = require('../../lib/claude');
+const claude  = require('../../lib/providers/claude');
 const config  = require('../../lib/config');
 const taskCmd = require('../../lib/commands/task');
 

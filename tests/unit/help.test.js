@@ -12,8 +12,10 @@ jest.mock('../../lib/prompts', () => ({
   open: jest.fn(), close: jest.fn(), ask: jest.fn(), confirm: jest.fn(),
 }));
 
-jest.mock('../../lib/claude', () => ({
-  launch: jest.fn(), findLastSession: jest.fn().mockReturnValue(null),
+jest.mock('../../lib/providers/claude', () => ({
+  name: 'claude', instructionFile: 'CLAUDE.md',
+  launch: jest.fn(),
+  sessions: { findLast: jest.fn().mockReturnValue(null) },
 }));
 
 let logOutput;
