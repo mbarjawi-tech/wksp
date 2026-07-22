@@ -483,4 +483,57 @@ describe('import — session placed correctly', () => {
     expect(fs.existsSync(sessFile)).toBe(true);
     expect(fs.readFileSync(sessFile, 'utf8')).toBe(sessionContent);
   });
+
+  test('a provider-less bundle session is treated as claude and placed', async () => {
+    jest.spyOn(os, 'homedir').mockReturnValue(tempHome);
+    const { encodeProjectPath } = require('../../lib/providers/claude');
+
+    config.findProjectDir.mockReturnValue(projectDir);
+    config.readProjectConfig.mockReturnValue({ name: 'imp-sess', schemaVersion: 2 });
+    config.readConfig.mockReturnValue({}); // active provider: claude
+
+    const bundle = makeBundle({
+      projectName: 'imp-sess',
+      taskId: 'TASK-NOPROV',
+      session: { id: 'noprov-1', jsonl: '{"x":1}\n' }, // no provider field (old bundle)
+    });
+    const bundlePath = path.join(bundleDir, 'noprov.wksp-bundle');
+    writeBundle(bundlePath, bundle);
+
+    prompts.ask.mockResolvedValueOnce('2');
+    prompts.confirm.mockResolvedValue(true);
+    await importCmd.run([bundlePath]);
+
+    const encoded  = encodeProjectPath(path.join(projectDir, 'tasks', 'TASK-NOPROV'));
+    expect(fs.existsSync(path.join(tempHome, '.claude', 'projects', encoded, 'noprov-1.jsonl'))).toBe(true);
+  });
+
+  test('skips the transcript with a note when the active provider is none', async () => {
+    jest.spyOn(os, 'homedir').mockReturnValue(tempHome);
+    const logLines = [];
+    console.log.mockImplementation((...a) => logLines.push(a.join(' ')));
+    const { encodeProjectPath } = require('../../lib/providers/claude');
+
+    config.findProjectDir.mockReturnValue(projectDir);
+    config.readProjectConfig.mockReturnValue({ name: 'imp-sess', schemaVersion: 2 });
+    config.readConfig.mockReturnValue({ aiProvider: 'none' }); // baseline — can't consume sessions
+
+    const bundle = makeBundle({
+      projectName: 'imp-sess',
+      taskId: 'TASK-SKIP',
+      session: { id: 'skip-1', jsonl: '{"x":1}\n', provider: 'claude' },
+    });
+    const bundlePath = path.join(bundleDir, 'skip.wksp-bundle');
+    writeBundle(bundlePath, bundle);
+
+    prompts.ask.mockResolvedValueOnce('2');
+    prompts.confirm.mockResolvedValue(true);
+    await importCmd.run([bundlePath]);
+
+    const encoded  = encodeProjectPath(path.join(projectDir, 'tasks', 'TASK-SKIP'));
+    expect(fs.existsSync(path.join(tempHome, '.claude', 'projects', encoded, 'skip-1.jsonl'))).toBe(false);
+    const text = logLines.join('\n');
+    expect(text).toMatch(/came from 'claude'/);
+    expect(text).toMatch(/'none' can't consume it; skipped/);
+  });
 });

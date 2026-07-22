@@ -385,5 +385,7 @@ describe('export — --with-session, session present', () => {
     expect(bundle.session).not.toBeNull();
     expect(bundle.session.id).toBe('abc123');
     expect(bundle.session.jsonl).toContain('hello');
+    // Phase B: the capturing provider's name is recorded on the session.
+    expect(bundle.session.provider).toBe('claude');
   });
 });
