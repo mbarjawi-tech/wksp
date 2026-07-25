@@ -44,6 +44,33 @@ describe('ask', () => {
     await expect(answer).resolves.toBe('main');
     expect(() => rl.emit('close')).not.toThrow();
   });
+
+  test('a prompt started after stdin ended fails fast', async () => {
+    // Piping fewer answers than there are questions: the first prompt consumes the
+    // line, the stream ends, and the *next* prompt has no 'close' event left to
+    // hear. Without the latched flag this hung and the process exited silently.
+    const first = prompts.ask('  Branch: ');
+    rl.emit('line', 'feat/x');
+    await expect(first).resolves.toBe('feat/x');
+
+    rl.emit('close');
+
+    await expect(prompts.ask('  Base: ')).rejects.toThrow(/stdin is closed/);
+  });
+
+  test('reopening after a close makes prompts usable again', async () => {
+    rl.emit('close');
+    await expect(prompts.ask('  Branch: ')).rejects.toThrow(/stdin is closed/);
+
+    prompts.close();
+    rl = fakeRl();
+    readline.createInterface.mockReturnValue(rl);
+    prompts.open();
+
+    const answer = prompts.ask('  Branch: ');
+    rl.emit('line', 'main');
+    await expect(answer).resolves.toBe('main');
+  });
 });
 
 describe('confirm', () => {
