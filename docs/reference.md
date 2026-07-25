@@ -26,13 +26,16 @@ wksp init acme
 The unified entry point.
 
 ```bash
-wksp start              # planning session at the project root
-wksp start PROJ-1234    # create or resume a task (partial names match)
+wksp start                     # planning session at the project root
+wksp start PROJ-1234           # create or resume a task (partial names match)
+wksp start PROJ-1234 --json    # ensure the task exists; print its brief, launch nothing
 ```
 
 With **no arguments**, launches the AI tool at the project root and resumes the last root session. The root is the [planning hub](#the-root-is-the-planning-hub): `PLANNING.md` holds the backlog and open decisions, no repos are checked out there. Typing the AI tool's own command at the root lands in the same session history — sessions key off the root path either way.
 
 With an **id**, resumes that task (partial names match, exactly like `wksp task resume`); if nothing matches, offers to create a task with that name (default Yes).
+
+With an **id and any headless flag** (`--json`, `--no-launch`, `--yes`, `--branch`, …), passes them straight to `wksp task create` / `resume` — so a planning session can set a task up without leaving the root. `--yes` also skips the "create it?" confirmation. See [Headless wksp](/headless). `--json` requires an id: root planning is a session, not a document.
 
 #### The root is the planning hub
 
@@ -86,13 +89,26 @@ wksp task repo PROJ-1234 backend share    # switch repo to shared path for this 
 wksp task repo PROJ-1234 backend worktree # create/restore a worktree for a repo
 wksp task repo PROJ-1234 backend exclude  # exclude a repo from this task
 wksp task repo PROJ-1234                  # interactive: pick repo then mode
+wksp task brief PROJ-1234       # print what's needed to work in the task, without launching
 ```
 
-`create` — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout), then launches Claude. Repos registered `--optional` are skipped silently — they start excluded, and the launch summary shows them as `(optional)`.
+`create` — prompts for a branch per repo, creates worktrees, generates a VS Code `.code-workspace` file (printed to stdout), then launches the AI tool. Repos registered `--optional` are skipped silently — they start excluded, and the launch summary shows them as `(optional)`.
 
-`resume` — scans existing worktrees, detects any new repos added since last run (prompts for branches for those; `--optional` repos are recorded as excluded without a prompt), then launches Claude.
+`resume` — scans existing worktrees, detects any new repos added since last run (prompts for branches for those; `--optional` repos are recorded as excluded without a prompt), then launches the AI tool.
+
+Both take headless flags, so a session at the project root can set a task up and work in it without launching a second one — see [Headless wksp](/headless):
+
+```bash
+wksp task create PROJ-1234 --goal "Fix timezone drift" --branch feat/tz --json
+wksp task create PROJ-1234 --branch feat/tz --dry-run     # show the plan, create nothing
+wksp task create PROJ-1234 -y --branch feat/tz            # no questions, then launch as usual
+```
+
+A headless run validates the whole plan before touching anything: an unknown repo name, a missing repo path, a branch already checked out in another worktree, or two repos claiming one folder name is an error naming the flag that fixes it — and the task is left uncreated.
 
 `rename` — renames the task folder, repairs worktrees, renames the `.code-workspace` file, and updates the `## Task:` / `# Work Log:` headings. Because Claude keys session transcripts by the task's folder path, rename also offers to move that history under the new key so `resume` and `status` keep finding it — it shows what it will move and asks (default Yes). Use `--no-migrate-sessions` to skip the move, or `--yes` / `-y` to auto-confirm.
+
+`brief` — prints everything needed to work in a task without launching a session: the task folder, its instruction file and work log, the project's `AGENTS.md` / `PLANNING.md`, each repo with its mode and branch, and the working rules. `--json` emits the same document machine-readably — the same shape `create --json` and `resume --json` return. Read-only; it changes nothing.
 
 `finish` (alias: `done`) — the post-merge completion verb. Fetches each base repo and verifies the task's branches are merged into the default branch — a squash- or rebase-merged PR legitimately shows as unmerged, so finish warns and asks before continuing. It then archives the task exactly like `archive` but with branch deletion defaulted (`--keep-branches` opts out), and finally fast-forwards each base repo's default branch — only when that repo is clean and already sitting on it; otherwise it prints the `git pull --ff-only` command and leaves the repo alone. Merge PRs from inside a task with `gh pr merge <pr> --repo <owner>/<repo>` — the `--repo` flag keeps gh from trying to check out the default branch locally, which fails inside a worktree.
 
@@ -117,9 +133,21 @@ Repos registered with `--optional` never reach this prompt — they start exclud
 
 | Subcommand | Flag | Description |
 |---|---|---|
+| `create`, `resume` | `--json` | Emit the task brief as JSON on stdout. Implies `--yes` + `--no-launch`. |
+| `create`, `resume` | `--no-launch` | Set the task up and print its brief as text; don't launch the AI tool. |
+| `create`, `resume` | `--yes`, `-y` | Never ask: repos with no flag take their defaults. |
+| `create`, `resume` | `--dry-run` | Show the plan and create nothing. Implies `--yes` + `--no-launch`. |
+| `create`, `resume` | `--branch <repo>=<branch>` | Branch for one repo (repeatable). Bare `--branch <branch>` applies to every repo. |
+| `create`, `resume` | `--base <repo>=<branch>` | Where a branch that doesn't exist yet starts. Also `--base <branch>`. |
+| `create`, `resume` | `--shared <repo>` | Use the base repo path for this task, no worktree (repeatable). |
+| `create`, `resume` | `--exclude <repo>` | Leave the repo out of this task (repeatable). |
+| `create`, `resume` | `--goal <text>` | Fill in the `## Goal:` line of the task's `AGENTS.md`. |
+| `brief` | `--json` | Machine-readable brief (same shape as `create --json`). |
 | `delete` | `--delete-branches` | Also delete local branches when tearing down. |
+| `delete` | `--yes`, `-y` | Don't ask. Never discards uncommitted changes and never force-deletes unmerged branches — it keeps the task and says why. |
 | `archive` | `--delete-branches` | Delete local branches during archive. |
 | `archive` | `--force` | Archive even when uncommitted changes exist. |
+| `archive` | `--yes`, `-y` | Skip the confirmation. |
 | `finish` | `--keep-branches` | Keep local branches instead of deleting them. |
 | `finish` | `--force` | Finish even when uncommitted changes exist. |
 | `finish` | `--reason <text>` | Record a reason in the archive manifest (default: "finished"). |
@@ -140,7 +168,10 @@ Show live tasks in the current project. The footer notes the archived task count
 wksp list             # live tasks only
 wksp list --archived  # archived tasks with archive dates
 wksp list --all       # both, with a Status column
+wksp list --json      # machine-readable inventory (honors --archived / --all)
 ```
+
+`--json` emits `{ ok, project, tasks[] }`, where each task carries its `id`, `status` (`live` or `archived`), absolute `dir`, and either its `worktrees` (name + branch) or its `archivedAt` / `reason`.
 
 ---
 
@@ -437,12 +468,32 @@ inside tasks, not at the root. When a discussion turns into implementation work,
   under `docs/` when it outgrows a screenful; everything that moves out leaves a
   one-line link behind — `PLANNING.md` is the index.
 
+## Delegating work to a task (from here, headless)
+
+1. `wksp task create <id> --goal "<one line>" --branch <branch> --json`
+2. Work inside the repo paths that brief lists. Read `tasks/<id>/AGENTS.md` first.
+3. Record what you did in `tasks/<id>/WORKLOG.md`, not here.
+4. `wksp task brief <id>` reprints the context; `wksp task finish <id> --yes` closes it out.
+
+## What belongs here vs. in a task
+
+| Here (project root) | In `tasks/<id>/` |
+|---|---|
+| `PLANNING.md` — backlog, open decisions | `AGENTS.md` — that task's goal and scope |
+| `WORKLOG.md` — what was decided, and why | `WORKLOG.md` — what was actually changed |
+
+- If it stays true after the task is archived, it belongs here.
+- A decision graduates upward exactly once: task keeps the detail, root keeps the conclusion.
+- Never put backlog content in this file — it is loaded into every task session.
+
 ## Cross-cutting conventions
 <!-- fill in: backend, frontend, branch naming, test commands... -->
 
 ## Conflict policy
 This file defines project-wide conventions. Tasks each have their own AGENTS.md.
 ```
+
+The delegation and information-boundary sections are what make hub-driven work sustainable — see [Headless wksp](/headless) for the full rules. They're scaffolding for new projects; existing projects can paste them in (nothing in wksp depends on their presence).
 
 ### `PLANNING.md` (generated by `wksp init`)
 

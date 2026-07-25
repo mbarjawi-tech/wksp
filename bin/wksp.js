@@ -31,10 +31,13 @@ function printHelp() {
   Commands:
     wksp init [name]                 Create a new project
     wksp start [task-id]             Plan at the project root, or create/resume a task
+      --json / --no-launch             With an id: set the task up and print its brief
     wksp repo add <path-or-url>      Register a repo
       --shared                         Never create a worktree; always use original path
     wksp repo remove <path-or-url>   Remove a repo from repos.txt
     wksp task create <id>            Create a new task workspace
+      --json / --no-launch             Set it up without launching; print the task brief
+      --yes  --branch <b> --goal <t>   Answer the prompts up front (see wksp task --help)
     wksp task resume <id>            Resume an existing task
     wksp task delete <id>            Tear down worktrees and delete task folder
     wksp task rename <id> <new-id>   Rename a task in place
@@ -42,9 +45,12 @@ function printHelp() {
     wksp task finish <id>            Finish a merged task: archive, delete branches, update base repos
     wksp task unarchive <id>         Restore an archived task
     wksp task repo <id> [repo] [mode]  Switch a repo's mode (share/worktree/exclude)
+    wksp task brief <id>             Print what's needed to work in a task without launching
+      --json                           Machine-readable (same shape as create --json)
     wksp cleanup --stale <path>      Prune stale worktree refs from a base repo
       -r                               Scan first-level subdirectories too
     wksp list [--archived] [--all]   List tasks in current project
+      --json                           Machine-readable task inventory
     wksp status [<task-id>]          Show task repo/branch status
     wksp delete                      Delete entire project (destructive, requires confirmation)
     wksp migrate [--dry-run]         Apply pending project schema migrations

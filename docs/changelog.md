@@ -4,6 +4,28 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 3.1.0
+
+### Added
+
+- **wksp runs headless.** Until now every way into a task assumed a human at the keyboard: `wksp task create` asks for a branch per repo and ends by handing the terminal to your AI tool. That made the project root a dead end — a planning session there could decide "this should be a task" but couldn't act on it, since it can neither answer readline prompts nor attach to a launch. `create` and `resume` now take flags along three deliberately separate axes: whether wksp asks (`--yes`/`-y`), whether it launches (`--no-launch`), and which answers you supply up front (`--branch <repo>=<branch>` or bare `--branch <branch>` for every repo, `--base`, `--shared <repo>`, `--exclude <repo>`). `--json` implies the first two, so `wksp task create <id> --goal "<one line>" --branch <branch> --json` sets the task folder and worktrees up with no prompts, launches nothing, and prints the task brief on stdout. `--dry-run` shows the plan and creates nothing; `--goal <text>` fills in the `## Goal:` line of the task's `AGENTS.md`, which is how the hub states the handoff contract. Both flag spellings work (`--branch feat/x` and `--branch=feat/x`)
+- `wksp task brief <id> [--json]` — everything needed to work in a task without launching a session: the task folder, its instruction file and work log, the project's `AGENTS.md` and `PLANNING.md`, every repo with its mode / branch / path, and the working rules (where changes go, where to log, what belongs in the hub instead). It is the same document `create --json` and `resume --json` return — one shape to learn, versioned as `briefVersion` — and it is what makes hub-driven work possible: a task folder lives under the project root, so a session there can work in a task from its brief exactly as if it had been launched in it
+- `wksp start <id>` accepts every headless flag and passes it through, making `wksp start <id> --json` the single "make sure this task exists and tell me about it" call (with `--yes` it also skips the "create it?" confirmation). Non-interactive runs never open the task picker: an ambiguous partial name is an error listing the candidates instead
+- `wksp list --json` — machine-readable task inventory (live and archived, honoring `--archived` / `--all`), so an agent can orient itself in a project it didn't create
+- `wksp task delete <id> --yes` — non-interactive teardown that is deliberately not a `--force`: it answers the questions whose answer is already implied and refuses the ones that would lose something, never discarding uncommitted changes and never force-deleting a branch with unmerged commits. It keeps the task and says why. `wksp task archive <id> --yes` skips its confirmation too (`finish --yes` already did)
+- New projects' `AGENTS.md` explains how the hub hands work to a task and states which information lives where — `PLANNING.md` and the root work log for anything that outlives a task, the task's `AGENTS.md` and work log for anything that doesn't, with each decision graduating upward exactly once. The full rules, the JSON shape, and a worked loop are in the new [Headless wksp](https://mbarjawi-tech.github.io/wksp/headless) guide. Scaffolding only — existing projects can paste the sections in, and nothing in wksp depends on their presence
+
+### Fixed
+
+- A headless run now validates the entire plan before touching the filesystem, so it can never leave a half-built task behind. A flag naming a repo that isn't in `repos.txt`, a repo whose path is gone, a branch already checked out in another worktree, two registered repos claiming one folder name, or (on resume) a flag trying to re-disposition a repo that already has a worktree each print the problem plus the flag that fixes it and exit 1 with nothing created
+- `wksp` no longer hangs — and then silently gives up — when a prompt has no stdin to read. The promise behind each question never settled on EOF, so Node drained its event loop and exited part-way through: on Windows a piped `wksp task create` would print the branch prompt, exit, and skip the worktree step, which is what made feeding answers through a pipe unusable. It now fails with a message naming the headless flags to use instead
+- Positional arguments were extracted with a naive "doesn't start with `--`" filter, so a flag's value could be mistaken for the task id — `wksp task create --branch feat/x my-task` read the branch as the task name. Flag values are now parsed properly across every `wksp task` subcommand, which matters much more now that these commands get composed by agents
+- `--json` output is guaranteed to be the only thing on stdout: progress lines, and git's own worktree chatter, are diverted to stderr for the duration, and failures are emitted as JSON (`{ "ok": false, "error": …, "details": [ … ] }`) so an agent never has to parse prose
+- The launch summary said "Launching Claude..." whatever tool was configured; it now names the configured provider, and says nothing when the provider is `none` (which prints its own explanation)
+- A repo registered `--optional` can now be pulled into a task at creation time by naming it in a flag (`--branch <optional-repo>=<branch>`), instead of being silently excluded and needing a follow-up `wksp task repo` call
+
+---
+
 ## [3.0.0] — 2026-07-22
 
 ### Added
