@@ -483,6 +483,93 @@ describe('wksp task delete --yes', () => {
   });
 });
 
+// ─── repo participation, headless ────────────────────────────────────────────
+
+describe('wksp task repo <id> <repo> worktree --branch', () => {
+  let projectDir, apiDir, optDir;
+  beforeEach(async () => {
+    projectDir = makeProject('headless-repo');
+    apiDir = makeTempDir('api-repo'); makeGitRepo(apiDir);
+    optDir = makeTempDir('opt-repo'); makeGitRepo(optDir);
+    addRepo(projectDir, apiDir, false);
+    addRepo(projectDir, optDir, { optional: true });
+    await runTask(projectDir, 'create', 'T-RP', '--branch', 'feat/rp', '--no-launch');
+    logLines = []; stdout = [];
+  });
+  afterEach(() => cleanup(projectDir, apiDir, optDir));
+
+  const wt = name => path.join(projectDir, 'tasks', 'T-RP', 'worktrees', name);
+
+  test('pulls an optional repo in without prompting for the branch', async () => {
+    await runTask(projectDir, 'repo', 'T-RP', path.basename(optDir), 'worktree', '--branch', 'feat/opt');
+
+    expect(prompts.ask).not.toHaveBeenCalled();
+    expect(git.currentBranch(wt(path.basename(optDir)))).toBe('feat/opt');
+
+    // It is no longer excluded — asserted through the brief, since task.json is
+    // removed entirely once both disposition sets are empty.
+    stdout = [];
+    await runTask(projectDir, 'brief', 'T-RP', '--json');
+    expect(json().repos.find(r => r.name === path.basename(optDir)))
+      .toMatchObject({ mode: 'worktree', branch: 'feat/opt' });
+  });
+
+  test('--base decides where a new branch starts', async () => {
+    git.tryRun(`git -C "${optDir}" branch develop`);
+    git.tryRun(`git -C "${optDir}" commit --allow-empty -m second`);
+
+    await runTask(projectDir, 'repo', 'T-RP', path.basename(optDir), 'worktree',
+      '--branch', 'feat/based', '--base', 'develop');
+
+    const dir = wt(path.basename(optDir));
+    expect(git.revParse(dir, 'HEAD')).toBe(git.revParse(optDir, 'develop'));
+  });
+
+  test('a branch already checked out in that repo is refused, creating nothing', async () => {
+    // Another task holds feat/dup in the same base repo. (A branch name reused
+    // across *different* repos is fine — that's wksp's normal pattern — so the
+    // conflict has to come from the same repo.)
+    await runTask(projectDir, 'create', 'T-OTHER',
+      '--branch', `${path.basename(optDir)}=feat/dup`, '--exclude', path.basename(apiDir), '--no-launch');
+    logLines = [];
+
+    await expect(runTask(projectDir, 'repo', 'T-RP', path.basename(optDir), 'worktree',
+      '--branch', 'feat/dup')).rejects.toThrow('process.exit(1)');
+
+    expect(out()).toContain('already checked out in');
+    expect(fs.existsSync(wt(path.basename(optDir)))).toBe(false);
+  });
+
+  test('without --branch it still prompts, exactly as before', async () => {
+    prompts.ask.mockResolvedValueOnce('feat/prompted');
+    await runTask(projectDir, 'repo', 'T-RP', path.basename(optDir), 'worktree');
+    expect(prompts.ask).toHaveBeenCalled();
+    expect(git.currentBranch(wt(path.basename(optDir)))).toBe('feat/prompted');
+  });
+
+  test('--yes refuses to discard uncommitted work when switching to share', async () => {
+    fs.writeFileSync(path.join(wt(path.basename(apiDir)), 'scratch.txt'), 'unsaved\n');
+
+    await expect(runTask(projectDir, 'repo', 'T-RP', path.basename(apiDir), 'share', '--yes'))
+      .rejects.toThrow('process.exit(1)');
+
+    expect(out()).toContain('never discards uncommitted work');
+    expect(fs.existsSync(path.join(wt(path.basename(apiDir)), 'scratch.txt'))).toBe(true);
+    expect(prompts.confirm).not.toHaveBeenCalled();
+  });
+
+  test('a repos.txt --shared repo can still be given a task worktree explicitly', async () => {
+    const sharedDir = makeTempDir('shared-repo');
+    makeGitRepo(sharedDir);
+    addRepo(projectDir, sharedDir, { shared: true });
+
+    await runTask(projectDir, 'repo', 'T-RP', path.basename(sharedDir), 'worktree', '--branch', 'feat/sh');
+
+    expect(git.currentBranch(wt(path.basename(sharedDir)))).toBe('feat/sh');
+    cleanup(sharedDir);
+  });
+});
+
 // ─── inventory ───────────────────────────────────────────────────────────────
 
 describe('wksp list --json', () => {

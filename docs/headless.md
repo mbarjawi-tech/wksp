@@ -123,11 +123,17 @@ prompt offers when you press Enter.
 Related non-interactive flags elsewhere:
 
 ```bash
+wksp task repo PROJ-1234 infra worktree --branch feat/tz   # pull a repo in, no prompt
 wksp task finish PROJ-1234 --yes    # verify merged → archive → fast-forward base repos
 wksp task delete PROJ-1234 --yes    # tear down (see the safety note below)
+wksp task archive PROJ-1234 --yes
 wksp list --json                    # task inventory, live and archived
 wksp providers --json               # which AI tool is configured, and its tier
 ```
+
+`wksp task repo` takes `--branch` / `--base` for `worktree` mode and `--yes` for the others.
+Naming a repo registered `--shared` in `repos.txt` is allowed here — giving one task a
+worktree for a normally-shared repo is the documented use of this verb, not a mistake.
 
 ## What a headless run guarantees
 

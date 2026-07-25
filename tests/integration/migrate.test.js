@@ -38,6 +38,9 @@ async function runMigrate(projectDir, ...args) {
   await migrateCmd.run(args);
 }
 
+// Literal occurrence count — the headings being asserted contain regex metacharacters.
+const countOf = (haystack, needle) => haystack.split(needle).length - 1;
+
 // ─── already up to date ───────────────────────────────────────────────────────
 
 describe('project already at current schema', () => {
@@ -410,9 +413,9 @@ describe('schema 3 → 4 — root-as-hub', () => {
     expect(fs.readFileSync(path.join(projectDir, 'tasks', 'TASK-A', 'CLAUDE.md'), 'utf8')).toBe(templates.CLAUDE_INCLUDE);
   });
 
-  test('stamps schemaVersion 4', async () => {
+  test('stamps the current schema version', async () => {
     await runMigrate(projectDir);
-    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(4);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
   });
 
   test('does not prompt when there is no hub session history', async () => {
@@ -624,6 +627,134 @@ describe('schema 3 → 4 — repos.txt header refresh', () => {
 });
 
 // ─── not inside a project ─────────────────────────────────────────────────────
+
+// ─── schema 4 → 5 — headless delegation section ──────────────────────────────
+
+describe('schema 4 → 5 — teaches the project instruction file the headless flow', () => {
+  let projectDir, homeDir;
+  const agentsPath = () => path.join(projectDir, 'AGENTS.md');
+  const agents     = () => fs.readFileSync(agentsPath(), 'utf8');
+
+  beforeEach(() => {
+    homeDir = makeTempDir('fake-home-v5');
+    jest.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    projectDir = makeProject('mig-delegation');
+    config.setProjectConfig(projectDir, 'schemaVersion', 4);
+  });
+  afterEach(() => cleanup(projectDir, homeDir));
+
+  test('inserts the section before Cross-cutting conventions, keeping user prose', async () => {
+    fs.writeFileSync(agentsPath(), [
+      '## Project: mig-delegation',
+      '',
+      '## The project root is the planning hub',
+      'hub prose the user edited',
+      '',
+      '## Cross-cutting conventions',
+      'our branch naming is feat/*',
+      '',
+      '## Conflict policy',
+      'ask first',
+      '',
+    ].join('\n'));
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    expect(md).toContain(templates.DELEGATION_HEADING);
+    expect(md).toContain('## What belongs here vs. in a task');
+    // Inserted, not merged: every line the user wrote survives, in order.
+    expect(md).toContain('hub prose the user edited');
+    expect(md).toContain('our branch naming is feat/*');
+    expect(md).toContain('ask first');
+    expect(md.indexOf(templates.DELEGATION_HEADING))
+      .toBeLessThan(md.indexOf('## Cross-cutting conventions'));
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
+  });
+
+  test('falls back to a later heading when Cross-cutting conventions is gone', async () => {
+    fs.writeFileSync(agentsPath(), '## Project: x\n\nsome prose\n\n## Conflict policy\nask first\n');
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    expect(md.indexOf(templates.DELEGATION_HEADING)).toBeLessThan(md.indexOf('## Conflict policy'));
+    expect(md).toContain('some prose');
+  });
+
+  test('appends when the file has none of the anchor headings', async () => {
+    fs.writeFileSync(agentsPath(), '# My own structure\n\njust prose, no standard headings\n');
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    expect(md).toContain('just prose, no standard headings');
+    expect(md.indexOf('just prose')).toBeLessThan(md.indexOf(templates.DELEGATION_HEADING));
+    expect(md.endsWith('\n')).toBe(true);
+  });
+
+  test('is idempotent — a second run and --repair change nothing', async () => {
+    fs.writeFileSync(agentsPath(), '## Project: x\n\n## Cross-cutting conventions\nstuff\n');
+    await runMigrate(projectDir);
+    const afterFirst = agents();
+
+    await runMigrate(projectDir, '--repair');
+    expect(agents()).toBe(afterFirst);
+    expect(countOf(afterFirst, templates.DELEGATION_HEADING)).toBe(1);
+  });
+
+  test('stands down while root AGENTS.md and CLAUDE.md are still unmerged', async () => {
+    // 3 → 4 leaves this conflict for the user to resolve; dropping a new section
+    // into one of the two files would land in the middle of that merge.
+    fs.writeFileSync(agentsPath(), 'hand-written agents file\n');
+    fs.writeFileSync(path.join(projectDir, 'CLAUDE.md'), 'hand-written claude file\n');
+
+    await runMigrate(projectDir);
+
+    expect(agents()).toBe('hand-written agents file\n');
+    expect(logLines.some(l => l.includes('still unmerged'))).toBe(true);
+  });
+
+  test('leaves a project that already documents the flow alone', async () => {
+    const own = `## Project: x\n\n${templates.DELEGATION_HEADING}\nmy own wording for this\n`;
+    fs.writeFileSync(agentsPath(), own);
+
+    await runMigrate(projectDir);
+
+    expect(agents()).toBe(own);
+    expect(logLines.some(l => l.includes('already explains headless delegation'))).toBe(true);
+  });
+
+  test('--dry-run reports the change without writing', async () => {
+    fs.writeFileSync(agentsPath(), '## Project: x\n\n## Cross-cutting conventions\nstuff\n');
+
+    await runMigrate(projectDir, '--dry-run');
+
+    expect(agents()).not.toContain(templates.DELEGATION_HEADING);
+    expect(logLines.some(l => l.includes('adding the headless delegation recipe'))).toBe(true);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(4);
+  });
+
+  test('skips an include-only CLAUDE.md when AGENTS.md is absent', async () => {
+    fs.writeFileSync(path.join(projectDir, 'CLAUDE.md'), templates.CLAUDE_INCLUDE);
+
+    await runMigrate(projectDir);
+
+    // 3 → 4 already ran for this project, so nothing should have invented content here.
+    expect(fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf8')).toBe(templates.CLAUDE_INCLUDE);
+  });
+
+  test('a project migrating all the way from v3 ends up with the section too', async () => {
+    config.setProjectConfig(projectDir, 'schemaVersion', 3);
+
+    await runMigrate(projectDir);
+
+    // 3 → 4 scaffolds a fresh AGENTS.md from the template, which already has it —
+    // so 4 → 5 must recognise that and not add a second copy.
+    expect(countOf(agents(), templates.DELEGATION_HEADING)).toBe(1);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
+  });
+});
 
 describe('not inside a project', () => {
   test('exits 1', async () => {
