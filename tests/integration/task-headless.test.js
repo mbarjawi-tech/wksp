@@ -425,6 +425,31 @@ describe('wksp start with headless flags', () => {
     expect(json()).toMatchObject({ ok: true, task: { id: 'T-HERE', created: false } });
   });
 
+  // Why the AGENTS.md recipe says `task create` and not `start` for a new task:
+  // start resolves partial names, so an id that is a substring of an existing task
+  // resumes that task and reports its branch. Silent wrong-branch work follows.
+  test('a new id that is a substring of an existing task resumes that task instead', async () => {
+    await runTask(projectDir, 'create', 'auth-refactor', '--branch', 'feat/auth-refactor', '--no-launch');
+    logLines = []; stdout = [];
+
+    await runStart(projectDir, 'auth', '--branch', 'feat/auth', '--json');
+
+    const doc = json();
+    expect(doc.task.id).toBe('auth-refactor');
+    expect(doc.task.created).toBe(false);
+    expect(doc.repos[0].branch).toBe('feat/auth-refactor');
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'auth'))).toBe(false);
+  });
+
+  test('task create refuses that same id rather than resolving to a neighbour', async () => {
+    await runTask(projectDir, 'create', 'auth-refactor', '--branch', 'feat/auth-refactor', '--no-launch');
+    logLines = []; stdout = [];
+
+    // The explicit verb creates exactly what was asked for.
+    await runTask(projectDir, 'create', 'auth', '--branch', 'feat/auth', '--json');
+    expect(json()).toMatchObject({ ok: true, task: { id: 'auth', created: true } });
+  });
+
   test('an ambiguous partial name errors instead of opening the picker', async () => {
     await runTask(projectDir, 'create', 'T-ONE', '--yes', '--exclude', path.basename(apiDir), '--no-launch');
     await runTask(projectDir, 'create', 'T-TWO', '--yes', '--exclude', path.basename(apiDir), '--no-launch');

@@ -47,8 +47,18 @@ That creates the task folder, its `AGENTS.md` (with the goal filled in), `WORKLO
 worktrees, and the `.code-workspace` file — no prompts, no launch — then prints the task
 brief as JSON on stdout.
 
-`wksp start PROJ-1234 --json` does the same thing whether or not the task exists yet, which
-makes it the single "make sure this task is ready and tell me about it" call.
+Reattaching to a task that already exists is `wksp task resume PROJ-1234 --json` — same
+document back, `task.created: false`, and any repo added to `repos.txt` since gets its
+worktree without a prompt.
+
+`wksp start PROJ-1234 --json` accepts the same flags and creates the task if it's missing,
+which makes it a convenient "make sure this is ready and tell me about it" call — but only
+when you know the id is unambiguous. **`start` matches partial names.** If `auth-refactor`
+exists and you run `wksp start auth --branch feat/auth --json` meaning to create a new
+`auth` task, it resolves to `auth-refactor`, resumes it, and hands back that task's existing
+branch — so work would land on the wrong branch, quietly. For a task you intend to be new,
+use `wksp task create`, which refuses outright if the id is taken and never resolves to a
+neighbour.
 
 ## The task brief
 
