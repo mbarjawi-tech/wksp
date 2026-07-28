@@ -36,6 +36,21 @@ describe('projectAgentsMd', () => {
   test('does not reference tasks/hub', () => {
     expect(md).not.toContain('tasks/hub');
   });
+
+  test('teaches the headless delegation recipe', () => {
+    expect(md).toContain('## Delegating work to a task (from here, headless)');
+    expect(md).toContain('--json');
+    expect(md).toContain('wksp task brief <id>');
+    expect(md).toContain('wksp start <id>');
+  });
+
+  test('states the hub / task information boundary', () => {
+    expect(md).toContain('## What belongs here vs. in a task');
+    expect(md).toContain('tasks/<id>/WORKLOG.md');
+    expect(md).toContain('graduates upward exactly once');
+    // The rule that keeps this file cheap to load into every task session.
+    expect(md).toContain('Never put backlog content in this file');
+  });
 });
 
 describe('taskAgentsMd', () => {

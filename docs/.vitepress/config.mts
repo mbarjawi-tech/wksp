@@ -36,6 +36,7 @@ export default defineConfig({
         text: 'Reference',
         items: [
           { text: 'All Commands & Flags', link: '/reference' },
+          { text: 'Headless / Agents', link: '/headless' },
           { text: 'Migration Guide', link: '/migration' },
           { text: 'Export / Import', link: '/export-import' },
           { text: 'AI Providers', link: '/providers' },

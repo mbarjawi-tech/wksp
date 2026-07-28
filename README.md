@@ -40,6 +40,20 @@ At the branch prompt, press Enter to use the current branch, type a branch name 
 
 The project root is the **planning hub**: `PLANNING.md` holds the feature backlog and open decisions, and `wksp start` (no arguments) launches a planning session right there — no worktrees, no task ceremony. Instruction files are canonicalized to `AGENTS.md`; Claude reads them through a one-line `CLAUDE.md` include. See [docs/concepts.md](docs/concepts.md#key-vocabulary).
 
+## Headless (driving wksp from an AI session)
+
+A task folder lives under the project root, so a planning session at the root can set a task up and work in it without launching a second session:
+
+```bash
+# no prompts, no launch — prints the task brief as JSON on stdout
+wksp task create PROJ-1234 --goal "Fix timezone drift" --branch feat/tz --json
+
+wksp task brief PROJ-1234           # reprint that context any time
+wksp task finish PROJ-1234 --yes    # verify merged, archive, ff the base repos
+```
+
+Prompting (`--yes`) and launching (`--no-launch`) are separate switches; `--json` implies both. A headless run validates the whole plan before touching anything, so a bad flag never leaves a half-built task. See [docs/headless.md](docs/headless.md) — it also spells out which information belongs in the hub and which belongs in a task.
+
 ## Documentation
 
 The docs live in `docs/` as Markdown and are powered by [VitePress](https://vitepress.dev).
@@ -61,6 +75,7 @@ Markdown source files:
 - [docs/concepts.md](docs/concepts.md) — what wksp is and how git worktrees work
 - [docs/installation.md](docs/installation.md) — prerequisites, setup, config
 - [docs/reference.md](docs/reference.md) — all commands, flags, and file formats
+- [docs/headless.md](docs/headless.md) — driving wksp from an AI session; hub vs. task information
 - [docs/examples/](docs/examples/) — five progressive examples
 
 VitePress config: `docs/.vitepress/config.mts`

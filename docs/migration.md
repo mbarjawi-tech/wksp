@@ -179,3 +179,35 @@ The schema 3 → 4 step handles all three starting states — pre-2.8.0 projects
 2. **Missing planning files are scaffolded.** Projects that never had a hub get a fresh `PLANNING.md` and root `WORKLOG.md`.
 3. **Instruction files are converted.** At the root and in every task (live and archived): existing `CLAUDE.md` content moves to `AGENTS.md`, and `CLAUDE.md` is rewritten to the one-line include. Unedited 2.8.0 template blocks referencing the hub are modernized; your own prose is never rewritten. If both a real `AGENTS.md` and a real `CLAUDE.md` already exist, wksp warns and leaves both for you to merge.
 4. **Hub chat history is offered a re-key.** Claude keys session transcripts by folder path, so hub sessions are stranded once `tasks/hub/` is gone. The migration asks (default Yes) before touching `~/.claude` and moves the hub's session directory to the project-root key so `wksp start` resumes it. Declined or skipped? Re-run `wksp migrate --repair` anytime — the offer repeats even after the hub folder is gone.
+
+---
+
+## v3.0.0 → v3.1.0 — headless delegation *(schema 4 → 5)*
+
+v3.1.0 makes wksp drivable from an AI session — see [Headless wksp](/headless). The commands work regardless of your schema version; the migration exists so **existing projects learn the flow**, which is the part that isn't discoverable on its own.
+
+### What changes
+
+Nothing about your files' structure. The schema 4 → 5 step adds two sections to your project's root `AGENTS.md`:
+
+- **Delegating work to a task (from here, headless)** — the four-step recipe a planning session follows to create a task, work in it, and close it out.
+- **What belongs here vs. in a task** — which information lives at the root and which lives in a task, so hub-driven work doesn't scatter.
+
+The bump exists because those sections are how a planning session *knows* the headless flow is available. Without them the feature ships invisible to every project that already exists.
+
+### Migration path
+
+```bash
+wksp migrate --dry-run   # preview: shows where the section would be inserted
+wksp migrate             # apply
+```
+
+The step only ever **inserts**, never rewrites — your prose is untouched:
+
+1. The block goes in before your `## Cross-cutting conventions` heading (where the template puts it). If you've removed that heading, it falls back to `## AI provider self-check`, then `## Conflict policy`, then `## Work log`; if the file has none of them, it's appended at the end.
+2. A file that already documents the flow — including one where you've written your own version under that heading — is left alone.
+3. If a real `AGENTS.md` and a real `CLAUDE.md` both still exist at the root (the unresolved 3 → 4 conflict), this step stands down rather than dropping new text into a pending merge. Resolve that, then run `wksp migrate --repair`.
+
+Task-level instruction files are not touched: delegation is a root concern.
+
+If you'd rather not have the sections, delete them and add your own guidance — nothing in wksp depends on their presence, and the commands behave identically either way. Note that `wksp migrate --repair` re-applies every step, so it will re-add them.
