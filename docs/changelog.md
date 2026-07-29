@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 3.1.1
+
+### Fixed
+
+- `wksp task finish` no longer cries wolf on squash- and rebase-merged PRs. Its merge check was pure git ancestry — "is the branch tip reachable from the default branch?" — but a squash or rebase rewrites the branch into a *new* commit on the default branch, so the tip is never an ancestor. On a squash-merge workflow that meant a `⚠ Not merged into the default branch` on *every* finish, a flat headline that reads like data loss even though the branch really did merge. Finish now confirms merges in tiers, most-authoritative first: git ancestry still catches true merge-commits and fast-forwards, and when it can't, finish asks GitHub. If `gh` is on PATH and the base repo's `origin` is a GitHub remote, it queries the branch's pull request and, on a merged PR whose head commit is the branch's current tip — tying the verdict to this branch, so a since-deleted branch name later reused for other work whose old PR merged long ago can't trigger a false "merged" and delete a branch whose real PR is still open — prints a positive `✓ <branch> merged — PR #N (confirmed on GitHub)` instead of a warning; an open PR is reported plainly as `⚠ PR #N is still open` rather than the squash-merge hedge. `gh` stays entirely optional and feature-detected: if it's missing, offline, errors, or the remote isn't GitHub, finish degrades silently to the last tier. That last-resort warning is reworded from the old verdict to `⚠ Couldn't confirm <branch> is merged — a squash-/rebase-merged PR looks exactly like this even when it merged; verify the PR`, keeping the same y/N confirm before any branch is deleted (the same ancestry blind spot in the archive-restore classifier is noted in the code as a follow-up)
+
+---
+
 ## [3.1.0] — 2026-07-28
 
 ### Added
