@@ -31,8 +31,16 @@ jest.mock('../../lib/config', () => {
   };
 });
 
+// Stub the forge check so integration tests never shell out to a real `gh` or the
+// network. Default 'unknown' = the tier degrades silently (today's behavior);
+// individual tests override the return value.
+jest.mock('../../lib/forge', () => ({
+  prMergeState: jest.fn(() => ({ state: 'unknown' })),
+}));
+
 const prompts = require('../../lib/prompts');
 const config  = require('../../lib/config');
+const forge   = require('../../lib/forge');
 const taskCmd = require('../../lib/commands/task');
 
 beforeEach(() => {
@@ -42,7 +50,13 @@ beforeEach(() => {
   jest.spyOn(console, 'error').mockImplementation(() => {});
   prompts.ask.mockReset();
   prompts.confirm.mockReset();
+  forge.prMergeState.mockReset();
+  forge.prMergeState.mockReturnValue({ state: 'unknown' });
 });
+
+function loggedText() {
+  return console.log.mock.calls.map(c => c.map(String).join(' ')).join('\n');
+}
 afterEach(() => jest.restoreAllMocks());
 
 async function runTask(projectDir, ...args) {
@@ -262,6 +276,94 @@ describe('wksp task finish --yes', () => {
 
     expect(prompts.confirm).not.toHaveBeenCalled();
     expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-Y'))).toBe(true);
+  });
+});
+
+describe('wksp task finish — forge-confirmed merge (squash/rebase)', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('fin-forge-merged');
+    repoDir    = makeTempDir('repo-fin-forge-merged');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    try { git.deleteBranch(repoDir, 'feature/sq', true); } catch {}
+    cleanup(projectDir, repoDir);
+  });
+
+  test('ancestry fails but gh reports a MERGED PR → no warning, positive line, branch deleted', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/sq');
+    await runTask(projectDir, 'create', 'TASK-SQ');
+
+    // Extra commit → the branch tip is NOT an ancestor of the default branch,
+    // exactly as a squash-/rebase-merged branch looks. Ancestry (tier 1) fails.
+    const wtPath = path.join(projectDir, 'tasks', 'TASK-SQ', WORKTREES_DIR, path.basename(repoDir));
+    fs.writeFileSync(path.join(wtPath, 'work.txt'), 'squashed work');
+    gitCmd(wtPath, 'add .');
+    gitCmd(wtPath, 'commit -m "work"');
+
+    // Tier 2: the forge says it merged.
+    forge.prMergeState.mockReturnValue({ state: 'merged', pr: { number: 46 } });
+
+    prompts.confirm.mockResolvedValueOnce(true); // only the archive confirm — no warning confirm
+    await runTask(projectDir, 'finish', 'TASK-SQ');
+
+    // The forge tier fired (ancestry had failed).
+    expect(forge.prMergeState).toHaveBeenCalledTimes(1);
+    const [calledRepo, calledBranch] = forge.prMergeState.mock.calls[0];
+    expect(calledRepo.replace(/\\/g, '/')).toBe(repoDir.replace(/\\/g, '/'));
+    expect(calledBranch).toBe('feature/sq');
+
+    // Positive confirmation, and NOT the warning.
+    const out = loggedText();
+    expect(out).toContain('PR #46');
+    expect(out).toContain('confirmed on GitHub');
+    expect(out).not.toContain("Couldn't confirm");
+
+    // Exactly one confirm (archive) — the "finish anyway?" warning never showed.
+    expect(prompts.confirm).toHaveBeenCalledTimes(1);
+
+    // Archived and the (unmerged-by-git) branch force-deleted.
+    expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-SQ'))).toBe(true);
+    expect(git.branchExistsLocally(repoDir, 'feature/sq')).toBe(false);
+  });
+});
+
+describe('wksp task finish — inconclusive forge result', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('fin-forge-unknown');
+    repoDir    = makeTempDir('repo-fin-forge-unknown');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    try { git.deleteBranch(repoDir, 'feature/unk', true); } catch {}
+    cleanup(projectDir, repoDir);
+  });
+
+  test('ancestry fails and gh is inconclusive → reworded warning, not the old flat headline', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/unk');
+    await runTask(projectDir, 'create', 'TASK-UNK');
+
+    const wtPath = path.join(projectDir, 'tasks', 'TASK-UNK', WORKTREES_DIR, path.basename(repoDir));
+    fs.writeFileSync(path.join(wtPath, 'wip.txt'), 'ahead of main');
+    gitCmd(wtPath, 'add .');
+    gitCmd(wtPath, 'commit -m "wip"');
+
+    forge.prMergeState.mockReturnValue({ state: 'unknown' });
+
+    prompts.confirm.mockResolvedValueOnce(false); // decline the reworded warning
+    await runTask(projectDir, 'finish', 'TASK-UNK');
+
+    const out = loggedText();
+    expect(out).toContain("Couldn't confirm");
+    expect(out).not.toContain('Not merged into the default branch');
+
+    // Declined → nothing torn down.
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-UNK'))).toBe(true);
+    expect(git.branchExistsLocally(repoDir, 'feature/unk')).toBe(true);
   });
 });
 
