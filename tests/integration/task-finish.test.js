@@ -367,6 +367,43 @@ describe('wksp task finish — inconclusive forge result', () => {
   });
 });
 
+describe('wksp task finish — open PR (forge says unmerged)', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('fin-forge-open');
+    repoDir    = makeTempDir('repo-fin-forge-open');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    try { git.deleteBranch(repoDir, 'feature/open', true); } catch {}
+    cleanup(projectDir, repoDir);
+  });
+
+  test('ancestry fails and gh reports an OPEN PR → "PR #N is still open", not the hedge', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/open');
+    await runTask(projectDir, 'create', 'TASK-OPEN');
+
+    const wtPath = path.join(projectDir, 'tasks', 'TASK-OPEN', WORKTREES_DIR, path.basename(repoDir));
+    fs.writeFileSync(path.join(wtPath, 'wip.txt'), 'ahead of main');
+    gitCmd(wtPath, 'add .');
+    gitCmd(wtPath, 'commit -m "wip"');
+
+    forge.prMergeState.mockReturnValue({ state: 'unmerged', pr: { number: 12 } });
+
+    prompts.confirm.mockResolvedValueOnce(false); // decline the warning
+    await runTask(projectDir, 'finish', 'TASK-OPEN');
+
+    const out = loggedText();
+    expect(out).toContain('PR #12 is still open');
+    expect(out).not.toContain('looks exactly like this'); // the squash-merge hedge line
+
+    // Declined → nothing torn down, branch still present.
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-OPEN'))).toBe(true);
+    expect(git.branchExistsLocally(repoDir, 'feature/open')).toBe(true);
+  });
+});
+
 describe('wksp task done (alias)', () => {
   let projectDir, repoDir;
   beforeEach(() => {
