@@ -211,3 +211,34 @@ The step only ever **inserts**, never rewrites — your prose is untouched:
 Task-level instruction files are not touched: delegation is a root concern.
 
 If you'd rather not have the sections, delete them and add your own guidance — nothing in wksp depends on their presence, and the commands behave identically either way. Note that `wksp migrate --repair` re-applies every step, so it will re-add them.
+
+---
+
+## v3.1.x → v3.2.0 — orchestration guidance *(schema 5 → 6)*
+
+v3.2.0 adds the guidance an AI needs to *orchestrate* delegated work from the project root — see [Headless wksp](/headless). Like the 4 → 5 step, this is content only; the schema bump exists so **existing projects learn the flow**, which isn't discoverable on its own.
+
+### What changes
+
+Nothing about your files' structure. The schema 5 → 6 step adds three sections to your project's root `AGENTS.md`:
+
+- **Reviewing a delegated PR (review → fix → re-review)** — when and how to run an independent review loop before a coding/behaviour PR merges, and how the `reviewLoop` setting gates it.
+- **Steering a task: resume, fresh, or new** — the durable-task model (the task, not the agent, is what persists) and the rule of thumb: resume for continuation, spawn fresh for independence, open a new task for a separate concern.
+- **Agent-honored settings** — the `reviewLoop`, `prGate`, and `mergeMethod` keys the orchestrator reads (and wksp's CLI deliberately does not act on), with their values and defaults.
+
+### Migration path
+
+```bash
+wksp migrate --dry-run   # preview: shows where the section would be inserted
+wksp migrate             # apply
+```
+
+The step only ever **inserts**, never rewrites — your prose is untouched, and it mirrors the 4 → 5 step's safety rules exactly:
+
+1. The block goes in before your `## Cross-cutting conventions` heading (where the template puts it, right after the delegation block). If you've removed that heading, it falls back to `## AI provider self-check`, then `## Conflict policy`, then `## Work log`; if the file has none of them, it's appended at the end.
+2. A file that already documents the orchestration flow — including one where you've written your own version under that heading — is left alone.
+3. If a real `AGENTS.md` and a real `CLAUDE.md` both still exist at the root (the unresolved 3 → 4 conflict), this step stands down rather than dropping new text into a pending merge. Resolve that, then run `wksp migrate --repair`.
+
+Task-level instruction files are not touched: orchestration is a root concern.
+
+The three settings are **agent-honored**: nothing in wksp reads them, so leaving them unset changes no CLI behaviour, and the documented defaults (`reviewLoop: ask`, `prGate: never`, `mergeMethod: squash`) preserve how things work today. If you'd rather not have the guidance sections, delete them — `wksp migrate --repair` will re-add them, as it re-applies every step.

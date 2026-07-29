@@ -51,6 +51,32 @@ describe('projectAgentsMd', () => {
     // The rule that keeps this file cheap to load into every task session.
     expect(md).toContain('Never put backlog content in this file');
   });
+
+  test('ships the review→fix→re-review loop recipe', () => {
+    expect(md).toContain('## Reviewing a delegated PR (review → fix → re-review)');
+    expect(md).toContain('reviewLoop');
+    expect(md).toContain('fresh, unbiased reviewer');
+    // The non-negotiables of the loop.
+    expect(md).toContain('never the implementer');
+    expect(md).toContain('acceptance criteria');
+  });
+
+  test('ships the task-steering / iteration model', () => {
+    expect(md).toContain('## Steering a task: resume, fresh, or new');
+    expect(md).toContain('durable unit is the **task**');
+    expect(md).toContain('resume for continuation, fresh for independence');
+  });
+
+  test('ships the agent-honored settings and their defaults', () => {
+    expect(md).toContain('## Agent-honored settings');
+    // All three keys, documented with their values.
+    expect(md).toContain('reviewLoop');
+    expect(md).toContain('prGate');
+    expect(md).toContain('mergeMethod');
+    // Read path and precedence stated for the agent.
+    expect(md).toContain('wksp config get <key>');
+    expect(md).toContain('wksp\'s CLI does');
+  });
 });
 
 describe('taskAgentsMd', () => {

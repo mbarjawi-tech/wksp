@@ -4,6 +4,19 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 3.2.0
+
+### Added
+
+- The project `AGENTS.md` now carries orchestration guidance for an AI driving delegated work from the root. First, an independent **review→fix→re-review loop** to run before a coding or behaviour PR merges: spawn a *fresh, unbiased* reviewer — never the implementer, and never a fork of the orchestrator, since a fork inherits its framing — brief it with the fix intent, explicit acceptance criteria, and "assess independently, don't rubber-stamp"; if it finds issues a fixer works in-task on the same branch so the PR updates in place, then the reviewer runs again; the loop ends on a clean approve or once every remaining finding is an acknowledged non-blocker (trivial docs-only PRs are exempt). Second, the **task-steering model**: the durable unit is the task — its files, worktree, `WORKLOG.md`, `AGENTS.md`, and session history outlive any agent — so **resume for continuation, spawn fresh for independence** (e.g. a review), and **open a new task for a separate concern**, rather than spinning up a fresh agent per iteration. The full write-ups, with a worked hub-driven loop, are in the [Headless wksp](https://mbarjawi-tech.github.io/wksp/headless) guide
+- Three **agent-honored** config keys the orchestrator reads — wksp's CLI deliberately does *not* act on them; the agent does — resolved project `.wksp` over global `~/.wksp` like every other key and read with `wksp config get <key>`. `reviewLoop` (`ask` (default) | `always` | `never`) gates the review loop above: `ask`/unset prompts, `always` runs it, `never` skips. `prGate` (`ask` | `always` | `never`, default `never`) is the verify-before-PR gate — `never` opens the PR as soon as the work is ready (today's behaviour), `always` pauses first so you can manually test and opens it once you confirm, `ask` asks which. `mergeMethod` (`squash` (default) | `merge` | `rebase`) records which merge the agent uses when it lands a PR. The defaults preserve current behaviour and are documented in the [Headless wksp](https://mbarjawi-tech.github.io/wksp/headless) guide and the [config reference](https://mbarjawi-tech.github.io/wksp/reference)
+
+### Changed
+
+- `wksp migrate` schema 5 → 6 back-fills the orchestration guidance and the agent-honored settings reference into an existing project's root `AGENTS.md`. As with the 4 → 5 delegation step, a content-only change earns a schema bump because those sections are how a planning session *learns* the review loop, the steering model, and the settings exist — without the migration they would ship invisible to every project that already exists. The step only ever inserts: the block goes in before your `## Cross-cutting conventions` heading (falling back to the next known heading, then the end of the file), your prose is never rewritten, a file that already documents the flow is left alone, and while a real `AGENTS.md` and a real `CLAUDE.md` both still exist at the root (the unresolved 3 → 4 conflict) it stands down rather than dropping new text into a pending merge. Task instruction files aren't touched — orchestration is a root concern
+
+---
+
 ## [3.1.1] — 2026-07-29
 
 ### Fixed
