@@ -228,6 +228,90 @@ wksp task finish PROJ-1234 --yes   # verify merged, archive, delete branches, ff
 
 Then copy the one line that outlives the task into `PLANNING.md`, and the loop is closed.
 
+## Reviewing a PR before it lands
+
+An unbiased second agent catches what the author — human or AI — can't see. wksp's own `finish`
+merge-verification bug shipped past 495 passing tests and a convention check; a fresh reviewer
+found it in one pass. So for a **coding or behaviour** PR out of a delegated task (trivial
+docs-only changes are exempt), run an independent review→fix→re-review loop before merging.
+
+The orchestrator consults the `reviewLoop` setting (see [Agent-honored settings](#agent-honored-settings)):
+
+- `always` — run the loop without asking.
+- `never` — skip it.
+- `ask` (the default) — ask you first ("Run an independent review→fix loop on this PR?"), and
+  mention you can set `reviewLoop: always` to make it automatic.
+
+The loop has four rules that keep it honest:
+
+1. **The reviewer is fresh and unbiased.** Spawn a new agent (or resume a dedicated reviewer) —
+   never the implementer, and never a *fork* of the orchestrator, because a fork inherits the
+   orchestrator's framing and would rubber-stamp its own plan.
+2. **Brief it with intent plus acceptance criteria.** Tell it what the change is meant to do and
+   what "correct" looks like, and tell it explicitly to assess independently rather than confirm.
+3. **The fixer works in-task, on the same branch.** Fixes land on the PR's branch so the PR
+   updates in place — no second PR, no divergence.
+4. **It terminates.** Stop on a clean approve, or once every remaining finding is acknowledged as
+   a non-blocker. That acknowledgement clause is what prevents an endless polish loop.
+
+## Steering a task across iterations
+
+A recurring confusion in headless work is the agent lifecycle: does an agent "die" when it's
+done, and does every iteration need a new one? No — because **the durable unit is the task, not
+the agent.** A task's files, worktree, `WORKLOG.md`, `AGENTS.md`, and session history persist
+across time and across agents. A background subagent stays resumable while its orchestrator is
+alive, and a *fresh* agent simply reloads its context from the task's `WORKLOG.md` and
+`AGENTS.md`. Nothing is lost when an agent finishes.
+
+That gives you two first-class steering modes, and you can switch between them freely because the
+task carries the state either way:
+
+- **Hub-driven** — stay in the root planning session, delegate an idea to a task (headless), and
+  steer the whole thing from the root. Iterate by resuming the *same* task subagent with the next
+  batch of work, or by re-delegating a *fresh* agent that reloads from the task files. A
+  manual-test gate is simply the root session pausing while you test, then telling it the next
+  step — keep the root session alive to keep steering.
+- **Direct** — go straight to the task with `wksp start <id>`, which resumes the task's own
+  session with full context; the root is uninvolved.
+
+Start hub-driven and later switch to direct (or back), and the state carries over — `WORKLOG.md`
+and `AGENTS.md` keep both modes coherent.
+
+**The rule of thumb: resume for continuation, spawn fresh for independence, open a new task for a
+separate concern.** The classic "task 1: do 1, 2, 3 … oh, and also 4, 5" is a *resume* of the same
+agent, not a new one. A code review is the canonical case for *fresh*. A genuinely different piece
+of work is a *new task*.
+
+## Agent-honored settings
+
+wksp has two kinds of config. **CLI-behaviour** keys (`aiProvider`, `autoResume`, `reposRoot`,
+`customProviders`) change what the `wksp` command itself does. **Agent-honored** keys are read by
+the orchestrating agent to shape delegated work — **wksp's CLI never acts on them.** They resolve
+the same way as every other key (project `.wksp` overrides global `~/.wksp`), and the agent reads
+them with `wksp config get <key>` (or straight from the `.wksp` JSON, same precedence). An unset
+key reads as `(not set)` — treat that as the default.
+
+| Key | Values | Default | What the agent does |
+|---|---|---|---|
+| `reviewLoop` | `ask` \| `always` \| `never` | `ask` | Whether to run the [review→fix loop](#reviewing-a-pr-before-it-lands) on a coding/behaviour PR. `ask` prompts; `always` runs it; `never` skips. |
+| `prGate` | `ask` \| `always` \| `never` | `never` | Verify-before-PR gate. `never` opens the PR as soon as the work is ready. `always` pauses first so you can manually test, then opens it once you confirm. `ask` asks which each time. |
+| `mergeMethod` | `squash` \| `merge` \| `rebase` | `squash` | Which merge the agent uses when it lands a PR — passed to `gh pr merge --<method>`. Encodes a per-project default so it isn't re-decided each time. |
+
+The defaults preserve current behaviour: `prGate: never` means PRs still open immediately unless
+you opt into a manual-test pause, and `mergeMethod: squash` matches the common squash-merge
+workflow. `reviewLoop` defaults to `ask` so the review step is surfaced rather than run — or
+skipped — without you knowing.
+
+```bash
+wksp config set reviewLoop always            # project-level
+wksp config set mergeMethod squash --global  # your default everywhere
+wksp config get prGate                        # effective value (project over global)
+```
+
+New projects get all three sections in their root `AGENTS.md`; existing projects receive them
+from the schema 5 → 6 migration (`wksp migrate`), which inserts them without rewriting anything
+you've written — see the [migration guide](/migration#v3-1-x-v3-2-0-orchestration-guidance-schema-5-6).
+
 ## When to launch instead
 
 Headless is for orchestration, not for replacing a session. Launch a task when the work
