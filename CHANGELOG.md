@@ -8,7 +8,7 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ### Added
 
-- `wksp task finish --no-archive` (alias `--delete`) — finish a merged task without keeping an archive. It runs the same tiered merged-verification and fast-forwards each base repo's default branch, but then deletes the task outright (worktrees, local branches, and the task folder) instead of moving it to `archived-tasks/`. The delete path has its own confirmation that clearly flags it as irreversible with no archive kept; `--keep-branches`, `--force`, and `--yes` carry the same meaning they have for the archiving path. The worktree-teardown code is now shared with `wksp task delete`
+- `wksp task finish --no-archive` (alias `--delete`) — finish a merged task without keeping an archive. It runs the same tiered merged-verification and fast-forwards each base repo's default branch, but then deletes the task outright (worktrees, local branches, and the task folder) instead of moving it to `archived-tasks/`. The delete path has its own confirmation that clearly flags it as irreversible with no archive kept and, like the archiving path, refuses up-front when a worktree has uncommitted changes unless `--force` is passed (which then lists what would be discarded — `--yes` is never a substitute for `--force`); `--keep-branches`, `--force`, and `--yes` carry the same meaning they have for the archiving path. The worktree-teardown code is now shared with `wksp task delete`
 
 ### Fixed
 

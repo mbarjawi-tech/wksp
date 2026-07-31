@@ -164,6 +164,14 @@ describe('resolveTaskId — archived tasks are reachable for delete', () => {
     expect(id).toBe('MONA-9999-archived-thing');
   });
 
+  test('delete: an exact archived id beats a live *partial* superstring', async () => {
+    // A live task whose name merely contains the archived id must not shadow the
+    // exact archived match for a destructive delete.
+    mkTask(projectDir, 'MONA-9999-archived-thing-extra');
+    const id = await taskCmd.resolveTaskId(projectDir, 'delete', 'MONA-9999-archived-thing');
+    expect(id).toBe('MONA-9999-archived-thing');
+  });
+
   test('delete picker includes archived tasks marked (archived)', async () => {
     // No id → picker over live + archived. Pick the archived one by name fragment.
     prompts.ask.mockResolvedValueOnce('archived-thing');
