@@ -5,7 +5,7 @@ Builds on [Example 2](02-multiple-repos.md). You have PROJ-1234 active with work
 ## Create a second task
 
 ```bash
-wksp task PROJ-5678
+wksp task create PROJ-5678
 ```
 
 The prompts ask for branches just like before. Both tasks can use the same branch name (they're separate worktrees) or different ones:
@@ -30,7 +30,7 @@ acme/
         services/          ← on feature/PROJ-1234
 
     PROJ-5678/
-      task-shared.txt         ← contains path to services
+      task.json               ← records services as shared for this task
       worktrees/
         backend/                  ← on feature/PROJ-5678
         frontend/    ← on feature/PROJ-5678
@@ -43,13 +43,13 @@ Both tasks exist simultaneously. The `backend` base repo has two active worktree
 To resume PROJ-1234:
 
 ```bash
-wksp task PROJ-1234
+wksp task resume PROJ-1234
 ```
 
 To resume PROJ-5678:
 
 ```bash
-wksp task PROJ-5678
+wksp task resume PROJ-5678
 ```
 
 In VS Code: open the `.code-workspace` file for the task you want. You can have both open in separate windows.
@@ -72,7 +72,7 @@ acme — 2 tasks
 When PROJ-5678 is merged and you no longer need the worktrees:
 
 ```bash
-wksp task PROJ-5678 --del
+wksp task delete PROJ-5678
 ```
 
 wksp lists what it will remove and asks for confirmation:

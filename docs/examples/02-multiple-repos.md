@@ -46,7 +46,7 @@ wksp clones into `reposRoot` (set in `~/.wksp`) if the repo isn't already there,
 ## Create a task with multiple repos
 
 ```bash
-wksp task PROJ-1234
+wksp task create PROJ-1234
 ```
 
 You're prompted once per non-shared repo:
@@ -89,8 +89,8 @@ This uses locally cached remote refs — no network fetch at launch. To check fo
 Suppose you register `notifications` after PROJ-1234 already exists:
 
 ```bash
-wksp repo /c/dev/notifications
-wksp task PROJ-1234
+wksp repo add /c/dev/notifications
+wksp task resume PROJ-1234
 ```
 
 wksp detects that `notifications` has no worktree in PROJ-1234 and prompts just for that one:
@@ -105,10 +105,10 @@ Existing worktrees are untouched.
 ## Remove a repo
 
 ```bash
-wksp repo /c/dev/old-service --remove
+wksp repo remove /c/dev/old-service
 ```
 
-The entry is removed from `repos.txt`. If any tasks still have a worktree for that repo, wksp prints a warning — you can clean those up with `wksp task <id> --del` or `wksp cleanup --stale`.
+The entry is removed from `repos.txt`. If any tasks still have a worktree for that repo, wksp prints a warning — you can clean those up with `wksp task delete <id>` or `wksp cleanup`.
 
 ---
 

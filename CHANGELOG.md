@@ -4,6 +4,22 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 3.3.0
+
+### Added
+
+- `wksp task finish --no-archive` (alias `--delete`) — finish a merged task without keeping an archive. It runs the same tiered merged-verification and fast-forwards each base repo's default branch, but then deletes the task outright (worktrees, local branches, and the task folder) instead of moving it to `archived-tasks/`. The delete path has its own confirmation that clearly flags it as irreversible with no archive kept and, like the archiving path, refuses up-front when a worktree has uncommitted changes unless `--force` is passed (which then lists what would be discarded — `--yes` is never a substitute for `--force`); `--keep-branches`, `--force`, and `--yes` carry the same meaning they have for the archiving path. The worktree-teardown code is now shared with `wksp task delete`
+
+### Fixed
+
+- `wksp task delete` can now reach archived tasks by partial name and from the picker, not just by exact id. A partial that matches no live task falls back to matching archived tasks, and the delete picker lists archived tasks marked `(archived)`. `resume`, `archive`, and `finish` are unchanged — only `delete` reaches into `archived-tasks/`
+
+### Changed
+
+- Docs audited and corrected to the current release. The five `docs/examples/*.md` walkthroughs now use the verb-first task syntax (`wksp task create/resume/delete`, `wksp task archive/unarchive`, `wksp task repo <id> <repo> share|worktree|exclude`) and the current `wksp repo add/remove` and `wksp cleanup` forms instead of the removed v1 positional flags; obsolete `task-shared.txt` / `task-excluded.txt` references become `task.json`. `docs/export-import.md` documents the canonical `task.agentsMd` bundle field (with `claudeMd` kept for back-compat) and bumps the example `schemaVersion` to `6`; `docs/reference.md` and `docs/examples/05-archive-workflow.md` document `finish --no-archive`
+
+---
+
 ## [3.2.0] — 2026-07-29
 
 ### Added

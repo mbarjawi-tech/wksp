@@ -4,11 +4,11 @@ Builds on [Example 4](04-task-options.md). You know how to manage tasks. This ex
 
 ## Why archive instead of delete
 
-`--del` removes everything: worktrees, branches (optionally), and the task folder including CLAUDE.md. That's the right move for tasks you're truly done with.
+`wksp task delete PROJ-1234` removes everything: worktrees, branches (optionally), and the task folder including its `AGENTS.md`. That's the right move for tasks you're truly done with.
 
 Archive is for tasks that are done *for now* but might come back — a feature waiting for a second phase, a bug you can't reproduce yet, a spike you want to reference later. Archive:
 - Removes the worktrees (frees disk space)
-- Preserves the task folder: CLAUDE.md, notes, any files you left there
+- Preserves the task folder: `AGENTS.md`, notes, any files you left there
 - Records the branch names and tip SHAs in `archived.json`
 - Moves everything to `archived-tasks/`
 
@@ -17,19 +17,19 @@ When it comes back, you can rehydrate it with a single command.
 ## Archive a task
 
 ```bash
-wksp task PROJ-1234 --archive
+wksp task archive PROJ-1234
 ```
 
 wksp checks for uncommitted changes. If any exist, it blocks and tells you what's dirty — you need to commit, stash, or discard before archiving. To override:
 
 ```bash
-wksp task PROJ-1234 --archive --force
+wksp task archive PROJ-1234 --force
 ```
 
 By default, local branches are kept in the base repos. To delete them at archive time:
 
 ```bash
-wksp task PROJ-1234 --archive --delete-branches
+wksp task archive PROJ-1234 --delete-branches
 ```
 
 After archive:
@@ -39,7 +39,7 @@ acme/
   archived-tasks/
     PROJ-1234/
       archived.json   ← rehydration manifest
-      CLAUDE.md       ← preserved
+      AGENTS.md       ← preserved
       ...             ← any other files left in the task folder
   tasks/              ← PROJ-1234 is gone from here
 ```
@@ -76,7 +76,7 @@ acme
 ## Unarchive a task
 
 ```bash
-wksp task PROJ-1234 --unarchive
+wksp task unarchive PROJ-1234
 ```
 
 wksp reads `archived.json`, classifies each repo's branch against the current state of the base repos, and picks a sensible default action per repo. When nothing unusual has happened, it runs silently and restores everything.
@@ -103,40 +103,56 @@ If `feature/PROJ-1234` was merged into `main` and the branch was deleted, wksp d
 Preview without applying:
 
 ```bash
-wksp task PROJ-1234 --unarchive --dry-run
+wksp task unarchive PROJ-1234 --dry-run
 ```
 
 Fetch remote refs in all base repos before classifying (catches remote-only branches):
 
 ```bash
-wksp task PROJ-1234 --unarchive --fetch
+wksp task unarchive PROJ-1234 --fetch
 ```
 
 Per-repo overrides:
 
 ```bash
 # Skip a repo entirely
-wksp task PROJ-1234 --unarchive --skip services
+wksp task unarchive PROJ-1234 --skip services
 
 # Use a specific branch for a repo
-wksp task PROJ-1234 --unarchive --branch backend=hotfix/PROJ-1234
+wksp task unarchive PROJ-1234 --branch backend=hotfix/PROJ-1234
 
 # Restore a repo as task-shared
-wksp task PROJ-1234 --unarchive --shared frontend
+wksp task unarchive PROJ-1234 --shared frontend
+```
+
+## Finish a merged task
+
+When a task's PRs have merged and you're done, `wksp task finish` is the one-shot completion verb. It verifies each branch is merged into its base repo's default branch, archives the task (deleting the local branches), and fast-forwards each base repo that's clean and on its default branch:
+
+```bash
+wksp task finish PROJ-1234
+```
+
+`wksp task done PROJ-1234` is an alias for the same thing.
+
+If you don't want an archive kept — the task is truly finished and you won't revisit it — pass `--no-archive` (alias `--delete`). It still verifies merged and fast-forwards the base repos, but then deletes the task outright (worktrees, branches, and folder) instead of archiving. This is irreversible and uses its own confirmation:
+
+```bash
+wksp task finish PROJ-1234 --no-archive
 ```
 
 ## Permanently delete an archived task
 
 ```bash
-wksp task PROJ-1234 --del
+wksp task delete PROJ-1234
 ```
 
-Works the same way as on a live task. Since archive already removed the worktrees, there's nothing to tear down — it just asks for confirmation and deletes the folder.
+Works the same way as on a live task. Since archive already removed the worktrees, there's nothing to tear down — it just asks for confirmation and deletes the folder. You can pass a partial name or omit the id entirely and pick the archived task from the list.
 
 To also remove branches that were kept at archive time:
 
 ```bash
-wksp task PROJ-1234 --del --delete-branches
+wksp task delete PROJ-1234 --delete-branches
 ```
 
 ---

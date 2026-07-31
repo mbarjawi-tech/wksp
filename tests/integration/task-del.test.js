@@ -211,3 +211,39 @@ describe('wksp task delete — unmerged commits → keep branch', () => {
     expect(git.branchExistsLocally(repoDir, 'feature/keep-unmerged')).toBe(true);
   });
 });
+
+// ─── --del: dirty worktree, user declines to discard → folder must be KEPT ─────
+// Regression for the latent bug: declining the per-worktree "Force remove?" prompt
+// used to log "Skipped" without blocking the folder delete, so fs.rmSync still ran
+// and deleted the task out from under the surviving dirty worktree.
+
+describe('wksp task delete — dirty worktree, decline force-remove', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('del-dirty');
+    repoDir    = makeTempDir('repo-del-dirty');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    try { git.deleteBranch(repoDir, 'feature/del-dirty', true); } catch {}
+    cleanup(projectDir, repoDir);
+  });
+
+  test('keeps the task folder when the user declines to discard uncommitted work', async () => {
+    const { taskDir, wtPath } = await createTaskWithWorktree(projectDir, repoDir, 'TASK-DIRTY', 'feature/del-dirty');
+    // Uncommitted change → worktree removal refuses without --force.
+    fs.writeFileSync(path.join(wtPath, 'README.md'), '# uncommitted edit\n');
+
+    prompts.confirm
+      .mockResolvedValueOnce(true)    // "Confirm?" → yes, delete the task
+      .mockResolvedValueOnce(false);  // "Force remove ...? (discards changes)" → no
+
+    await runDel(projectDir, 'TASK-DIRTY');
+
+    // Folder and the surviving dirty worktree are both preserved — nothing discarded.
+    expect(fs.existsSync(taskDir)).toBe(true);
+    expect(fs.existsSync(wtPath)).toBe(true);
+    expect(fs.readFileSync(path.join(wtPath, 'README.md'), 'utf8')).toContain('uncommitted edit');
+  });
+});
