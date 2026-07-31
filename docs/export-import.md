@@ -36,7 +36,7 @@ A single UTF-8 JSON file with extension `.wksp-bundle`.
   "exportedAt": "2026-06-01T19:00:00.000Z",
   "project": {
     "name": "acme",
-    "schemaVersion": 3
+    "schemaVersion": 6
   },
   "repos": [
     {
@@ -56,6 +56,7 @@ A single UTF-8 JSON file with extension `.wksp-bundle`.
   ],
   "task": {
     "id": "PROJ-1234",
+    "agentsMd": "## Task: PROJ-1234\n...",
     "claudeMd": "## Task: PROJ-1234\n...",
     "worklogMd": "# Work Log: PROJ-1234\n- 2026-06-01: ...",
     "shared": ["company-docs"],
@@ -97,6 +98,10 @@ A single UTF-8 JSON file with extension `.wksp-bundle`.
 - `isSharedRepo` — `true` if the repo is registered with `--shared` in `repos.txt` (never gets a worktree).
 - `isOptionalRepo` — `true` if the repo is registered with `--optional` in `repos.txt` (excluded from tasks by default). Absent in bundles created before the flag existed, which means `false`.
 - `hasRemote` — `true` if `remoteUrl` is non-null.
+
+**`task.agentsMd`** — the task's `AGENTS.md` content, the canonical instruction file. On import it's written to `tasks/<id>/AGENTS.md` (with a one-line `@AGENTS.md` include generated as `CLAUDE.md`). Absent in bundles created before AGENTS.md became canonical (v3.0.0).
+
+**`task.claudeMd`** — kept for back-compat: it carries the same meaningful content as `agentsMd` so older wksp versions can still import the bundle. When `agentsMd` is absent, import falls back to writing this as `CLAUDE.md`.
 
 **`task.worklogMd`** — the task's `WORKLOG.md` content (the running record of what was done). Absent in bundles created by wksp < 2.8.0; on import the schema migration backfills an empty `WORKLOG.md` in that case.
 

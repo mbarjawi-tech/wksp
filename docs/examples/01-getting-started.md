@@ -48,7 +48,7 @@ cat repos.txt
 ## Step 3 — Create a task
 
 ```bash
-wksp task PROJ-1234
+wksp task create PROJ-1234
 ```
 
 You're prompted once per repo:
@@ -109,7 +109,7 @@ Or open it from VS Code's recent files list. The multi-root workspace shows all 
 When you come back to this task:
 
 ```bash
-wksp task PROJ-1234
+wksp task resume PROJ-1234
 ```
 
 wksp re-validates the worktrees, prints the current branch status, and launches Claude — automatically resuming the last conversation session so your history is intact.

@@ -14,6 +14,10 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 - `wksp task delete` can now reach archived tasks by partial name and from the picker, not just by exact id. A partial that matches no live task falls back to matching archived tasks, and the delete picker lists archived tasks marked `(archived)`. `resume`, `archive`, and `finish` are unchanged — only `delete` reaches into `archived-tasks/`
 
+### Changed
+
+- Docs audited and corrected to the current release. The five `docs/examples/*.md` walkthroughs now use the verb-first task syntax (`wksp task create/resume/delete`, `wksp task archive/unarchive`, `wksp task repo <id> <repo> share|worktree|exclude`) and the current `wksp repo add/remove` and `wksp cleanup` forms instead of the removed v1 positional flags; obsolete `task-shared.txt` / `task-excluded.txt` references become `task.json`. `docs/export-import.md` documents the canonical `task.agentsMd` bundle field (with `claudeMd` kept for back-compat) and bumps the example `schemaVersion` to `6`; `docs/reference.md` and `docs/examples/05-archive-workflow.md` document `finish --no-archive`
+
 ---
 
 ## [3.2.0] — 2026-07-29
