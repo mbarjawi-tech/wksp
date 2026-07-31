@@ -48,6 +48,21 @@ function mkTask(projectDir, id) {
   fs.mkdirSync(path.join(projectDir, 'tasks', id), { recursive: true });
 }
 
+// Create a minimal archived task (folder + manifest) under archived-tasks/.
+function mkArchivedTask(projectDir, id) {
+  const dir = path.join(projectDir, 'archived-tasks', id);
+  fs.mkdirSync(dir, { recursive: true });
+  fs.writeFileSync(path.join(dir, 'archived.json'), JSON.stringify({
+    schemaVersion: 1,
+    archivedAt: new Date().toISOString(),
+    taskId: id,
+    projectName: 'test-project',
+    reason: null,
+    repos: [],
+  }, null, 2) + '\n');
+  return dir;
+}
+
 // Make recency deterministic: map task-dir basename → session mtime (ms).
 function setRecency(map) {
   claude.sessions.findLast.mockImplementation(taskDir => {
@@ -124,6 +139,48 @@ describe('resolveTaskId — provided id', () => {
     expect(id).toBe('feature-b');
     expect(prompts.open).toHaveBeenCalled();
     expect(prompts.close).toHaveBeenCalled();
+  });
+});
+
+// ─── resolveTaskId — archived reachability (delete only) ─────────────────────
+
+describe('resolveTaskId — archived tasks are reachable for delete', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeProject('pick-archived');
+    mkTask(projectDir, 'live-one');
+    mkArchivedTask(projectDir, 'MONA-9999-archived-thing');
+  });
+  afterEach(() => cleanup(projectDir));
+
+  test('delete: a partial matching only an archived task resolves to it', async () => {
+    const id = await taskCmd.resolveTaskId(projectDir, 'delete', 'archived-thing');
+    expect(id).toBe('MONA-9999-archived-thing');
+    expect(logLines.some(l => l.includes('→ MONA-9999-archived-thing (archived)'))).toBe(true);
+  });
+
+  test('delete: an exact archived id routes straight through', async () => {
+    const id = await taskCmd.resolveTaskId(projectDir, 'delete', 'MONA-9999-archived-thing');
+    expect(id).toBe('MONA-9999-archived-thing');
+  });
+
+  test('delete picker includes archived tasks marked (archived)', async () => {
+    // No id → picker over live + archived. Pick the archived one by name fragment.
+    prompts.ask.mockResolvedValueOnce('archived-thing');
+    const id = await taskCmd.resolveTaskId(projectDir, 'delete', undefined);
+    expect(id).toBe('MONA-9999-archived-thing');
+    expect(logLines.some(l => l.includes('MONA-9999-archived-thing') && l.includes('(archived)'))).toBe(true);
+  });
+
+  test('resume does NOT reach archived tasks (unchanged behavior)', async () => {
+    // No live match, resume ignores archived → returns the input unchanged.
+    const id = await taskCmd.resolveTaskId(projectDir, 'resume', 'archived-thing');
+    expect(id).toBe('archived-thing');
+  });
+
+  test('archive does NOT reach archived tasks (unchanged behavior)', async () => {
+    const id = await taskCmd.resolveTaskId(projectDir, 'archive', 'archived-thing');
+    expect(id).toBe('archived-thing');
   });
 });
 
@@ -213,5 +270,16 @@ describe('wksp task delete — picker wiring', () => {
   test('delete with no live tasks reports and exits cleanly (no throw)', async () => {
     await expect(taskCmd.run(['delete'])).resolves.toBeUndefined();
     expect(logLines.some(l => l.includes('No live tasks'))).toBe(true);
+  });
+
+  test('a partial matching only an archived task routes to the archived-delete handler', async () => {
+    mkArchivedTask(projectDir, 'MONA-9999-archived-thing');
+    prompts.confirm.mockResolvedValue(false); // decline the archived-delete confirm
+
+    await taskCmd.run(['delete', 'archived-thing']);
+
+    // Reached handleDelArchived (its distinct "About to delete archived task" line)
+    expect(logLines.some(l => l.includes('About to delete archived task MONA-9999-archived-thing'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'MONA-9999-archived-thing'))).toBe(true); // declined
   });
 });

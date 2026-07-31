@@ -404,6 +404,90 @@ describe('wksp task finish — open PR (forge says unmerged)', () => {
   });
 });
 
+describe('wksp task finish --no-archive', () => {
+  let projectDir, repoDir, originDir, cloneDir;
+  beforeEach(() => {
+    projectDir = makeProject('fin-noarchive');
+    ({ repoDir, originDir } = makeGitRepoWithRemote());
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    try { git.deleteBranch(repoDir, 'feature/na', true); } catch {}
+    cleanup(projectDir, repoDir, originDir, cloneDir);
+  });
+
+  test('deletes the task instead of archiving, still fast-forwards the base repo', async () => {
+    const def = git.defaultBranch(repoDir);
+
+    prompts.ask.mockResolvedValueOnce('feature/na');
+    await runTask(projectDir, 'create', 'TASK-NA');
+
+    const wtPath = path.join(projectDir, 'tasks', 'TASK-NA', WORKTREES_DIR, path.basename(repoDir));
+    fs.writeFileSync(path.join(wtPath, 'work.txt'), 'feature work');
+    gitCmd(wtPath, 'add .');
+    gitCmd(wtPath, 'commit -m "feature commit"');
+    gitCmd(wtPath, 'push -u origin feature/na');
+
+    // Merge the feature into the default branch on the remote.
+    cloneDir = makeTempDir('fin-na-clone');
+    gitCmd(process.cwd(), `clone "${originDir}" "${cloneDir}"`);
+    gitCmd(cloneDir, 'config user.email "test@wksp.test"');
+    gitCmd(cloneDir, 'config user.name "wksp test"');
+    gitCmd(cloneDir, 'fetch origin');
+    gitCmd(cloneDir, 'merge --no-ff origin/feature/na -m "merge feature"');
+    gitCmd(cloneDir, `push origin HEAD:${def}`);
+    const expectedDef = gitCmd(cloneDir, 'rev-parse HEAD');
+
+    prompts.confirm.mockResolvedValueOnce(true); // "Delete ... permanently (no archive kept)?"
+    await runTask(projectDir, 'finish', 'TASK-NA', '--no-archive');
+
+    // Task deleted outright — NOT archived
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-NA'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-NA'))).toBe(false);
+    expect(fs.existsSync(wtPath)).toBe(false);
+
+    // Branch deleted from the base repo
+    expect(git.branchExistsLocally(repoDir, 'feature/na')).toBe(false);
+
+    // Base repo default branch still fast-forwarded to the merged sha
+    expect(git.revParse(repoDir, def)).toBe(expectedDef);
+  });
+
+  test('confirmation prompt states it is irreversible with no archive kept', async () => {
+    const logs = [];
+    jest.spyOn(console, 'log').mockImplementation((...a) => logs.push(a.join(' ')));
+
+    prompts.ask.mockResolvedValueOnce('feature/na');
+    await runTask(projectDir, 'create', 'TASK-NA2');
+
+    prompts.confirm.mockImplementationOnce(async (msg) => {
+      // Prompt wording must clearly flag the permanent, no-archive delete.
+      expect(msg.toLowerCase()).toContain('permanently');
+      expect(msg.toLowerCase()).toContain('no archive');
+      return false; // decline — leaves the task in place
+    });
+    await runTask(projectDir, 'finish', 'TASK-NA2', '--no-archive');
+
+    // Declined → task untouched, no archive created
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-NA2'))).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-NA2'))).toBe(false);
+    // Summary lines flag the no-archive, irreversible nature
+    expect(logs.some(l => l.includes('NO archive kept'))).toBe(true);
+    expect(logs.some(l => l.toLowerCase().includes('irreversible'))).toBe(true);
+  });
+
+  test('--delete is an alias for --no-archive', async () => {
+    prompts.ask.mockResolvedValueOnce('feature/na');
+    await runTask(projectDir, 'create', 'TASK-NA3');
+
+    prompts.confirm.mockResolvedValueOnce(true); // delete confirm (trivially merged → no warn)
+    await runTask(projectDir, 'finish', 'TASK-NA3', '--delete');
+
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-NA3'))).toBe(false);
+    expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-NA3'))).toBe(false);
+  });
+});
+
 describe('wksp task done (alias)', () => {
   let projectDir, repoDir;
   beforeEach(() => {
