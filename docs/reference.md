@@ -13,7 +13,7 @@
 
 ### `wksp init [name]`
 
-Create a new project. Scaffolds `.wksp`, `repos.txt`, `tasks/`, and the planning surface at the root: `AGENTS.md` (project conventions — canonical instruction file), `CLAUDE.md` (a one-line `@AGENTS.md` include for Claude), `PLANNING.md` (feature backlog + open decisions), and `WORKLOG.md`. Prompts for `reposRoot` if not already set (skippable — you can add it later with `wksp config set`).
+Create a new project. Scaffolds `.wksp`, `repos.txt`, `tasks/`, and the planning surface at the root: `AGENTS.md` (project conventions — canonical instruction file), `CLAUDE.md` (a one-line `@AGENTS.md` include for Claude), `PLANNING.md` (feature backlog + open decisions), `ORCHESTRATION.md` (hub-only guidance: delegation, PR review, stacked PRs, agent-honored settings), and `WORKLOG.md`. Prompts for `reposRoot` if not already set (skippable — you can add it later with `wksp config set`).
 
 ```bash
 wksp init acme
@@ -42,6 +42,7 @@ With an **id and any headless flag** (`--json`, `--no-launch`, `--yes`, `--branc
 The project root replaces the pre-3.0 reserved `hub` task as the planning surface:
 
 - `PLANNING.md` — the living overview: feature backlog, open decisions, research pointers. Scaffolded by `wksp init`; kept deliberately out of `AGENTS.md` so backlog content doesn't ride into every task session's context.
+- `ORCHESTRATION.md` — hub-only guidance, scaffolded by `wksp init`: how to delegate work to a task, review a delegated PR, [stack PRs](/stacked-prs), and the [agent-honored settings](/headless#agent-honored-settings). Out of `AGENTS.md` for the same reason as `PLANNING.md`, plus one more: a task-scoped agent shouldn't be reading how to orchestrate. `AGENTS.md` keeps a short pointer to it. Existing projects are converted by the [schema 6 → 7 migration](/migration#v3-3-x-v3-4-0-hub-guidance-split-schema-6-7).
 - Root `WORKLOG.md` — running record of planning work, same conventions as task worklogs.
 - The root `AGENTS.md` ships a docs-structure rule: `PLANNING.md` stays readable in one pass; sections graduate to files under `docs/` when they outgrow a screenful; everything that moves out leaves a one-line link behind.
 - Planning is personal-by-default: root planning files are not part of `wksp export` (which stays per-task).
@@ -111,7 +112,7 @@ A headless run validates the whole plan before touching anything: an unknown rep
 
 `brief` — prints everything needed to work in a task without launching a session: the task folder, its instruction file and work log, the project's `AGENTS.md` / `PLANNING.md`, each repo with its mode and branch, and the working rules. `--json` emits the same document machine-readably — the same shape `create --json` and `resume --json` return. Read-only; it changes nothing.
 
-`finish` (alias: `done`) — the post-merge completion verb. Fetches each base repo and verifies the task's branches are merged, in tiers, most-authoritative first. First it checks git ancestry, which catches true merge-commits and fast-forwards. A squash- or rebase-merged PR is a *new* commit on the default branch, so its branch tip is never an ancestor — git alone can't tell that apart from an abandoned branch. So when ancestry comes up empty, finish asks GitHub: if `gh` is on PATH and the base repo's `origin` is a GitHub remote, it queries the branch's PR and — only when that merged PR's head commit is the branch's current tip, so a reused branch name whose old PR merged long ago can't be mistaken for this branch — prints `✓ <branch> merged — PR #N (confirmed on GitHub)` and proceeds. `gh` is optional and feature-detected — missing, offline, erroring, or a non-GitHub remote all degrade silently. If the PR is still open, finish says so plainly (`⚠ … PR #N is still open`); only when nothing confirms the merge either way does it fall back to the hedge (`⚠ Couldn't confirm <branch> is merged — a squash-/rebase-merged PR looks exactly like this even when it merged; verify the PR`). Either way it asks before continuing. It then archives the task exactly like `archive` but with branch deletion defaulted (`--keep-branches` opts out), and finally fast-forwards each base repo's default branch — only when that repo is clean and already sitting on it; otherwise it prints the `git pull --ff-only` command and leaves the repo alone. Pass `--no-archive` (alias `--delete`) to skip the archive entirely — finish still verifies merged and fast-forwards the base repos, but then deletes the task outright (worktrees, branches, and folder) instead of moving it to `archived-tasks/`. That path is irreversible and uses a distinct confirmation. Merge PRs from inside a task with `gh pr merge <pr> --repo <owner>/<repo>` — the `--repo` flag keeps gh from trying to check out the default branch locally, which fails inside a worktree.
+`finish` (alias: `done`) — the post-merge completion verb. Fetches each base repo and verifies the task's branches are merged, in tiers, most-authoritative first. First it checks git ancestry, which catches true merge-commits and fast-forwards. A squash- or rebase-merged PR is a *new* commit on the default branch, so its branch tip is never an ancestor — git alone can't tell that apart from an abandoned branch. So when ancestry comes up empty, finish asks GitHub: if `gh` is on PATH and the base repo's `origin` is a GitHub remote, it queries the branch's PR and — only when that merged PR's head commit is the branch's current tip, so a reused branch name whose old PR merged long ago can't be mistaken for this branch — prints `✓ <branch> merged — PR #N (confirmed on GitHub)` and proceeds. `gh` is optional and feature-detected — missing, offline, erroring, or a non-GitHub remote all degrade silently. A MERGED PR only counts when its base **is** the repo's default branch: a [stack](/stacked-prs) member merges into its *parent* branch, so finish reports that distinctly (`⚠ … PR #N merged into feat/a — not yet on main`) and treats it as not merged rather than claiming a clean merge. If the PR is still open, finish says so plainly (`⚠ … PR #N is still open`); only when nothing confirms the merge either way does it fall back to the hedge (`⚠ Couldn't confirm <branch> is merged — a squash-/rebase-merged PR looks exactly like this even when it merged; verify the PR`). Either way it asks before continuing. It then archives the task exactly like `archive` but with branch deletion defaulted (`--keep-branches` opts out), and finally fast-forwards each base repo's default branch — only when that repo is clean and already sitting on it; otherwise it prints the `git pull --ff-only` command and leaves the repo alone. Pass `--no-archive` (alias `--delete`) to skip the archive entirely — finish still verifies merged and fast-forwards the base repos, but then deletes the task outright (worktrees, branches, and folder) instead of moving it to `archived-tasks/`. That path is irreversible and uses a distinct confirmation. Merge a **solo** PR from inside a task with `gh pr merge <pr> --repo <owner>/<repo>` — the `--repo` flag keeps gh from trying to check out the default branch locally, which fails inside a worktree; a [stack](/stacked-prs) member cannot be merged that way at all and lands with the rest of its stack via `gh stack merge`.
 
 #### Branch prompt options
 
@@ -296,7 +297,7 @@ Project-level values override global ones. If you run `set` without `--global` o
 | `customProviders` | Object mapping a provider name to `{ command, instructionFile? }` to launch any CLI tool (baseline tier). See [AI Providers](/providers). |
 | `reviewLoop` | **Agent-honored.** `ask` (default) \| `always` \| `never` — whether the orchestrating agent runs an independent review→fix loop on a coding/behaviour PR. See [Headless wksp](/headless#agent-honored-settings). |
 | `prGate` | **Agent-honored.** `ask` \| `always` \| `never` (default `never`) — verify-before-PR gate: `never` opens the PR immediately, `always` pauses for a manual test first. See [Headless wksp](/headless#agent-honored-settings). |
-| `mergeMethod` | **Agent-honored.** `squash` (default) \| `merge` \| `rebase` — which merge the agent uses when landing a PR. See [Headless wksp](/headless#agent-honored-settings). |
+| `mergeMethod` | **Agent-honored.** `squash` (default) \| `merge` \| `rebase` — which merge the agent uses when landing a **solo** PR. A [stack](/stacked-prs) ignores it: `gh pr merge` is refused for stack members, and the stack lands via `gh stack merge`. Confirm the repo permits the method (`squashMergeAllowed`) before passing it. See [Headless wksp](/headless#agent-honored-settings). |
 
 The keys marked **agent-honored** are read by the orchestrating AI to shape delegated work; wksp's own CLI does not act on them. They resolve project-over-global like every other key, and defaults preserve current behaviour.
 
@@ -479,12 +480,11 @@ inside tasks, not at the root. When a discussion turns into implementation work,
   under `docs/` when it outgrows a screenful; everything that moves out leaves a
   one-line link behind — `PLANNING.md` is the index.
 
-## Delegating work to a task (from here, headless)
+## Hub guidance (read before you orchestrate)
 
-1. `wksp task create <id> --goal "<one line>" --branch <branch> --json`
-2. Work inside the repo paths that brief lists. Read `tasks/<id>/AGENTS.md` first.
-3. Record what you did in `tasks/<id>/WORKLOG.md`, not here.
-4. `wksp task brief <id>` reprints the context; `wksp task finish <id> --yes` closes it out.
+A session at this root is the **hub**. Before delegating work to a task, reviewing a delegated
+PR, stacking PRs, or landing one, read `ORCHESTRATION.md` at this root. It deliberately isn't
+part of this file: this file is loaded into every task session.
 
 ## What belongs here vs. in a task
 
@@ -504,9 +504,23 @@ inside tasks, not at the root. When a discussion turns into implementation work,
 This file defines project-wide conventions. Tasks each have their own AGENTS.md.
 ```
 
-The delegation and information-boundary sections are what make hub-driven work sustainable — see [Headless wksp](/headless) for the full rules. Existing projects get them from the schema 4 → 5 migration, which inserts the block without rewriting anything you've written (see the [migration guide](/migration#v3-0-0-v3-1-0-headless-delegation-schema-4-5)).
+The information-boundary section is what makes hub-driven work sustainable — see [Headless wksp](/headless) for the full rules. Existing projects get it from the schema 4 → 5 migration, which inserts the block without rewriting anything you've written (see the [migration guide](/migration#v3-0-0-v3-1-0-headless-delegation-schema-4-5)).
 
-The template also ships the **orchestration guidance** the root AGENTS.md gives an AI driving delegated work: the review→fix→re-review loop for a PR, how to steer a task across iterations (resume vs. fresh vs. new), and the [agent-honored settings](/headless#agent-honored-settings) (`reviewLoop`, `prGate`, `mergeMethod`). Existing projects receive it from the schema 5 → 6 migration under the same insert-only rules (see the [migration guide](/migration#v3-1-x-v3-2-0-orchestration-guidance-schema-5-6)).
+Everything an *orchestrator* needs — the delegation recipe, the review→fix→re-review loop, task steering, [stacked PRs](/stacked-prs), and the [agent-honored settings](/headless#agent-honored-settings) — lives in `ORCHESTRATION.md` instead, because this file is loaded into every task session. Up to v3.3.0 it shipped here; the [schema 6 → 7 migration](/migration#v3-3-x-v3-4-0-hub-guidance-split-schema-6-7) relocates it.
+
+### `ORCHESTRATION.md` (generated by `wksp init`)
+
+Hub-only guidance, sitting at the root next to `PLANNING.md` and read by a planning session — never injected into a task session, because only the instruction file is.
+
+```markdown
+# Orchestration — acme
+
+## Delegating work to a task (from here, headless)
+## Reviewing a delegated PR (review → fix → re-review)
+## Steering a task: resume, fresh, or new
+## Stacked PRs — merge order, not build order
+## Agent-honored settings
+```
 
 ### `PLANNING.md` (generated by `wksp init`)
 
@@ -534,7 +548,8 @@ pointers. Keep it readable in one pass.
 
 ## Finishing this task
 When the work is merged, clean up from inside the task — never check out the default branch here.
-- Merge PRs with `gh pr merge <pr> --repo <owner>/<repo>` (the `--repo` flag keeps gh off the local checkout).
+- **A solo PR** merges with `gh pr merge <pr> --repo <owner>/<repo>` (the `--repo` flag keeps gh off the local checkout). Check the repo permits the method you pass.
+- **A PR in a stack** is not yours to merge — `gh pr merge` is refused for stack members (observed in practice, gh 2.8x); the hub lands the whole stack with `gh stack merge`.
 - After the merge lands, suggest `wksp task finish PROJ-1234` — verifies merged, archives, deletes branches, ff base repos.
 
 ## Conflict policy

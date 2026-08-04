@@ -36,7 +36,7 @@ git enforces one rule: the same branch cannot be checked out in two worktrees at
 
 **Optional** — a repo only some tasks need, registered with `wksp repo add <path> --optional`. Tasks skip it silently: it starts excluded (no branch prompt), and a task that needs it pulls it in with `wksp task repo <id> <repo> worktree`. Where `--shared` and per-task exclusion answer "how does this repo participate", `--optional` flips the default from opt-out to opt-in.
 
-**The root is the planning hub** — the project root itself is the planning surface. It holds `PLANNING.md` (the living feature backlog, open decisions, and research pointers), a root `WORKLOG.md`, and the project-wide `AGENTS.md`. `wksp start` (no arguments) launches a planning session there — no repos are checked out at the root, so planning stays separate from implementation; when a discussion turns into work, a task is created for it. See [reference](/reference#wksp-start).
+**The root is the planning hub** — the project root itself is the planning surface. It holds `PLANNING.md` (the living feature backlog, open decisions, and research pointers), `ORCHESTRATION.md` (hub-only guidance: delegating to a task, reviewing a delegated PR, [stacked PRs](/stacked-prs), agent-honored settings), a root `WORKLOG.md`, and the project-wide `AGENTS.md`. Only `AGENTS.md` rides into task sessions — the others are reachable from the root and deliberately not loaded, so a task pays for neither the backlog nor the orchestration guidance. `wksp start` (no arguments) launches a planning session there — no repos are checked out at the root, so planning stays separate from implementation; when a discussion turns into work, a task is created for it. See [reference](/reference#wksp-start).
 
 **Instruction files** — `AGENTS.md` is the canonical instruction file at the root and in every task. The `claude` provider reads `CLAUDE.md`, so wksp also writes a one-line `CLAUDE.md` containing `@AGENTS.md` — one source of truth, readable by any tool.
 
@@ -48,6 +48,7 @@ acme/                        ← project root = the planning hub (config + all t
   AGENTS.md                     ← project-wide conventions (canonical instruction file)
   CLAUDE.md                     ← one-line "@AGENTS.md" include for Claude
   PLANNING.md                   ← feature backlog, open decisions, research pointers
+  ORCHESTRATION.md              ← hub-only: delegation, PR review, stacked PRs, settings
   WORKLOG.md                    ← running record of planning work
 
   tasks/
