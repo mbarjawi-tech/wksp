@@ -1,6 +1,7 @@
 'use strict';
-const fs   = require('fs');
-const path = require('path');
+const fs     = require('fs');
+const path   = require('path');
+const crypto = require('crypto');
 const templates = require('../../lib/templates');
 const {
   AGENTS_FILE, CLAUDE_FILE, CLAUDE_INCLUDE, GUIDANCE_FILE,
@@ -191,6 +192,43 @@ describe('orchestrationMd', () => {
 // byte-for-byte, so the composition must not drift. If a change here is deliberate,
 // freeze the old text in migrate.js first (see the FROZEN notes in templates.js).
 describe('frozen relocation blocks', () => {
+  const sha256 = s => crypto.createHash('sha256').update(s, 'utf8').digest('hex');
+
+  // ⚠ These two digests are the bytes wksp actually shipped, taken from the released
+  // tags: DELEGATION_SECTION as written by 3.1.0, 3.1.1, 3.2.0 and 3.3.0 (schema 4 → 5),
+  // ORCHESTRATION_SECTION as written by 3.2.0 and 3.3.0 (schema 5 → 6). Reproduce either
+  // with:
+  //
+  //   git show v3.3.0:lib/templates.js > /tmp/t.js
+  //   node -e "const c=require('crypto'),m=require('/tmp/t.js');
+  //            console.log(c.createHash('sha256').update(m.DELEGATION_SECTION).digest('hex'))"
+  //
+  // The composition tests below only prove the constants are still glued together the
+  // same way — they stay green if the recipe's wording is rewritten. These digests are
+  // what catches that, because the 6 → 7 step finds these blocks in users' files by
+  // matching them BYTE-FOR-BYTE. Reword the frozen text and every project still on
+  // schema ≤ 6 stops relocating: the stale block is left behind AND the user is warned
+  // they edited something they never touched.
+  //
+  // So do NOT re-pin these to whatever your change produced. To add or change hub
+  // guidance, leave the frozen constants alone and put the new text somewhere else —
+  // orchestrationMd()'s own sections, or a new constant that only ships in
+  // ORCHESTRATION.md. If the frozen wording genuinely must change, first copy the exact
+  // old strings into lib/commands/migrate.js as RELOCATED_* constants and match against
+  // those, then update the digests here in the same commit.
+  const FROZEN_SHA256 = {
+    DELEGATION_SECTION:    '260b3fe444e23903cb2704b81d4e9e6a3a7cd6a8942590fb48438d3d3becac85',
+    ORCHESTRATION_SECTION: '650436ef9b56ff5378e1967d6664de00536e3ed591b4597b5fb0525beb2a2510',
+  };
+
+  test('DELEGATION_SECTION is byte-identical to what 3.1.0–3.3.0 wrote', () => {
+    expect(sha256(templates.DELEGATION_SECTION)).toBe(FROZEN_SHA256.DELEGATION_SECTION);
+  });
+
+  test('ORCHESTRATION_SECTION is byte-identical to what 3.2.0–3.3.0 wrote', () => {
+    expect(sha256(templates.ORCHESTRATION_SECTION)).toBe(FROZEN_SHA256.ORCHESTRATION_SECTION);
+  });
+
   test('DELEGATION_SECTION is exactly the recipe followed by the boundary block', () => {
     expect(templates.DELEGATION_SECTION)
       .toBe(templates.DELEGATION_RECIPE_SECTION + templates.BOUNDARY_SECTION);

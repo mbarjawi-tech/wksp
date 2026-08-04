@@ -1060,6 +1060,104 @@ describe('schema 6 → 7 — relocates hub-only guidance to ORCHESTRATION.md', (
     expect(logLines.join('\n')).toMatch(/delete[\s\S]*by hand/);
   });
 
+  test('a CRLF-normalized file relocates cleanly, with no false "edited" warning', async () => {
+    // A Windows editor that normalizes line endings on save rewrites the WHOLE file to
+    // CRLF, the blocks wksp wrote included. Matching only LF candidates then matches
+    // nothing: both blocks stay, the user is warned about two edits they never made,
+    // and ORCHESTRATION.md is created anyway — so the guidance ends up duplicated
+    // across both files and the relocation is a silent no-op. Realistic on Windows.
+    fs.writeFileSync(agentsPath(), v6Agents().replace(/\n/g, '\r\n'));
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    // Relocated, not left behind.
+    expect(md).not.toContain(templates.DELEGATION_HEADING);
+    expect(md).not.toContain(templates.ORCHESTRATION_HEADING);
+    expect(md).not.toContain(templates.STEERING_HEADING);
+    expect(md).not.toContain(templates.SETTINGS_HEADING);
+    expect(md).not.toContain('reviewLoop');
+    // Kept: the genuinely shared blocks and the user's own prose.
+    expect(md).toContain(templates.BOUNDARY_HEADING);
+    expect(md).toContain(templates.HUB_POINTER_HEADING);
+    expect(md).toContain('our branch naming is feat/*');
+    expect(md).toContain('ask first');
+    // Never accused of editing what they didn't touch.
+    expect(logLines.some(l => l.includes("you've edited"))).toBe(false);
+    // Endings stay uniform: no bare \n survives, and no orphaned \r was introduced.
+    expect(md).not.toMatch(/(?<!\r)\n/);
+    expect(md).not.toMatch(/\r(?!\n)/);
+    // The guidance lives in exactly one place.
+    expect(countOf(md, templates.HUB_POINTER_HEADING)).toBe(1);
+    expect(countOf(guidance(), templates.DELEGATION_HEADING)).toBe(1);
+    expect(countOf(guidance(), templates.ORCHESTRATION_HEADING)).toBe(1);
+  });
+
+  test('the CRLF result is byte-for-byte the LF result with CRLF endings', async () => {
+    // Guards the removal and insertion arithmetic itself: no lost blank line, no extra
+    // one, nothing shifted. Whatever the LF path writes, the CRLF path must write the
+    // same thing line for line.
+    fs.writeFileSync(agentsPath(), v6Agents().replace(/\n/g, '\r\n'));
+    await runMigrate(projectDir);
+    const fromCrlf = agents();
+
+    const lfProject = makeProject('mig-split-lf');
+    try {
+      config.setProjectConfig(lfProject, 'schemaVersion', 6);
+      fs.writeFileSync(path.join(lfProject, 'AGENTS.md'), v6Agents());
+      await runMigrate(lfProject);
+      const fromLf = fs.readFileSync(path.join(lfProject, 'AGENTS.md'), 'utf8');
+
+      expect(fromLf).not.toContain('\r');
+      expect(fromCrlf).toBe(fromLf.replace(/\n/g, '\r\n'));
+    } finally {
+      cleanup(lfProject);
+    }
+  });
+
+  test('appending to a block\'s last line preserves the whole block', async () => {
+    // The bare-`trimEnd` candidate exists for a file whose final newline an editor
+    // stripped. Accepted anywhere rather than only at EOF, it also matches a block whose
+    // last line the user APPENDED to: wksp's text gets deleted and the user's words are
+    // left orphaned with no heading above them — the one thing this step must never do.
+    const appended = v6Agents().replace(
+      'launches, and its history is kept under the task rather than here.',
+      'launches, and its history is kept under the task rather than here. ALSO SEE MY NOTES.');
+    fs.writeFileSync(agentsPath(), appended);
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    // The user's words survive WITH the block they were attached to, heading and all.
+    expect(md).toContain('ALSO SEE MY NOTES.');
+    expect(md).toContain(templates.DELEGATION_HEADING);
+    expect(md).toContain('Prefer a focused session in the task itself?');
+    expect(logLines.some(l => l.includes("you've edited the headless delegation recipe"))).toBe(true);
+    // Independent as ever: the untouched orchestration trio still relocates.
+    expect(md).not.toContain(templates.ORCHESTRATION_HEADING);
+    expect(md).toContain(templates.HUB_POINTER_HEADING);
+  });
+
+  test('a block whose final newline was stripped is still removed at end of file', async () => {
+    // The legitimate case the bare-`trimEnd` candidate is for, and the reason the EOF
+    // gate costs nothing: the 5 → 6 append fallback put the block at the end of a
+    // restructured file, then an editor dropped the trailing newline.
+    fs.writeFileSync(agentsPath(),
+      '# my own layout\n\nprose\n\n' + templates.DELEGATION_SECTION
+        + templates.ORCHESTRATION_SECTION.trimEnd());
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    expect(md).not.toContain(templates.DELEGATION_HEADING);
+    expect(md).not.toContain(templates.ORCHESTRATION_HEADING);
+    expect(md).not.toContain(templates.SETTINGS_HEADING);
+    expect(md).toContain('prose');
+    expect(md).toContain(templates.BOUNDARY_HEADING);
+    expect(md).toContain(templates.HUB_POINTER_HEADING);
+    expect(logLines.some(l => l.includes("you've edited"))).toBe(false);
+  });
+
   test('a duplicated block is removed in full, not left half-cleaned', async () => {
     // Defensive: a file that somehow carries the block twice must not keep one copy.
     fs.writeFileSync(agentsPath(),
