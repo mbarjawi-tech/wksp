@@ -38,7 +38,7 @@ wksp start PROJ-1234
 
 At the branch prompt, press Enter to use the current branch, type a branch name to create or check out one, `s` to use the repo shared (no worktree), or `x` to exclude the repo from this task. Repos registered `--optional` are never prompted for — they start excluded from every task, and a task that needs one pulls it in with `wksp task repo <id> <repo> worktree`.
 
-The project root is the **planning hub**: `PLANNING.md` holds the feature backlog and open decisions, and `wksp start` (no arguments) launches a planning session right there — no worktrees, no task ceremony. Instruction files are canonicalized to `AGENTS.md`; Claude reads them through a one-line `CLAUDE.md` include. See [docs/concepts.md](docs/concepts.md#key-vocabulary).
+The project root is the **planning hub**: `PLANNING.md` holds the feature backlog and open decisions, `ORCHESTRATION.md` holds the hub-only guidance (delegation, PR review, [stacked PRs](docs/stacked-prs.md), agent-honored settings) that would otherwise ride into every task session, and `wksp start` (no arguments) launches a planning session right there — no worktrees, no task ceremony. Instruction files are canonicalized to `AGENTS.md`; Claude reads them through a one-line `CLAUDE.md` include. See [docs/concepts.md](docs/concepts.md#key-vocabulary).
 
 ## Headless (driving wksp from an AI session)
 
@@ -52,7 +52,7 @@ wksp task brief PROJ-1234           # reprint that context any time
 wksp task finish PROJ-1234 --yes    # verify merged, archive, ff the base repos
 ```
 
-Prompting (`--yes`) and launching (`--no-launch`) are separate switches; `--json` implies both. A headless run validates the whole plan before touching anything, so a bad flag never leaves a half-built task. See [docs/headless.md](docs/headless.md) — it also spells out which information belongs in the hub and which belongs in a task.
+Prompting (`--yes`) and launching (`--no-launch`) are separate switches; `--json` implies both. A headless run validates the whole plan before touching anything, so a bad flag never leaves a half-built task. See [docs/headless.md](docs/headless.md) — it also spells out which information belongs in the hub and which belongs in a task, and [docs/stacked-prs.md](docs/stacked-prs.md) for chaining a batch of overlapping work into a stack.
 
 ## Documentation
 
@@ -76,6 +76,7 @@ Markdown source files:
 - [docs/installation.md](docs/installation.md) — prerequisites, setup, config
 - [docs/reference.md](docs/reference.md) — all commands, flags, and file formats
 - [docs/headless.md](docs/headless.md) — driving wksp from an AI session; hub vs. task information
+- [docs/stacked-prs.md](docs/stacked-prs.md) — when to stack PRs and how to drive a stack
 - [docs/examples/](docs/examples/) — five progressive examples
 
 VitePress config: `docs/.vitepress/config.mts`

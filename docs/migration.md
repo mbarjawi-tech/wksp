@@ -242,3 +242,85 @@ The step only ever **inserts**, never rewrites — your prose is untouched, and 
 Task-level instruction files are not touched: orchestration is a root concern.
 
 The three settings are **agent-honored**: nothing in wksp reads them, so leaving them unset changes no CLI behaviour, and the documented defaults (`reviewLoop: ask`, `prGate: never`, `mergeMethod: squash`) preserve how things work today. If you'd rather not have the guidance sections, delete them — `wksp migrate --repair` will re-add them, as it re-applies every step.
+
+---
+
+## v3.3.x → v3.4.0 — hub guidance split *(schema 6 → 7)* {#v3-3-x-v3-4-0-hub-guidance-split-schema-6-7}
+
+v3.4.0 moves **hub-only** guidance out of the root `AGENTS.md` and into a new root
+`ORCHESTRATION.md`. This is the first migration step that **removes** text from a file you
+own, so it is deliberately conservative — see the safety rules below.
+
+### Why
+
+The root instruction file is passed into **every** task session (`--add-dir` at the project
+root). Just over half of it — measured at 79 of 143 lines, ~1.2k tokens — was
+orchestrator-only: the headless delegation recipe, and the review-loop / task-steering /
+agent-honored-settings trio. Tokens were the smaller half of the problem. The bigger half is
+role confusion: a task-scoped agent was being told how to delegate work, spawn reviewers and
+choose merge methods, which invites it to act out of role, and no test catches that.
+
+The mechanism is one wksp already proves. Only the *instruction* file is injected into a task
+session, so a file sitting beside it at the root is reachable by a planning session and
+invisible to tasks — exactly how `PLANNING.md` keeps the backlog out of every task's context.
+
+### What changes
+
+| Moves to `ORCHESTRATION.md` | Stays in `AGENTS.md` |
+|---|---|
+| Delegating work to a task (from here, headless) | Project heading and wksp vocabulary |
+| Reviewing a delegated PR (review → fix → re-review) | The project root is the planning hub |
+| Steering a task: resume, fresh, or new | Docs structure |
+| Agent-honored settings (`reviewLoop`, `prGate`, `mergeMethod`) | What belongs here vs. in a task |
+| *New:* [Stacked PRs](/stacked-prs) — merge order, not build order | Cross-cutting conventions, AI provider self-check, conflict policy, work log |
+
+`AGENTS.md` keeps a short **pointer** — "you are the hub; read `ORCHESTRATION.md` before
+delegating, reviewing, or merging" — so a planning session still finds the guidance.
+
+Two content corrections ride along, in templates only (no existing file is rewritten):
+
+- The **task** `AGENTS.md` template's "Finishing this task" section used to teach
+  `gh pr merge <pr> --repo <slug>` unconditionally. That command is **refused for a stack
+  member**, so the text is now stack-aware: a solo PR merges that way, a stack member is left
+  to the hub's `gh stack merge`.
+- `mergeMethod` is documented as governing **solo** PR merges, and as a preference that the
+  repo may not permit — check `squashMergeAllowed` before passing `--squash`.
+
+### Migration path
+
+```bash
+wksp migrate --dry-run   # preview: shows the new file and every block that would be removed
+wksp migrate             # apply
+```
+
+### Safety rules
+
+1. **Only text wksp wrote is removed.** Each relocated block must still match the shipped
+   template **byte-for-byte**. Change a word, add a line, re-indent it — and it no longer
+   matches, so it is **left in place** and reported:
+
+   ```
+   ⚠  AGENTS.md — you've edited the headless delegation recipe, so it was left in place.
+      The shipped version now lives in ORCHESTRATION.md; delete "## Delegating work to a
+      task (from here, headless)" (and what follows it) by hand once you're happy with it.
+   ```
+
+   Your prose is never rewritten and never deleted. The two blocks are judged independently —
+   an edited delegation recipe doesn't stop the orchestration block from relocating.
+2. **An existing `ORCHESTRATION.md` is never overwritten.** If you already have one, wksp says
+   so and leaves it alone; the instruction file is still cleaned up.
+3. **Idempotent.** Re-runs, `wksp migrate --repair` and `wksp import` add nothing and remove
+   nothing. The pointer is the marker.
+4. **It stands down on an unresolved conflict.** While a real `AGENTS.md` and a real
+   `CLAUDE.md` both exist at the root (the 3 → 4 conflict), nothing is written or removed and
+   no guidance file is created. Resolve the merge, then `wksp migrate --repair`.
+5. **Root file only.** Task instruction files — live and archived — are not touched.
+
+One thing that looks odd in the output of a longer upgrade: a project coming from schema 4 or
+5 sees the 4 → 5 / 5 → 6 steps *add* those blocks and then the 6 → 7 step *relocate* them, in
+the same run. Each step is individually correct and the end state is the same as a project
+that was already at 6; nothing is written twice.
+
+If you'd rather not keep `ORCHESTRATION.md`, delete it and write your own guidance — nothing in
+wksp depends on it existing. Note that `wksp migrate --repair` re-applies every step, so it
+will re-create the file (it will not re-add the sections to `AGENTS.md`).

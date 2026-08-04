@@ -36,7 +36,7 @@ A single UTF-8 JSON file with extension `.wksp-bundle`.
   "exportedAt": "2026-06-01T19:00:00.000Z",
   "project": {
     "name": "acme",
-    "schemaVersion": 6
+    "schemaVersion": 7
   },
   "repos": [
     {

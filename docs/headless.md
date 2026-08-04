@@ -183,11 +183,31 @@ and answer the prompts.
 could never arrive, so a piped run would exit part-way through and skip the worktree step.
 Now it says what happened and names the flags.
 
+## Where the guidance itself lives
+
+wksp scaffolds two root files besides the instruction file, and the split between them is the
+whole reason hub-driven work is cheap:
+
+| File | Read by | Loaded into a task session? |
+|---|---|---|
+| `AGENTS.md` | everyone — the root and every task | **Yes.** It is `--add-dir`'d into every task session. |
+| `PLANNING.md` | the hub | No. Backlog content would be paid for by every task. |
+| `ORCHESTRATION.md` | the hub | No. Delegation, PR review, stacked PRs, and the settings below. |
+
+Only the *instruction* file is injected, so a file sitting next to it at the root is reachable
+but not auto-loaded. `PLANNING.md` has always used that; since v3.4.0 the orchestration
+guidance does too. It isn't only about tokens (it was 52% of the root instruction file): a
+task-scoped agent that reads how to delegate, spawn reviewers and choose merge methods is
+being invited to act out of role. `AGENTS.md` keeps a short pointer so the hub still finds
+it, and existing projects are converted by the [schema 6 → 7
+migration](/migration#v3-3-x-v3-4-0-hub-guidance-split-schema-6-7).
+
+The sections below document what `ORCHESTRATION.md` contains.
+
 ## What lives in the hub vs. in a task
 
-Hub-driven work only stays sane if information has one home. New projects get this as a
-section in their root `AGENTS.md`; add it to an existing project by hand if you want your AI
-to follow it.
+Hub-driven work only stays sane if information has one home. This one *is* shared with tasks,
+so it stays in the root `AGENTS.md`.
 
 | Hub (the project root) | Task (`tasks/<id>/`) |
 |---|---|
@@ -228,7 +248,7 @@ wksp task finish PROJ-1234 --yes   # verify merged, archive, delete branches, ff
 
 Then copy the one line that outlives the task into `PLANNING.md`, and the loop is closed.
 
-## Reviewing a PR before it lands
+## Reviewing a delegated PR (review → fix → re-review) {#reviewing-a-delegated-pr}
 
 An unbiased second agent catches what the author — human or AI — can't see. wksp's own `finish`
 merge-verification bug shipped past 495 passing tests and a convention check; a fresh reviewer
@@ -293,14 +313,22 @@ key reads as `(not set)` — treat that as the default.
 
 | Key | Values | Default | What the agent does |
 |---|---|---|---|
-| `reviewLoop` | `ask` \| `always` \| `never` | `ask` | Whether to run the [review→fix loop](#reviewing-a-pr-before-it-lands) on a coding/behaviour PR. `ask` prompts; `always` runs it; `never` skips. |
+| `reviewLoop` | `ask` \| `always` \| `never` | `ask` | Whether to run the [review→fix loop](#reviewing-a-delegated-pr) on a coding/behaviour PR. `ask` prompts; `always` runs it; `never` skips. |
 | `prGate` | `ask` \| `always` \| `never` | `never` | Verify-before-PR gate. `never` opens the PR as soon as the work is ready. `always` pauses first so you can manually test, then opens it once you confirm. `ask` asks which each time. |
-| `mergeMethod` | `squash` \| `merge` \| `rebase` | `squash` | Which merge the agent uses when it lands a PR — passed to `gh pr merge --<method>`. Encodes a per-project default so it isn't re-decided each time. |
+| `mergeMethod` | `squash` \| `merge` \| `rebase` | `squash` | Which merge the agent uses when it lands a **solo** PR — passed to `gh pr merge --<method>`. A [stack](/stacked-prs) ignores it: `gh pr merge` is refused for stack members and the whole stack lands via `gh stack merge`. |
 
 The defaults preserve current behaviour: `prGate: never` means PRs still open immediately unless
 you opt into a manual-test pause, and `mergeMethod: squash` matches the common squash-merge
 workflow. `reviewLoop` defaults to `ask` so the review step is surfaced rather than run — or
 skipped — without you knowing.
+
+`mergeMethod` names a preference, not a capability: a repo can have squash merging disabled, and
+`gh pr merge --squash` then fails outright. The agent should check first and fall back to a
+method the repo allows:
+
+```bash
+gh repo view --repo <owner>/<repo> --json squashMergeAllowed,mergeCommitAllowed,rebaseMergeAllowed
+```
 
 ```bash
 wksp config set reviewLoop always            # project-level
@@ -308,9 +336,16 @@ wksp config set mergeMethod squash --global  # your default everywhere
 wksp config get prGate                        # effective value (project over global)
 ```
 
-New projects get all three sections in their root `AGENTS.md`; existing projects receive them
-from the schema 5 → 6 migration (`wksp migrate`), which inserts them without rewriting anything
-you've written — see the [migration guide](/migration#v3-1-x-v3-2-0-orchestration-guidance-schema-5-6).
+New projects get all three sections in their root `ORCHESTRATION.md`; existing projects receive
+them from the schema 5 → 6 and 6 → 7 migrations (`wksp migrate`), which never rewrite anything
+you've written — see the [migration guide](/migration#v3-3-x-v3-4-0-hub-guidance-split-schema-6-7).
+
+## Stacking PRs
+
+When a batch of delegated work overlaps in the same files, the members can be chained into a
+stack instead of racing each other for the same lines. The decision is about **code overlap**,
+not build order, and it belongs to the hub — including the task-level rules each stacked
+member's brief has to carry. That's its own page: [Stacked PRs](/stacked-prs).
 
 ## When to launch instead
 
