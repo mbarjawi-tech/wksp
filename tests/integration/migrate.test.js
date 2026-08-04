@@ -630,10 +630,16 @@ describe('schema 3 → 4 — repos.txt header refresh', () => {
 
 // ─── schema 4 → 5 — headless delegation section ──────────────────────────────
 
+// Note on the end states asserted here and in the 5 → 6 block below: a full
+// `wksp migrate` also runs 6 → 7, which RELOCATES both of these blocks into
+// ORCHESTRATION.md. So the 4 → 5 / 5 → 6 step is proven by its own log line plus the
+// block's arrival in the guidance file — an AGENTS.md that still carried it would mean
+// the relocation failed. The 6 → 7 block below tests the removal directly.
 describe('schema 4 → 5 — teaches the project instruction file the headless flow', () => {
   let projectDir, homeDir;
   const agentsPath = () => path.join(projectDir, 'AGENTS.md');
   const agents     = () => fs.readFileSync(agentsPath(), 'utf8');
+  const guidance   = () => fs.readFileSync(path.join(projectDir, templates.GUIDANCE_FILE), 'utf8');
 
   beforeEach(() => {
     homeDir = makeTempDir('fake-home-v5');
@@ -661,13 +667,16 @@ describe('schema 4 → 5 — teaches the project instruction file the headless f
     await runMigrate(projectDir);
 
     const md = agents();
-    expect(md).toContain(templates.DELEGATION_HEADING);
-    expect(md).toContain('## What belongs here vs. in a task');
+    expect(logLines.some(l => l.includes('adding the headless delegation recipe'))).toBe(true);
+    // The recipe was inserted here, then relocated; the shared boundary block stays.
+    expect(guidance()).toContain(templates.DELEGATION_HEADING);
+    expect(md).not.toContain(templates.DELEGATION_HEADING);
+    expect(md).toContain(templates.BOUNDARY_HEADING);
     // Inserted, not merged: every line the user wrote survives, in order.
     expect(md).toContain('hub prose the user edited');
     expect(md).toContain('our branch naming is feat/*');
     expect(md).toContain('ask first');
-    expect(md.indexOf(templates.DELEGATION_HEADING))
+    expect(md.indexOf(templates.BOUNDARY_HEADING))
       .toBeLessThan(md.indexOf('## Cross-cutting conventions'));
     expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
   });
@@ -678,7 +687,7 @@ describe('schema 4 → 5 — teaches the project instruction file the headless f
     await runMigrate(projectDir);
 
     const md = agents();
-    expect(md.indexOf(templates.DELEGATION_HEADING)).toBeLessThan(md.indexOf('## Conflict policy'));
+    expect(md.indexOf(templates.BOUNDARY_HEADING)).toBeLessThan(md.indexOf('## Conflict policy'));
     expect(md).toContain('some prose');
   });
 
@@ -689,8 +698,10 @@ describe('schema 4 → 5 — teaches the project instruction file the headless f
 
     const md = agents();
     expect(md).toContain('just prose, no standard headings');
-    expect(md.indexOf('just prose')).toBeLessThan(md.indexOf(templates.DELEGATION_HEADING));
+    expect(md.indexOf('just prose')).toBeLessThan(md.indexOf(templates.BOUNDARY_HEADING));
     expect(md.endsWith('\n')).toBe(true);
+    // Appended with `.trimEnd()`, so the relocation had to tolerate that variant.
+    expect(md).not.toContain(templates.DELEGATION_HEADING);
   });
 
   test('is idempotent — a second run and --repair change nothing', async () => {
@@ -700,7 +711,8 @@ describe('schema 4 → 5 — teaches the project instruction file the headless f
 
     await runMigrate(projectDir, '--repair');
     expect(agents()).toBe(afterFirst);
-    expect(countOf(afterFirst, templates.DELEGATION_HEADING)).toBe(1);
+    expect(countOf(afterFirst, templates.BOUNDARY_HEADING)).toBe(1);
+    expect(countOf(afterFirst, templates.HUB_POINTER_HEADING)).toBe(1);
   });
 
   test('stands down while root AGENTS.md and CLAUDE.md are still unmerged', async () => {
@@ -717,13 +729,16 @@ describe('schema 4 → 5 — teaches the project instruction file the headless f
 
   test('leaves a project that already documents the flow alone', async () => {
     // Document both the delegation flow (4 → 5) and the orchestration flow (5 → 6)
-    // so the full pipeline leaves the file untouched.
+    // in the user's own words, so neither step inserts anything.
     const own = `## Project: x\n\n${templates.DELEGATION_HEADING}\nmy own wording for this\n\n${templates.ORCHESTRATION_HEADING}\nmy own review guidance\n`;
     fs.writeFileSync(agentsPath(), own);
 
     await runMigrate(projectDir);
 
-    expect(agents()).toBe(own);
+    // 6 → 7 won't delete prose it didn't write, so both blocks survive verbatim;
+    // it only appends its pointer.
+    expect(agents().startsWith(own)).toBe(true);
+    expect(agents()).toContain(templates.HUB_POINTER_HEADING);
     expect(logLines.some(l => l.includes('already explains headless delegation'))).toBe(true);
   });
 
@@ -751,9 +766,12 @@ describe('schema 4 → 5 — teaches the project instruction file the headless f
 
     await runMigrate(projectDir);
 
-    // 3 → 4 scaffolds a fresh AGENTS.md from the template, which already has it —
-    // so 4 → 5 must recognise that and not add a second copy.
-    expect(countOf(agents(), templates.DELEGATION_HEADING)).toBe(1);
+    // 3 → 4 scaffolds a fresh AGENTS.md from the current template, which no longer
+    // carries the recipe — 4 → 5 must recognise that (via the relocation pointer) and
+    // not re-insert it, and the recipe must appear exactly once in the guidance file.
+    expect(countOf(agents(), templates.DELEGATION_HEADING)).toBe(0);
+    expect(countOf(guidance(), templates.DELEGATION_HEADING)).toBe(1);
+    expect(countOf(agents(), templates.BOUNDARY_HEADING)).toBe(1);
     expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
   });
 });
@@ -764,6 +782,7 @@ describe('schema 5 → 6 — adds the orchestration guidance to the project inst
   let projectDir, homeDir;
   const agentsPath = () => path.join(projectDir, 'AGENTS.md');
   const agents     = () => fs.readFileSync(agentsPath(), 'utf8');
+  const guidance   = () => fs.readFileSync(path.join(projectDir, templates.GUIDANCE_FILE), 'utf8');
 
   beforeEach(() => {
     homeDir = makeTempDir('fake-home-v6');
@@ -773,7 +792,7 @@ describe('schema 5 → 6 — adds the orchestration guidance to the project inst
   });
   afterEach(() => cleanup(projectDir, homeDir));
 
-  test('inserts the section before Cross-cutting conventions, keeping user prose', async () => {
+  test('inserts the section, then 6 → 7 relocates it, keeping user prose', async () => {
     fs.writeFileSync(agentsPath(), [
       '## Project: mig-orchestration',
       '',
@@ -791,21 +810,23 @@ describe('schema 5 → 6 — adds the orchestration guidance to the project inst
     await runMigrate(projectDir);
 
     const md = agents();
-    expect(md).toContain(templates.ORCHESTRATION_HEADING);
-    expect(md).toContain('## Steering a task');
-    expect(md).toContain('## Agent-honored settings');
-    expect(md).toContain('reviewLoop');
-    expect(md).toContain('prGate');
-    expect(md).toContain('mergeMethod');
-    // Inserted, not merged: every line the user wrote survives.
+    expect(logLines.some(l => l.includes('review→fix loop'))).toBe(true);
+    const g = guidance();
+    expect(g).toContain(templates.ORCHESTRATION_HEADING);
+    expect(g).toContain(templates.STEERING_HEADING);
+    expect(g).toContain(templates.SETTINGS_HEADING);
+    expect(g).toContain('reviewLoop');
+    expect(g).toContain('prGate');
+    expect(g).toContain('mergeMethod');
+    // None of it is left in the file every task session loads.
+    expect(md).not.toContain(templates.ORCHESTRATION_HEADING);
+    expect(md).not.toContain('reviewLoop');
+    // Inserted, not merged: every line the user wrote survives — including their own
+    // edited delegation heading, which 6 → 7 has no shipped text to match against.
     expect(md).toContain('delegation prose the user edited');
     expect(md).toContain('our branch naming is feat/*');
     expect(md).toContain('ask first');
-    expect(md.indexOf(templates.ORCHESTRATION_HEADING))
-      .toBeLessThan(md.indexOf('## Cross-cutting conventions'));
-    // Lands after the delegation block, before Cross-cutting conventions.
-    expect(md.indexOf(templates.DELEGATION_HEADING))
-      .toBeLessThan(md.indexOf(templates.ORCHESTRATION_HEADING));
+    expect(md).toContain(templates.HUB_POINTER_HEADING);
     expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
   });
 
@@ -815,7 +836,7 @@ describe('schema 5 → 6 — adds the orchestration guidance to the project inst
     await runMigrate(projectDir);
 
     const md = agents();
-    expect(md.indexOf(templates.ORCHESTRATION_HEADING)).toBeLessThan(md.indexOf('## Conflict policy'));
+    expect(md.indexOf(templates.HUB_POINTER_HEADING)).toBeLessThan(md.indexOf('## Conflict policy'));
     expect(md).toContain('some prose');
   });
 
@@ -826,8 +847,10 @@ describe('schema 5 → 6 — adds the orchestration guidance to the project inst
 
     const md = agents();
     expect(md).toContain('just prose, no standard headings');
-    expect(md.indexOf('just prose')).toBeLessThan(md.indexOf(templates.ORCHESTRATION_HEADING));
+    expect(md.indexOf('just prose')).toBeLessThan(md.indexOf(templates.HUB_POINTER_HEADING));
     expect(md.endsWith('\n')).toBe(true);
+    // Appended with `.trimEnd()` at end-of-file — the removal tolerated that variant.
+    expect(md).not.toContain(templates.ORCHESTRATION_HEADING);
   });
 
   test('is idempotent — a second run and --repair change nothing', async () => {
@@ -837,10 +860,13 @@ describe('schema 5 → 6 — adds the orchestration guidance to the project inst
       `## Project: x\n\n${templates.DELEGATION_HEADING}\ndelegation already here\n\n## Cross-cutting conventions\nstuff\n`);
     await runMigrate(projectDir);
     const afterFirst = agents();
+    const guidanceAfterFirst = guidance();
 
     await runMigrate(projectDir, '--repair');
     expect(agents()).toBe(afterFirst);
-    expect(countOf(afterFirst, templates.ORCHESTRATION_HEADING)).toBe(1);
+    expect(guidance()).toBe(guidanceAfterFirst);
+    expect(countOf(guidanceAfterFirst, templates.ORCHESTRATION_HEADING)).toBe(1);
+    expect(countOf(afterFirst, templates.HUB_POINTER_HEADING)).toBe(1);
   });
 
   test('stands down while root AGENTS.md and CLAUDE.md are still unmerged', async () => {
@@ -859,7 +885,8 @@ describe('schema 5 → 6 — adds the orchestration guidance to the project inst
 
     await runMigrate(projectDir);
 
-    expect(agents()).toBe(own);
+    // The user's wording survives verbatim; only the pointer is appended.
+    expect(agents().startsWith(own)).toBe(true);
     expect(logLines.some(l => l.includes('already explains PR review'))).toBe(true);
   });
 
@@ -886,10 +913,259 @@ describe('schema 5 → 6 — adds the orchestration guidance to the project inst
 
     await runMigrate(projectDir);
 
-    // 3 → 4 scaffolds a fresh AGENTS.md from the template, which already ships the
-    // orchestration block — so 5 → 6 must recognise that and not add a second copy.
-    expect(countOf(agents(), templates.ORCHESTRATION_HEADING)).toBe(1);
+    // 3 → 4 scaffolds a fresh AGENTS.md from the current template, which points at the
+    // guidance file instead of carrying the block — 5 → 6 must recognise that and not
+    // re-insert it, and it must appear exactly once in ORCHESTRATION.md.
+    expect(countOf(agents(), templates.ORCHESTRATION_HEADING)).toBe(0);
+    expect(countOf(guidance(), templates.ORCHESTRATION_HEADING)).toBe(1);
     expect(config.readProjectConfig(projectDir).schemaVersion).toBe(config.CURRENT_SCHEMA_VERSION);
+  });
+});
+
+// ─── schema 6 → 7 — hub-only guidance out of the task-injected file ───────────
+
+describe('schema 6 → 7 — relocates hub-only guidance to ORCHESTRATION.md', () => {
+  let projectDir, homeDir;
+  const agentsPath   = () => path.join(projectDir, 'AGENTS.md');
+  const agents       = () => fs.readFileSync(agentsPath(), 'utf8');
+  const guidancePath = () => path.join(projectDir, templates.GUIDANCE_FILE);
+  const guidance     = () => fs.readFileSync(guidancePath(), 'utf8');
+
+  // A v6 project's root AGENTS.md: exactly what wksp 3.2.0/3.3.0 produced.
+  const v6Agents = (name = 'mig-split') => [
+    `## Project: ${name}`,
+    '',
+    templates.ROOT_PLANNING_SECTION,
+    templates.DELEGATION_SECTION + templates.ORCHESTRATION_SECTION + '## Cross-cutting conventions',
+    'our branch naming is feat/*',
+    '',
+    '## Conflict policy',
+    'ask first',
+    '',
+  ].join('\n');
+
+  beforeEach(() => {
+    homeDir = makeTempDir('fake-home-v7');
+    jest.spyOn(os, 'homedir').mockReturnValue(homeDir);
+    projectDir = makeProject('mig-split');
+    config.setProjectConfig(projectDir, 'schemaVersion', 6);
+  });
+  afterEach(() => cleanup(projectDir, homeDir));
+
+  test('creates ORCHESTRATION.md with the relocated guidance plus stacked-PR guidance', async () => {
+    fs.writeFileSync(agentsPath(), v6Agents());
+
+    await runMigrate(projectDir);
+
+    expect(fs.existsSync(guidancePath())).toBe(true);
+    const g = guidance();
+    expect(g).toContain('# Orchestration — mig-split');
+    expect(g).toContain(templates.DELEGATION_HEADING);
+    expect(g).toContain(templates.ORCHESTRATION_HEADING);
+    expect(g).toContain(templates.STEERING_HEADING);
+    expect(g).toContain(templates.SETTINGS_HEADING);
+    // The new content that only ships in the guidance file.
+    expect(g).toContain(templates.STACKED_PR_HEADING);
+    expect(g).toContain('gh stack merge');
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(7);
+  });
+
+  test('removes the relocated blocks from AGENTS.md and leaves the pointer', async () => {
+    fs.writeFileSync(agentsPath(), v6Agents());
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    // Gone: the delegation recipe and the whole orchestration trio.
+    expect(md).not.toContain(templates.DELEGATION_HEADING);
+    expect(md).not.toContain(templates.ORCHESTRATION_HEADING);
+    expect(md).not.toContain(templates.STEERING_HEADING);
+    expect(md).not.toContain(templates.SETTINGS_HEADING);
+    expect(md).not.toContain('reviewLoop');
+    // Kept: everything genuinely shared, plus the user's own prose.
+    expect(md).toContain('## The project root is the planning hub');
+    expect(md).toContain('## Docs structure');
+    expect(md).toContain(templates.BOUNDARY_HEADING);
+    expect(md).toContain('Never put backlog content in this file');
+    expect(md).toContain('our branch naming is feat/*');
+    expect(md).toContain('ask first');
+    // The pointer lands before the boundary block, where the template puts it.
+    expect(md).toContain(templates.HUB_POINTER_HEADING);
+    expect(md).toContain(templates.GUIDANCE_FILE);
+    expect(md.indexOf(templates.HUB_POINTER_HEADING))
+      .toBeLessThan(md.indexOf(templates.BOUNDARY_HEADING));
+    // And the file really did get smaller.
+    expect(md.length).toBeLessThan(v6Agents().length);
+  });
+
+  test('is idempotent — a second run and --repair change nothing', async () => {
+    fs.writeFileSync(agentsPath(), v6Agents());
+    await runMigrate(projectDir);
+    const afterFirst = agents();
+    const guidanceAfterFirst = guidance();
+
+    await runMigrate(projectDir, '--repair');
+
+    expect(agents()).toBe(afterFirst);
+    expect(guidance()).toBe(guidanceAfterFirst);
+    expect(countOf(afterFirst, templates.HUB_POINTER_HEADING)).toBe(1);
+    expect(countOf(afterFirst, templates.BOUNDARY_HEADING)).toBe(1);
+    expect(countOf(guidanceAfterFirst, templates.DELEGATION_HEADING)).toBe(1);
+    expect(countOf(guidanceAfterFirst, templates.STACKED_PR_HEADING)).toBe(1);
+  });
+
+  test('a third run via --repair still changes nothing', async () => {
+    fs.writeFileSync(agentsPath(), v6Agents());
+    await runMigrate(projectDir);
+    await runMigrate(projectDir, '--repair');
+    const afterSecond = agents();
+
+    await runMigrate(projectDir, '--repair');
+
+    expect(agents()).toBe(afterSecond);
+    expect(logLines.some(l => l.includes('hub guidance already relocated'))).toBe(true);
+  });
+
+  test('stands down while root AGENTS.md and CLAUDE.md are still unmerged', async () => {
+    // Deleting text out of one of two files pending a manual merge is the worst case
+    // this step could cause, so it refuses outright — and writes no guidance file.
+    const hand = v6Agents();
+    fs.writeFileSync(agentsPath(), hand);
+    fs.writeFileSync(path.join(projectDir, 'CLAUDE.md'), 'hand-written claude file\n');
+
+    await runMigrate(projectDir);
+
+    expect(agents()).toBe(hand);
+    expect(fs.existsSync(guidancePath())).toBe(false);
+    expect(logLines.some(l => l.includes('not relocating the hub'))).toBe(true);
+  });
+
+  test('a block the user edited is LEFT IN PLACE and reported', async () => {
+    // One word changed inside the delegation recipe. The orchestration block is
+    // untouched, so it still relocates — the two decisions are independent.
+    const edited = v6Agents().replace(
+      'Work inside the repo paths that brief lists.',
+      'Work inside the repo paths that brief lists (ask me first!).');
+    fs.writeFileSync(agentsPath(), edited);
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    expect(md).toContain('(ask me first!)');
+    expect(md).toContain(templates.DELEGATION_HEADING);     // left alone
+    expect(md).not.toContain(templates.ORCHESTRATION_HEADING); // still relocated
+    expect(md).toContain(templates.HUB_POINTER_HEADING);
+    expect(logLines.some(l => l.includes("you've edited the headless delegation recipe"))).toBe(true);
+    // and it tells them they can now delete it themselves
+    expect(logLines.join('\n')).toMatch(/delete[\s\S]*by hand/);
+  });
+
+  test('a duplicated block is removed in full, not left half-cleaned', async () => {
+    // Defensive: a file that somehow carries the block twice must not keep one copy.
+    fs.writeFileSync(agentsPath(),
+      v6Agents().replace(templates.ORCHESTRATION_SECTION,
+                         templates.ORCHESTRATION_SECTION + templates.ORCHESTRATION_SECTION));
+
+    await runMigrate(projectDir);
+
+    expect(countOf(agents(), templates.ORCHESTRATION_HEADING)).toBe(0);
+    expect(logLines.some(l => l.includes('(2 copies)'))).toBe(true);
+  });
+
+  test('an existing ORCHESTRATION.md is never overwritten', async () => {
+    fs.writeFileSync(agentsPath(), v6Agents());
+    fs.writeFileSync(guidancePath(), '# my own orchestration notes\n');
+
+    await runMigrate(projectDir);
+
+    expect(guidance()).toBe('# my own orchestration notes\n');
+    expect(logLines.some(l => l.includes('already exists'))).toBe(true);
+    // The instruction file is still cleaned up — the two halves are independent.
+    expect(agents()).not.toContain(templates.ORCHESTRATION_HEADING);
+    expect(agents()).toContain(templates.HUB_POINTER_HEADING);
+  });
+
+  test('--dry-run previews without writing', async () => {
+    const before = v6Agents();
+    fs.writeFileSync(agentsPath(), before);
+
+    await runMigrate(projectDir, '--dry-run');
+
+    expect(agents()).toBe(before);
+    expect(fs.existsSync(guidancePath())).toBe(false);
+    expect(logLines.some(l => l.includes(templates.GUIDANCE_FILE) && l.includes('creating'))).toBe(true);
+    expect(logLines.some(l => l.includes('removing the headless delegation recipe'))).toBe(true);
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(6);
+  });
+
+  test('task instruction files are not touched', async () => {
+    fs.writeFileSync(agentsPath(), v6Agents());
+    const taskDir = path.join(projectDir, 'tasks', 'T-1');
+    fs.mkdirSync(taskDir, { recursive: true });
+    const taskMd = templates.taskAgentsMd('T-1');
+    fs.writeFileSync(path.join(taskDir, 'AGENTS.md'), taskMd);
+    fs.writeFileSync(path.join(taskDir, 'CLAUDE.md'), templates.CLAUDE_INCLUDE);
+    fs.writeFileSync(path.join(taskDir, 'WORKLOG.md'), '# Work Log: T-1\n');
+    fs.writeFileSync(path.join(taskDir, 'task.json'), '{}\n');
+
+    await runMigrate(projectDir);
+
+    expect(fs.readFileSync(path.join(taskDir, 'AGENTS.md'), 'utf8')).toBe(taskMd);
+    expect(fs.existsSync(path.join(taskDir, templates.GUIDANCE_FILE))).toBe(false);
+  });
+
+  test('an include-only root CLAUDE.md with no AGENTS.md is skipped', async () => {
+    fs.writeFileSync(path.join(projectDir, 'CLAUDE.md'), templates.CLAUDE_INCLUDE);
+
+    await runMigrate(projectDir);
+
+    expect(fs.readFileSync(path.join(projectDir, 'CLAUDE.md'), 'utf8')).toBe(templates.CLAUDE_INCLUDE);
+    expect(fs.existsSync(guidancePath())).toBe(false);
+  });
+
+  test('a project migrating all the way from v0 lands on v7 with no duplication', async () => {
+    // The full chain: 4 → 5 inserts the delegation block, 5 → 6 the orchestration
+    // block, 6 → 7 relocates both. Nothing may appear twice anywhere.
+    config.setProjectConfig(projectDir, 'schemaVersion', 0);
+    fs.writeFileSync(agentsPath(), [
+      '## Project: mig-split',
+      '',
+      '## Cross-cutting conventions',
+      'run npx jest',
+      '',
+    ].join('\n'));
+    fs.writeFileSync(path.join(projectDir, 'CLAUDE.md'), templates.CLAUDE_INCLUDE);
+
+    await runMigrate(projectDir);
+
+    const md = agents(), g = guidance();
+    expect(config.readProjectConfig(projectDir).schemaVersion).toBe(7);
+    expect(countOf(md, templates.HUB_POINTER_HEADING)).toBe(1);
+    expect(countOf(md, templates.BOUNDARY_HEADING)).toBe(1);
+    expect(countOf(md, templates.DELEGATION_HEADING)).toBe(0);
+    expect(countOf(md, templates.ORCHESTRATION_HEADING)).toBe(0);
+    expect(countOf(g, templates.DELEGATION_HEADING)).toBe(1);
+    expect(countOf(g, templates.ORCHESTRATION_HEADING)).toBe(1);
+    expect(countOf(g, templates.SETTINGS_HEADING)).toBe(1);
+    expect(countOf(g, templates.STACKED_PR_HEADING)).toBe(1);
+    expect(md).toContain('run npx jest');
+  });
+
+  test('a hand-restructured file with no anchor headings still gets the pointer', async () => {
+    fs.writeFileSync(agentsPath(),
+      '# my own layout\n\nprose\n\n' + templates.DELEGATION_SECTION + templates.ORCHESTRATION_SECTION);
+
+    await runMigrate(projectDir);
+
+    const md = agents();
+    expect(md).toContain('prose');
+    expect(md).not.toContain(templates.DELEGATION_HEADING);
+    expect(md).not.toContain(templates.ORCHESTRATION_HEADING);
+    // The boundary block survived the delegation removal, so the pointer anchors to it.
+    expect(md).toContain(templates.BOUNDARY_HEADING);
+    expect(md).toContain(templates.HUB_POINTER_HEADING);
+    expect(md.endsWith('\n')).toBe(true);
+    expect(/\n{3,}$/.test(md)).toBe(false);
   });
 });
 
