@@ -549,7 +549,7 @@ pointers. Keep it readable in one pass.
 ## Finishing this task
 When the work is merged, clean up from inside the task — never check out the default branch here.
 - **A solo PR** merges with `gh pr merge <pr> --repo <owner>/<repo>` (the `--repo` flag keeps gh off the local checkout). Check the repo permits the method you pass.
-- **A PR in a stack** is not yours to merge — `gh pr merge` is refused for stack members; the hub lands the whole stack with `gh stack merge`.
+- **A PR in a stack** is not yours to merge — `gh pr merge` is refused for stack members (observed in practice, gh 2.8x); the hub lands the whole stack with `gh stack merge`.
 - After the merge lands, suggest `wksp task finish PROJ-1234` — verifies merged, archives, deletes branches, ff base repos.
 
 ## Conflict policy

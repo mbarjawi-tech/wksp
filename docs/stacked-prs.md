@@ -79,15 +79,20 @@ its `AGENTS.md` (or passes them via `--goal`):
 
 ```bash
 gh stack submit                          # create / update the whole chain
-gh pr ready <n> --repo <owner>/<repo>    # REQUIRED — submit creates DRAFTS
+gh pr ready <n> --repo <owner>/<repo>    # REQUIRED on the agent path — new PRs are DRAFTS
 ```
 
 Two things to know about `submit`:
 
-1. It creates **drafts**. Nothing is reviewable until `gh pr ready`.
+1. **Whether it creates drafts depends on how it is run.** Non-interactively — which is how an
+   agent runs it — or with `--auto`, `submit` skips its editor and creates new PRs as **drafts**
+   unless you pass `--open`. Nothing is reviewable until `gh pr ready <n>`, so on the agent path
+   that call is required. Run interactively, the editor defaults new PRs to ready for review and
+   there is nothing to do.
 2. It **restacks the branches itself and rewrites SHAs.** After a submit — or after amending
    anything mid-stack — re-read each branch's real history before any manual rebase. Never
-   trust a base SHA you remembered from before a submit.
+   trust a base SHA you remembered from before a submit. *(Observed behaviour, gh 2.8x — this
+   one is not stated in `gh stack submit --help`.)*
 
 Re-run `gh stack submit` after *every* restack.
 
@@ -128,7 +133,8 @@ cannot rot.
 gh stack merge --yes --merge     # atomic, all-or-nothing, bottom-up, the whole stack
 ```
 
-- **`gh pr merge` is refused for stack members.** Use `gh stack merge`.
+- **`gh pr merge` is refused for stack members.** Use `gh stack merge`. *(Observed behaviour,
+  gh 2.8x — not stated in `gh pr merge --help`, but hit on both stacks that shipped this way.)*
 - The merge is genuinely atomic: if any member can't merge, none do. You never hand-merge
   members one at a time.
 - A bare number after `gh stack merge` is read as a **stack** number before a PR number.

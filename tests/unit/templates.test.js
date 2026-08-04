@@ -151,12 +151,41 @@ describe('orchestrationMd', () => {
       expect(md).toContain('gh stack init');
       expect(md).toContain('gh stack add');
       expect(md).toContain('gh stack submit');
-      expect(md).toContain('creates DRAFTS');
+      expect(md).toContain('new PRs are DRAFTS');
       expect(md).toContain('gh pr ready <n>');
       expect(md).toContain('rewrites SHAs');
       expect(md).toContain('gh stack merge --yes --merge');
       expect(md).toContain('`gh pr merge` is refused for stack members');
       expect(md).toContain('read as a **stack** number before a PR number');
+    });
+
+    // `gh stack submit --help` (2.89.0): the interactive editor defaults new PRs to
+    // ready for review, and only --auto / a non-interactive terminal creates drafts.
+    // Stating "submit creates drafts" flatly would be wrong for a human at a terminal,
+    // so the claim has to name the path it holds on — the agent's.
+    test('scopes the drafts claim to the non-interactive / --auto path', () => {
+      expect(md).toContain('Run non-interactively');
+      expect(md).toContain('how an agent runs it');
+      expect(md).toContain('with `--auto`');
+      expect(md).toContain('unless you pass `--open`');
+      expect(md).toContain('the editor defaults new PRs to\nready for review');
+      // The practical instruction for the agent path stays prominent.
+      expect(md).toContain('`gh pr ready <n>` on each new PR is\nrequired');
+    });
+
+    // Neither of these is in `gh`'s help output — both were hit on real stacks. Keep
+    // them, but say where they come from so a reader doesn't take them as doc-quoted.
+    test('attributes the two claims that gh --help does not corroborate', () => {
+      const attributed = md.split('\n')
+        .filter(l => /Observed in practice/.test(l))
+        .join('\n');
+      expect(attributed).not.toBe('');
+      // 1. submit rewriting SHAs, 2. gh pr merge being refused for stack members.
+      expect(md).toMatch(/Observed in practice[\s\S]{0,80}`gh stack submit` restacks/);
+      expect(md).toMatch(/`gh pr merge` is refused for stack members[\s\S]{0,60}Observed in practice/);
+      // Attributed, not softened: the conservative advice must survive.
+      expect(md).toContain('re-read each branch\'s real history before any manual');
+      expect(md).toContain('use `gh stack merge`');
     });
 
     test('covers restacking discipline', () => {
