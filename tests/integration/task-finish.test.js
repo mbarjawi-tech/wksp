@@ -404,6 +404,72 @@ describe('wksp task finish — open PR (forge says unmerged)', () => {
   });
 });
 
+describe('wksp task finish — mid-stack PR (merged into its parent branch)', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('fin-forge-midstack');
+    repoDir    = makeTempDir('repo-fin-forge-midstack');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    try { git.deleteBranch(repoDir, 'feat/b', true); } catch {}
+    cleanup(projectDir, repoDir);
+  });
+
+  // The bug this covers: GitHub reports a stack member's PR as MERGED once it lands on
+  // the member below it. Treating that as "merged" let finish delete the branch and
+  // archive the task while the work had never reached the default branch.
+  test('reports "merged into <parent> — not yet on <default>" and does NOT claim a clean merge', async () => {
+    prompts.ask.mockResolvedValueOnce('feat/b');
+    await runTask(projectDir, 'create', 'TASK-STACK');
+
+    const wtPath = path.join(projectDir, 'tasks', 'TASK-STACK', WORKTREES_DIR, path.basename(repoDir));
+    fs.writeFileSync(path.join(wtPath, 'b.txt'), 'member b');
+    gitCmd(wtPath, 'add .');
+    gitCmd(wtPath, 'commit -m "member b"');
+
+    forge.prMergeState.mockReturnValue({
+      state: 'mergedToNonDefault',
+      pr: { number: 18, mergedAt: '2026-08-03T09:00:00Z', baseRefName: 'feat/a' },
+    });
+
+    prompts.confirm.mockResolvedValueOnce(false); // decline the warning
+    await runTask(projectDir, 'finish', 'TASK-STACK');
+
+    const out = loggedText();
+    expect(out).toContain('merged into feat/a');
+    expect(out).toContain('not yet on');
+    expect(out).toContain('PR #18');
+    // Never the positive verdict, and never the squash hedge — this one is definite.
+    expect(out).not.toContain('confirmed on GitHub');
+    expect(out).not.toContain('All branches merged');
+    expect(out).not.toContain('looks exactly like this');
+
+    // Declined → nothing torn down, branch intact.
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-STACK'))).toBe(true);
+    expect(git.branchExistsLocally(repoDir, 'feat/b')).toBe(true);
+  });
+
+  test('the default branch is passed to the forge check', async () => {
+    prompts.ask.mockResolvedValueOnce('feat/b');
+    await runTask(projectDir, 'create', 'TASK-STACK2');
+
+    const wtPath = path.join(projectDir, 'tasks', 'TASK-STACK2', WORKTREES_DIR, path.basename(repoDir));
+    fs.writeFileSync(path.join(wtPath, 'b.txt'), 'member b');
+    gitCmd(wtPath, 'add .');
+    gitCmd(wtPath, 'commit -m "member b"');
+
+    forge.prMergeState.mockReturnValue({ state: 'unknown' });
+    prompts.confirm.mockResolvedValueOnce(false);
+    await runTask(projectDir, 'finish', 'TASK-STACK2');
+
+    const [, , deps] = forge.prMergeState.mock.calls[0];
+    expect(deps).toBeDefined();
+    expect(deps.defaultBranch).toBe('main');
+  });
+});
+
 describe('wksp task finish --no-archive', () => {
   let projectDir, repoDir, originDir, cloneDir;
   beforeEach(() => {
