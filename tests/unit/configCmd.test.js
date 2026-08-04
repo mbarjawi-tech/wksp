@@ -32,6 +32,38 @@ beforeEach(() => {
 });
 afterEach(() => jest.restoreAllMocks());
 
+// ─── config --help ────────────────────────────────────────────────────────────
+
+describe('config --help documents every key', () => {
+  async function helpText() {
+    await expect(configCmd.run(['--help'])).rejects.toThrow('process.exit(0)');
+    return logLines.join('\n');
+  }
+
+  test('lists the CLI-behaviour keys', async () => {
+    const out = await helpText();
+    for (const key of ['reposRoot', 'autoResume', 'aiProvider', 'customProviders']) {
+      expect(out).toContain(key);
+    }
+  });
+
+  test('lists the agent-honored keys and marks them as such', async () => {
+    const out = await helpText();
+    for (const key of ['reviewLoop', 'prGate', 'mergeMethod']) {
+      expect(out).toContain(key);
+    }
+    expect(out).toMatch(/agent-honored/i);
+    // The distinction that matters: wksp itself never acts on these.
+    expect(out).toContain('wksp NEVER acts on these');
+    expect(out).toContain('ORCHESTRATION.md');
+  });
+
+  test('states the project-over-global resolution', async () => {
+    const out = await helpText();
+    expect(out).toContain('project .wksp over global ~/.wksp');
+  });
+});
+
 // ─── config set ──────────────────────────────────────────────────────────────
 
 describe('config set — inside a project', () => {
