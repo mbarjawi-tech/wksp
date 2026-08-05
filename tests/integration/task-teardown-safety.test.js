@@ -10,7 +10,7 @@ const path = require('path');
 const { makeTempDir, makeGitRepo, makeProject, cleanup } = require('../helpers');
 const { addRepo } = require('../../lib/repos');
 const git = require('../../lib/git');
-const { WORKTREES_DIR } = require('../../lib/worktrees');
+const { WORKTREES_DIR, discoverWorktrees } = require('../../lib/worktrees');
 const archive = require('../../lib/archive');
 
 jest.mock('../../lib/prompts', () => ({
@@ -257,6 +257,24 @@ describe('teardown fails before destroying when a worktree is locked', () => {
     expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-LOCK2'))).toBe(false);
     expect(errored()).toContain('re-run: wksp task archive TASK-LOCK2');
   });
+
+  // IMPORTANT 3: the probe DID rename the folder aside to test it (then failed to put
+  // it back), so "Nothing was touched" directly contradicts the "move it back to ..."
+  // instruction printed two lines later. The stranded case must not claim both.
+  test('the stranded case does not claim "Nothing was touched" while also saying to move it back', async () => {
+    makeTask(projectDir, repoDir, 'TASK-LOCK3', 'feature/locked');
+    guard.probeRemovable.mockReturnValue({
+      ok: false, code: 'EPERM', message: 'denied',
+      stranded: path.join(projectDir, 'tasks', 'TASK-LOCK3', '.wksp-probe-stray'),
+    });
+
+    await expect(runTask(projectDir, 'delete', 'TASK-LOCK3', '--yes'))
+      .rejects.toThrow('process.exit(1)');
+
+    expect(errored()).not.toContain('Nothing was touched');
+    expect(errored()).toContain('Move it back to');
+    expect(errored()).toContain('is locked (EPERM)');
+  });
 });
 
 // ─── 4. never silently skip: an unreadable worktree ──────────────────────────
@@ -463,5 +481,202 @@ describe('the guards do not disturb a normal teardown', () => {
     expect(manifest.repos[0].branchKeptInBaseRepo).toBe(true);
     expect(git.branchExistsLocally(repoDir, 'feature/happy-arch')).toBe(true);
     expect(process.exitCode).not.toBe(1);
+  });
+});
+
+// ─── 7. BLOCKER 1: `task repo <id> <repo> share|exclude` reuse the same guards ─
+
+describe('task repo <id> <repo> share|exclude refuse the same way teardown does', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('td-repo-mode');
+    repoDir    = makeTempDir('repo-td-repo-mode');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    for (const b of ['feature/share-cwd', 'feature/share-lock', 'feature/exclude-cwd', 'feature/exclude-lock']) {
+      try { git.deleteBranch(repoDir, b, true); } catch {}
+    }
+    cleanup(projectDir, repoDir);
+  });
+
+  test('share refuses and touches nothing when the cwd is inside the worktree', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-SHARE-CWD', 'feature/share-cwd');
+    jest.spyOn(process, 'cwd').mockReturnValue(wtPath);
+
+    await expect(runTask(projectDir, 'repo', 'TASK-SHARE-CWD', path.basename(repoDir), 'share'))
+      .rejects.toThrow('process.exit(1)');
+
+    // Nothing touched: the worktree is whole and task.json was never written, so the
+    // repo is still recorded (by omission) as a plain worktree, exactly as before.
+    expect(fs.existsSync(path.join(wtPath, '.git'))).toBe(true);
+    expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
+    expect(git.branchExistsLocally(repoDir, 'feature/share-cwd')).toBe(true);
+    expect(errored()).toContain('Cannot tear down TASK-SHARE-CWD');
+    expect(guard.probeRemovable).not.toHaveBeenCalled();
+  });
+
+  test('share refuses when the worktree is locked, leaving task.json untouched', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-SHARE-LOCK', 'feature/share-lock');
+    guard.probeRemovable.mockReturnValue({ ok: false, code: 'EPERM', message: 'denied' });
+
+    await expect(runTask(projectDir, 'repo', 'TASK-SHARE-LOCK', path.basename(repoDir), 'share'))
+      .rejects.toThrow('process.exit(1)');
+
+    expect(fs.existsSync(path.join(wtPath, '.git'))).toBe(true);
+    expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
+    expect(errored()).toContain('is locked (EPERM)');
+    expect(errored()).toContain('repo TASK-SHARE-LOCK');
+  });
+
+  test('exclude refuses and touches nothing when the cwd is inside the worktree', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-EXCL-CWD', 'feature/exclude-cwd');
+    jest.spyOn(process, 'cwd').mockReturnValue(wtPath);
+
+    await expect(runTask(projectDir, 'repo', 'TASK-EXCL-CWD', path.basename(repoDir), 'exclude'))
+      .rejects.toThrow('process.exit(1)');
+
+    expect(fs.existsSync(path.join(wtPath, '.git'))).toBe(true);
+    expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
+    expect(git.branchExistsLocally(repoDir, 'feature/exclude-cwd')).toBe(true);
+    expect(errored()).toContain('Cannot tear down TASK-EXCL-CWD');
+  });
+
+  test('exclude refuses when the worktree is locked, leaving task.json untouched', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-EXCL-LOCK', 'feature/exclude-lock');
+    guard.probeRemovable.mockReturnValue({ ok: false, code: 'EBUSY', message: 'busy' });
+
+    await expect(runTask(projectDir, 'repo', 'TASK-EXCL-LOCK', path.basename(repoDir), 'exclude'))
+      .rejects.toThrow('process.exit(1)');
+
+    expect(fs.existsSync(path.join(wtPath, '.git'))).toBe(true);
+    expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
+    expect(errored()).toContain('is locked (EBUSY)');
+    expect(errored()).toContain('repo TASK-EXCL-LOCK');
+  });
+});
+
+// ─── 8. BLOCKER 2: a worktree probe stranded by a crashed run ─────────────────
+// probeRemovable renames a worktree aside and straight back; if the process dies in
+// between (crash, kill, power loss), the folder is left as `.wksp-probe-<name>`, a
+// SIBLING of worktrees/. discoverWorktrees must recover it (or, failing that, refuse
+// rather than let the final bulk `fs.rmSync(taskDir, ...)` sweep it up unnoticed.
+
+describe('a worktree probe stranded by a crashed run', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('td-stranded');
+    repoDir    = makeTempDir('repo-td-stranded');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    for (const b of ['feature/stranded', 'feature/stranded2']) { try { git.deleteBranch(repoDir, b, true); } catch {} }
+    cleanup(projectDir, repoDir);
+  });
+
+  test('is recovered and torn down normally by the next delete', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED', 'feature/stranded');
+    const folderName   = path.basename(wtPath);
+    const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
+
+    // Reproduce the crash: probeRemovable renamed the worktree aside and the process
+    // died before renaming it back, so it now sits as a sibling of worktrees/.
+    fs.renameSync(wtPath, strandedPath);
+    expect(fs.existsSync(wtPath)).toBe(false);
+
+    await runTask(projectDir, 'delete', 'TASK-STRANDED', '--yes', '--delete-branches');
+
+    // Recovered, discovered, and torn down through the normal path — not silently
+    // swept away by the final bulk delete of the task folder. Without the recovery
+    // fix, discoverWorktrees would have reported zero worktrees for this task (the
+    // folder is no longer under worktrees/), so nothing here would have been removed
+    // through git, the branch would have survived orphaned, and the whole task folder
+    // — including the still-valid worktree — would still have been rm -rf'd.
+    expect(fs.existsSync(taskDir)).toBe(false);
+    expect(git.branchExistsLocally(repoDir, 'feature/stranded')).toBe(false);
+    expect(git.findWorktreeEntry(repoDir, wtPath)).toBeNull();
+    expect(warned()).not.toContain('could not be torn down');
+    expect(process.exitCode).not.toBe(1);
+  });
+
+  test('is discovered by list/status-style callers too, not just teardown', () => {
+    const { wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED-DISC', 'feature/stranded');
+    const folderName   = path.basename(wtPath);
+    const strandedPath = path.join(path.dirname(path.dirname(wtPath)), `.wksp-probe-${folderName}`);
+    fs.renameSync(wtPath, strandedPath);
+
+    const wts = discoverWorktrees(path.dirname(path.dirname(wtPath)));
+
+    // Recovered transparently: back at its normal path, not flagged corrupted.
+    expect(wts).toHaveLength(1);
+    expect(wts[0].corrupted).toBe(false);
+    expect(wts[0].worktreeDir).toBe(wtPath);
+    expect(fs.existsSync(wtPath)).toBe(true);
+  });
+
+  test('when it cannot be recovered, teardown refuses instead of silently sweeping it up', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED2', 'feature/stranded2');
+    const folderName   = path.basename(wtPath);
+    const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
+    fs.renameSync(wtPath, strandedPath);
+
+    // The "should never happen" collision: something already occupies the recovery
+    // target, so the rename-back cannot land. Exercised directly rather than mocking
+    // fs, since it is easy to reproduce for real.
+    fs.mkdirSync(wtPath, { recursive: true });
+    fs.writeFileSync(path.join(wtPath, 'placeholder.txt'), 'x');
+
+    await expect(runTask(projectDir, 'delete', 'TASK-STRANDED2', '--yes', '--delete-branches'))
+      .rejects.toThrow('process.exit(1)');
+
+    // Refused — nothing bulk-deleted. Both the stray probe and the task folder
+    // survive, and the branch is untouched.
+    expect(fs.existsSync(taskDir)).toBe(true);
+    expect(fs.existsSync(strandedPath)).toBe(true);
+    expect(errored()).toContain('stranded');
+    expect(git.branchExistsLocally(repoDir, 'feature/stranded2')).toBe(true);
+  });
+});
+
+// ─── 9. ALSO 6: finish asks before proceeding with zero verified merges ───────
+
+describe('finish gates on proceeding when nothing here could be verified', () => {
+  let projectDir, repoDir;
+  beforeEach(() => {
+    projectDir = makeProject('td-unverif');
+    repoDir    = makeTempDir('repo-td-unverif');
+    makeGitRepo(repoDir);
+    addRepo(projectDir, repoDir, false);
+  });
+  afterEach(() => {
+    try { git.deleteBranch(repoDir, 'feature/unverif', true); } catch {}
+    cleanup(projectDir, repoDir);
+  });
+
+  test('prompts, and declining leaves everything intact', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-UNVERIF', 'feature/unverif');
+    gutWorktree(wtPath); // the only worktree becomes unreadable → checks=[] and unmerged=[]
+
+    prompts.confirm.mockResolvedValueOnce(false); // "Finish TASK-UNVERIF anyway?" → no
+
+    await runTask(projectDir, 'finish', 'TASK-UNVERIF');
+
+    expect(warned()).toContain('Nothing here could be checked');
+    expect(logged()).toContain('Cancelled.');
+    expect(fs.existsSync(taskDir)).toBe(true);
+    expect(fs.existsSync(path.join(projectDir, 'archived-tasks', 'TASK-UNVERIF'))).toBe(false);
+  });
+
+  test('--yes proceeds without asking, but still reports the gap', async () => {
+    const { wtPath } = makeTask(projectDir, repoDir, 'TASK-UNVERIF2', 'feature/unverif');
+    gutWorktree(wtPath);
+
+    await runTask(projectDir, 'finish', 'TASK-UNVERIF2', '--yes');
+
+    expect(warned()).toContain('Nothing here could be checked');
+    expect(prompts.confirm).not.toHaveBeenCalled();
+    expect(process.exitCode).toBe(1);
   });
 });
