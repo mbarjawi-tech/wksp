@@ -77,7 +77,7 @@ describe('wksp delete — teardown safety', () => {
     addRepo(projectDir, repoDir, false);
   });
   afterEach(() => {
-    for (const b of ['feature/del-cwd', 'feature/del-lock', 'feature/del-ok', 'feature/del-stranded']) {
+    for (const b of ['feature/del-cwd', 'feature/del-lock', 'feature/del-ok', 'feature/del-stranded', 'feature/del-taskcwd']) {
       try { git.deleteBranch(repoDir, b, true); } catch {}
     }
     cleanup(projectDir, repoDir);
@@ -107,6 +107,51 @@ describe('wksp delete — teardown safety', () => {
     expect(fs.existsSync(projectDir)).toBe(true);
     expect(git.branchExistsLocally(repoDir, 'feature/del-lock')).toBe(true);
     expect(errorLines.join('\n')).toContain('is locked (EBUSY)');
+  });
+
+  // MINOR 4: a shell in tasks/<id>/ itself — not in a worktree — passed every guard,
+  // because they all checked the WORKTREE paths, and then the bulk
+  // `fs.rmSync(task.taskDir, ...)` failed with a bare `Fatal:`. The process.chdir further
+  // down only protects the project folder, long after every task folder is gone.
+  test('refuses cleanly when the shell is in the task folder itself, not a worktree', async () => {
+    const { taskDir, wtPath } = makeTaskWithWorktree(projectDir, repoDir, 'TASK-DEL-TASKCWD', 'feature/del-taskcwd');
+    jest.spyOn(process, 'cwd').mockReturnValue(taskDir);
+
+    await expect(runDelete(projectDir)).rejects.toThrow('process.exit(1)');
+
+    // Refused before the first destructive step: the worktree is intact, so this is not
+    // "it failed after gutting the checkout" dressed up as a refusal.
+    expect(fs.existsSync(path.join(wtPath, '.git'))).toBe(true);
+    expect(fs.existsSync(taskDir)).toBe(true);
+    expect(fs.existsSync(projectDir)).toBe(true);
+    expect(git.branchExistsLocally(repoDir, 'feature/del-taskcwd')).toBe(true);
+    const errs = errorLines.join('\n');
+    expect(errs).toContain('shell is inside');
+    expect(errs).toContain('re-run: wksp delete');
+    // `wksp task delete <id>` would refuse for exactly the same reason — don't send the
+    // user round that loop.
+    expect(errs).not.toContain('Fix with: wksp task delete');
+    // The probe never ran either, so nothing was even renamed to test it.
+    expect(guard.probeRemovable).not.toHaveBeenCalled();
+  });
+
+  // MINOR 4, second half: the task folder's own rmSync had no catch, so a locked file
+  // inside tasks/<id>/ came out as a bare `Fatal:` rather than naming the re-run.
+  test('a task folder that cannot be deleted names the command to re-run', async () => {
+    makeTaskWithWorktree(projectDir, repoDir, 'TASK-DEL-RM', 'feature/del-ok');
+    jest.spyOn(process, 'chdir').mockImplementation(() => {});
+    const realRm = fs.rmSync;
+    jest.spyOn(fs, 'rmSync').mockImplementation((target, opts) => {
+      if (path.basename(target) === 'TASK-DEL-RM') throw Object.assign(new Error('busy'), { code: 'EBUSY' });
+      return realRm(target, opts);
+    });
+
+    await expect(runDelete(projectDir)).rejects.toThrow('process.exit(1)');
+
+    const errs = errorLines.join('\n');
+    expect(errs).toContain('Kept tasks/TASK-DEL-RM/');
+    expect(errs).toContain('(EBUSY)');
+    expect(errs).toContain('re-run: wksp delete');
   });
 
   test('a recoverable stranded probe is put back and torn down normally, not silently swept up', async () => {

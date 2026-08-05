@@ -513,7 +513,9 @@ describe('task repo <id> <repo> share|exclude refuse the same way teardown does'
     expect(fs.existsSync(path.join(wtPath, '.git'))).toBe(true);
     expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
     expect(git.branchExistsLocally(repoDir, 'feature/share-cwd')).toBe(true);
-    expect(errored()).toContain('Cannot tear down TASK-SHARE-CWD');
+    // NIT: a mode switch is not a teardown, so the headline says what this command is.
+    expect(errored()).toContain(`Cannot switch ${path.basename(repoDir)} to shared in TASK-SHARE-CWD`);
+    expect(errored()).not.toContain('Cannot tear down');
     expect(guard.probeRemovable).not.toHaveBeenCalled();
   });
 
@@ -528,6 +530,7 @@ describe('task repo <id> <repo> share|exclude refuse the same way teardown does'
     expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
     expect(errored()).toContain('is locked (EPERM)');
     expect(errored()).toContain('repo TASK-SHARE-LOCK');
+    expect(errored()).toContain(`Cannot switch ${path.basename(repoDir)} to shared in TASK-SHARE-LOCK`);
   });
 
   test('exclude refuses and touches nothing when the cwd is inside the worktree', async () => {
@@ -540,7 +543,8 @@ describe('task repo <id> <repo> share|exclude refuse the same way teardown does'
     expect(fs.existsSync(path.join(wtPath, '.git'))).toBe(true);
     expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
     expect(git.branchExistsLocally(repoDir, 'feature/exclude-cwd')).toBe(true);
-    expect(errored()).toContain('Cannot tear down TASK-EXCL-CWD');
+    expect(errored()).toContain(`Cannot exclude ${path.basename(repoDir)} from TASK-EXCL-CWD`);
+    expect(errored()).not.toContain('Cannot tear down');
   });
 
   test('exclude refuses when the worktree is locked, leaving task.json untouched', async () => {
@@ -554,6 +558,23 @@ describe('task repo <id> <repo> share|exclude refuse the same way teardown does'
     expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
     expect(errored()).toContain('is locked (EBUSY)');
     expect(errored()).toContain('repo TASK-EXCL-LOCK');
+    expect(errored()).toContain(`Cannot exclude ${path.basename(repoDir)} from TASK-EXCL-LOCK`);
+  });
+
+  // The share/exclude coherence question: `share` already refused a present-but-corrupted
+  // worktree, while `exclude` skipped the removal and wrote `excluded` to task.json anyway
+  // — recording a mode the disk doesn't have and leaving a gutted folder behind in silence.
+  test('exclude refuses a corrupted worktree instead of recording a mode the disk does not have', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-EXCL-CORRUPT', 'feature/exclude-cwd');
+    gutWorktree(wtPath);
+
+    await expect(runTask(projectDir, 'repo', 'TASK-EXCL-CORRUPT', path.basename(repoDir), 'exclude'))
+      .rejects.toThrow('process.exit(1)');
+
+    expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
+    expect(fs.existsSync(wtPath)).toBe(true);
+    expect(errored()).toContain('is corrupted');
+    expect(errored()).toContain(`wksp task delete TASK-EXCL-CORRUPT`);
   });
 });
 
@@ -576,7 +597,7 @@ describe('a worktree probe stranded by a crashed run', () => {
     cleanup(projectDir, repoDir);
   });
 
-  test('is recovered and torn down normally by the next delete', async () => {
+  test('is recovered and torn down normally by the next delete, and the recovery is reported', async () => {
     const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED', 'feature/stranded');
     const folderName   = path.basename(wtPath);
     const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
@@ -587,6 +608,13 @@ describe('a worktree probe stranded by a crashed run', () => {
     expect(fs.existsSync(wtPath)).toBe(false);
 
     await runTask(projectDir, 'delete', 'TASK-STRANDED', '--yes', '--delete-branches');
+
+    // Never silently: a recovery renames a directory, so it is always announced.
+    expect(warned()).toContain(`Put "${folderName}" back in TASK-STRANDED`);
+    // And only that: task-id resolution enumerates every task read-only before the
+    // command runs, which would otherwise announce "this command only reports it"
+    // immediately before this very command recovered the probe.
+    expect(warned()).not.toContain('this command only reports it');
 
     // Recovered, discovered, and torn down through the normal path — not silently
     // swept away by the final bulk delete of the task folder. Without the recovery
@@ -601,19 +629,49 @@ describe('a worktree probe stranded by a crashed run', () => {
     expect(process.exitCode).not.toBe(1);
   });
 
-  test('is discovered by list/status-style callers too, not just teardown', () => {
-    const { wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED-DISC', 'feature/stranded');
+  // REQUIRED 1: recovery is OPT-IN. A read-oriented caller (status / list / brief /
+  // export) must still SEE the probe — that is what stops it being swept up unnoticed —
+  // but must not rename a directory as a side effect of merely looking. Renaming from a
+  // read also races a concurrent probe: it puts the folder back while the probing run is
+  // between its own two renames, whose rename-back then fails ENOENT and reports a false
+  // "locked" verdict pointing at a path that no longer exists.
+  test('a read-oriented caller reports it and renames nothing', () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED-DISC', 'feature/stranded');
     const folderName   = path.basename(wtPath);
-    const strandedPath = path.join(path.dirname(path.dirname(wtPath)), `.wksp-probe-${folderName}`);
+    const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
     fs.renameSync(wtPath, strandedPath);
 
-    const wts = discoverWorktrees(path.dirname(path.dirname(wtPath)));
+    const wts = discoverWorktrees(taskDir);
+
+    // Seen, and named for what it is.
+    expect(wts).toHaveLength(1);
+    expect(wts[0].strandedProbe).toBe(true);
+    expect(wts[0].folderName).toBe(folderName);
+    expect(wts[0].strandedPath).toBe(strandedPath);
+    // Nothing moved.
+    expect(fs.existsSync(strandedPath)).toBe(true);
+    expect(fs.existsSync(wtPath)).toBe(false);
+    // And the user is told which command puts it back.
+    expect(warned()).toContain('was left renamed aside by an interrupted run');
+    expect(warned()).toContain('wksp task archive TASK-STRANDED-DISC');
+  });
+
+  test('recover: true puts it back and says so', () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED-REC', 'feature/stranded');
+    const folderName   = path.basename(wtPath);
+    const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
+    fs.renameSync(wtPath, strandedPath);
+
+    const wts = discoverWorktrees(taskDir, { recover: true });
 
     // Recovered transparently: back at its normal path, not flagged corrupted.
     expect(wts).toHaveLength(1);
     expect(wts[0].corrupted).toBe(false);
     expect(wts[0].worktreeDir).toBe(wtPath);
     expect(fs.existsSync(wtPath)).toBe(true);
+    expect(fs.existsSync(strandedPath)).toBe(false);
+    // `recovered` used to be destructured away and discarded, so no command ever said this.
+    expect(warned()).toContain(`Put "${folderName}" back in TASK-STRANDED-REC`);
   });
 
   test('when it cannot be recovered, teardown refuses instead of silently sweeping it up', async () => {

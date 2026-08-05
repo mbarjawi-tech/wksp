@@ -188,6 +188,59 @@ describe('wksp repo remove — teardown safety', () => {
     expect(reposTxt).toContain(path.basename(repoDir));
   });
 
+  // REQUIRED 2 (round 2): a stranded probe has `baseRepo: null` while it sits aside, so
+  // the `normalizePath(wt.baseRepo) !== normalized` filter skipped it with no warning and
+  // it never reached `orphaned` — and then `repos.removeRepo` ran unconditionally. That is
+  // the worst possible order: findWorktreeRegistration recovers a wrecked worktree's
+  // branch name by walking repos.txt, so deregistering the repo while the probe is
+  // stranded makes the branch name permanently unrecoverable.
+  test('refuses, and keeps the repo registered, when a task has an unrecoverable stranded probe', async () => {
+    await runRepo(projectDir, 'add', repoDir);
+    const { taskDir, wtPath } = makeTaskWithWorktree(projectDir, repoDir, 'TASK-ORPHAN-STRANDED', 'feature/orphan');
+    const folderName   = path.basename(wtPath);
+    const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
+    fs.renameSync(wtPath, strandedPath); // the crash: renamed aside, never renamed back
+
+    // The recovery target is occupied, so the automatic rename-back cannot land — the one
+    // state where `repo remove` has to refuse rather than carry on.
+    fs.mkdirSync(wtPath, { recursive: true });
+    fs.writeFileSync(path.join(wtPath, 'placeholder.txt'), 'x');
+
+    await expect(runRepo(projectDir, 'remove', repoDir)).rejects.toThrow('process.exit(1)');
+
+    // The trail is intact: the probe is where it was, and repos.txt still names the base
+    // repo that `git worktree list` can be asked for the branch.
+    expect(fs.existsSync(strandedPath)).toBe(true);
+    expect(git.branchExistsLocally(repoDir, 'feature/orphan')).toBe(true);
+    const reposTxt = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
+    expect(reposTxt).toContain(path.basename(repoDir));
+    // Said so out loud, rather than skipping it silently as the old filter did.
+    const errs = errorLines.join('\n');
+    expect(errs).toContain('stranded');
+    expect(errs).toContain(`TASK-ORPHAN-STRANDED/${folderName}`);
+    expect(errs).toContain(`re-run: wksp repo remove ${repoDir}`);
+    // Never got as far as asking about worktrees — the refusal precedes the prompt.
+    expect(prompts.confirm).not.toHaveBeenCalled();
+  });
+
+  test('a recoverable stranded probe is put back, then removed like any other worktree', async () => {
+    await runRepo(projectDir, 'add', repoDir);
+    const { taskDir, wtPath } = makeTaskWithWorktree(projectDir, repoDir, 'TASK-ORPHAN-STRANDED-OK', 'feature/orphan');
+    const strandedPath = path.join(taskDir, `.wksp-probe-${path.basename(wtPath)}`);
+    fs.renameSync(wtPath, strandedPath);
+    prompts.confirm.mockResolvedValueOnce(true); // "Remove these worktrees too?"
+
+    await runRepo(projectDir, 'remove', repoDir);
+
+    // Put back, matched against this repo, and torn down through git — so no stale
+    // registration is left behind in the base repo.
+    expect(fs.existsSync(strandedPath)).toBe(false);
+    expect(fs.existsSync(wtPath)).toBe(false);
+    expect(git.findWorktreeEntry(repoDir, wtPath)).toBeNull();
+    const reposTxt = fs.readFileSync(path.join(projectDir, 'repos.txt'), 'utf8');
+    expect(reposTxt).not.toContain(repoDir.replace(/\\/g, '/'));
+  });
+
   test('still removes a clean, unlocked orphaned worktree as before', async () => {
     await runRepo(projectDir, 'add', repoDir);
     const { taskDir, wtPath } = makeTaskWithWorktree(projectDir, repoDir, 'TASK-ORPHAN-OK', 'feature/orphan');

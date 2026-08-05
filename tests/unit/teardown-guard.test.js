@@ -2,7 +2,7 @@
 const fs   = require('fs');
 const path = require('path');
 const { makeTempDir, cleanup } = require('../helpers');
-const { isCwdInside, ensureCwdOutside, probeRemovable, recoverStrandedProbes } = require('../../lib/teardown-guard');
+const { isCwdInside, ensureCwdOutside, probeRemovable, scanStrandedProbes } = require('../../lib/teardown-guard');
 
 // process.cwd() is spied rather than actually chdir'd: the point of these guards is a
 // directory that is about to be deleted, and chdir'ing the Jest process into one is
@@ -124,7 +124,7 @@ describe('probeRemovable', () => {
     jest.spyOn(fs, 'renameSync').mockImplementation((from, to) => { seenTargets.push(to); return realRename(from, to); });
     try { probeRemovable(dir, parent); } finally { jest.restoreAllMocks(); }
     // The rename-away target (first call) must be exactly this — a later run (e.g.
-    // recoverStrandedProbes after a crash) has to be able to reconstruct the same
+    // scanStrandedProbes after a crash) has to be able to reconstruct the same
     // path from the worktree's folder name alone, which a pid+random name could not.
     expect(seenTargets[0]).toBe(path.join(parent, '.wksp-probe-my-worktree'));
   });
@@ -139,9 +139,52 @@ describe('probeRemovable', () => {
     // Nothing was touched — the real worktree is exactly where it was.
     expect(fs.existsSync(dir)).toBe(true);
   });
+
+  // The race the opt-in split exists to prevent, from the losing side: another run put
+  // the folder back between our two renames, so the rename-back hits ENOENT on a probe
+  // path that is gone. Reporting `stranded` there would be a false "locked" verdict
+  // naming a path that no longer exists.
+  test('treats ENOENT-with-the-directory-back as success, not a stranded probe', () => {
+    const dir = path.join(parent, 'wt');
+    fs.mkdirSync(dir);
+    const realRename = fs.renameSync;
+    let calls = 0;
+    jest.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      if (++calls === 1) {
+        realRename(from, to);
+        realRename(to, from);  // a concurrent recovery puts it back for us
+        return;
+      }
+      throw Object.assign(new Error('no such file'), { code: 'ENOENT' });
+    });
+    let result;
+    try { result = probeRemovable(dir, parent); }
+    finally { jest.restoreAllMocks(); }
+
+    expect(result).toEqual({ ok: true });
+    expect(fs.existsSync(dir)).toBe(true);
+  });
+
+  test('still reports stranded on ENOENT when the directory really is gone', () => {
+    const dir = path.join(parent, 'wt');
+    fs.mkdirSync(dir);
+    const realRename = fs.renameSync;
+    let calls = 0;
+    jest.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      if (++calls === 1) return realRename(from, to);
+      throw Object.assign(new Error('no such file'), { code: 'ENOENT' });
+    });
+    let result;
+    try { result = probeRemovable(dir, parent); }
+    finally { jest.restoreAllMocks(); }
+
+    expect(result.ok).toBe(false);
+    expect(result.stranded).toBe(path.join(parent, '.wksp-probe-wt'));
+    fs.renameSync(result.stranded, dir);
+  });
 });
 
-describe('recoverStrandedProbes', () => {
+describe('scanStrandedProbes', () => {
   let taskDir;
   beforeEach(() => {
     taskDir = makeTempDir('guard-recover');
@@ -149,25 +192,43 @@ describe('recoverStrandedProbes', () => {
   });
   afterEach(() => cleanup(taskDir));
 
-  test('renames a stranded probe back to worktrees/<name>', () => {
+  test('renames a stranded probe back to worktrees/<name> under recover', () => {
     const stranded = path.join(taskDir, '.wksp-probe-wksp');
     fs.mkdirSync(stranded);
     fs.writeFileSync(path.join(stranded, 'marker.txt'), 'still here');
 
-    const result = recoverStrandedProbes(taskDir, 'worktrees');
+    const result = scanStrandedProbes(taskDir, 'worktrees', { recover: true });
 
     expect(result.recovered).toEqual(['wksp']);
-    expect(result.failed).toEqual([]);
+    expect(result.stranded).toEqual([]);
     expect(fs.existsSync(stranded)).toBe(false);
     const target = path.join(taskDir, 'worktrees', 'wksp');
     expect(fs.existsSync(target)).toBe(true);
     expect(fs.readFileSync(path.join(target, 'marker.txt'), 'utf8')).toBe('still here');
   });
 
+  // The whole point of the opt-in split: merely looking must not move anything.
+  test('reports without renaming anything by default', () => {
+    const stranded = path.join(taskDir, '.wksp-probe-wksp');
+    fs.mkdirSync(stranded);
+    const target = path.join(taskDir, 'worktrees', 'wksp');
+
+    const result = scanStrandedProbes(taskDir, 'worktrees');
+
+    expect(result.recovered).toEqual([]);
+    expect(result.stranded).toEqual([{
+      folderName: 'wksp', strandedPath: stranded, targetPath: target,
+      code: null, message: 'not moved back — this command only reports it', attempted: false,
+    }]);
+    // Untouched: still aside, and the target was never created.
+    expect(fs.existsSync(stranded)).toBe(true);
+    expect(fs.existsSync(target)).toBe(false);
+  });
+
   test('does nothing when there is no stranded probe', () => {
     fs.mkdirSync(path.join(taskDir, 'worktrees', 'wksp'), { recursive: true });
-    const result = recoverStrandedProbes(taskDir, 'worktrees');
-    expect(result).toEqual({ recovered: [], failed: [] });
+    expect(scanStrandedProbes(taskDir, 'worktrees', { recover: true })).toEqual({ recovered: [], stranded: [] });
+    expect(scanStrandedProbes(taskDir, 'worktrees')).toEqual({ recovered: [], stranded: [] });
   });
 
   test('reports failure, and never overwrites, when the target already exists', () => {
@@ -178,12 +239,12 @@ describe('recoverStrandedProbes', () => {
     fs.mkdirSync(target);
     fs.writeFileSync(path.join(target, 'b.txt'), 'existing worktree');
 
-    const result = recoverStrandedProbes(taskDir, 'worktrees');
+    const result = scanStrandedProbes(taskDir, 'worktrees', { recover: true });
 
     expect(result.recovered).toEqual([]);
-    expect(result.failed).toEqual([{
+    expect(result.stranded).toEqual([{
       folderName: 'wksp', strandedPath: stranded, targetPath: target,
-      code: 'EEXIST', message: `${target} already exists`,
+      code: 'EEXIST', message: `${target} already exists`, attempted: true,
     }]);
     // Neither side was touched.
     expect(fs.existsSync(path.join(stranded, 'a.txt'))).toBe(true);
@@ -195,27 +256,39 @@ describe('recoverStrandedProbes', () => {
     fs.mkdirSync(stranded);
     jest.spyOn(fs, 'renameSync').mockImplementation(() => { throw Object.assign(new Error('denied'), { code: 'EPERM' }); });
     let result;
-    try { result = recoverStrandedProbes(taskDir, 'worktrees'); }
+    try { result = scanStrandedProbes(taskDir, 'worktrees', { recover: true }); }
     finally { jest.restoreAllMocks(); }
 
     expect(result.recovered).toEqual([]);
-    expect(result.failed).toEqual([{
+    expect(result.stranded).toEqual([{
       folderName: 'wksp', strandedPath: stranded,
       targetPath: path.join(taskDir, 'worktrees', 'wksp'),
-      code: 'EPERM', message: 'denied',
+      code: 'EPERM', message: 'denied', attempted: true,
     }]);
     expect(fs.existsSync(stranded)).toBe(true); // left exactly where it was
   });
 
   test('ignores directories that do not match the probe prefix', () => {
     fs.mkdirSync(path.join(taskDir, 'some-other-dir'));
-    const result = recoverStrandedProbes(taskDir, 'worktrees');
-    expect(result).toEqual({ recovered: [], failed: [] });
+    const result = scanStrandedProbes(taskDir, 'worktrees', { recover: true });
+    expect(result).toEqual({ recovered: [], stranded: [] });
     expect(fs.existsSync(path.join(taskDir, 'some-other-dir'))).toBe(true);
   });
 
   test('returns empty when taskDir does not exist', () => {
-    const result = recoverStrandedProbes(path.join(taskDir, 'missing'), 'worktrees');
-    expect(result).toEqual({ recovered: [], failed: [] });
+    const result = scanStrandedProbes(path.join(taskDir, 'missing'), 'worktrees', { recover: true });
+    expect(result).toEqual({ recovered: [], stranded: [] });
+  });
+
+  // MINOR 3: every read command funnels through discoverWorktrees → here, and none of
+  // them catch. An unreadable taskDir must not turn `wksp status` into a bare `Fatal:`.
+  test('swallows an unreadable taskDir instead of throwing at the read commands', () => {
+    jest.spyOn(fs, 'readdirSync').mockImplementation(() => {
+      throw Object.assign(new Error('permission denied'), { code: 'EACCES' });
+    });
+    let result;
+    try { result = scanStrandedProbes(taskDir, 'worktrees', { recover: true }); }
+    finally { jest.restoreAllMocks(); }
+    expect(result).toEqual({ recovered: [], stranded: [] });
   });
 });
