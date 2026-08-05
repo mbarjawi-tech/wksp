@@ -33,6 +33,10 @@ jest.mock('../../lib/config', () => {
     findProjectDir:    jest.fn(),
     readProjectConfig: jest.fn().mockReturnValue({ name: 'test-project' }),
     readGlobalConfig:  jest.fn().mockReturnValue({ autoResume: false }),
+    // Only the launch path reads this (provider resolution + autoResume), which the
+    // create/resume tests below exercise — pinned so the machine's own ~/.wksp can't
+    // pick a different provider than the mocked claude.
+    readConfig:        jest.fn().mockReturnValue({ autoResume: false }),
   };
 });
 
@@ -45,11 +49,13 @@ jest.mock('../../lib/teardown-guard', () => {
   return { ...actual, probeRemovable: jest.fn(actual.probeRemovable) };
 });
 
-const prompts = require('../../lib/prompts');
-const config  = require('../../lib/config');
-const forge   = require('../../lib/forge');
-const guard   = require('../../lib/teardown-guard');
-const taskCmd = require('../../lib/commands/task');
+const prompts  = require('../../lib/prompts');
+const config   = require('../../lib/config');
+const forge    = require('../../lib/forge');
+const guard    = require('../../lib/teardown-guard');
+const claude   = require('../../lib/providers/claude');
+const taskCmd  = require('../../lib/commands/task');
+const startCmd = require('../../lib/commands/start');
 
 // A degraded teardown sets process.exitCode so the shell sees a failure. Keep that out
 // of Jest's own exit code.
@@ -67,6 +73,7 @@ beforeEach(() => {
   forge.prMergeState.mockReturnValue({ state: 'unknown' });
   guard.probeRemovable.mockClear();
   guard.probeRemovable.mockImplementation(jest.requireActual('../../lib/teardown-guard').probeRemovable);
+  claude.launch.mockClear();
 });
 afterEach(() => {
   jest.restoreAllMocks();
@@ -81,6 +88,11 @@ const errored  = () => textOf(console.error);
 async function runTask(projectDir, ...args) {
   config.findProjectDir.mockReturnValue(projectDir);
   await taskCmd.run(args);
+}
+
+async function runStart(projectDir, ...args) {
+  config.findProjectDir.mockReturnValue(projectDir);
+  await startCmd.run(args);
 }
 
 // A task folder with one real worktree, built without going through the prompts.
@@ -574,7 +586,13 @@ describe('task repo <id> <repo> share|exclude refuse the same way teardown does'
     expect(fs.existsSync(path.join(taskDir, 'task.json'))).toBe(false);
     expect(fs.existsSync(wtPath)).toBe(true);
     expect(errored()).toContain('is corrupted');
-    expect(errored()).toContain(`wksp task delete TASK-EXCL-CORRUPT`);
+    // ALSO (d): "tear the task down" is a wildly disproportionate answer to "exclude one
+    // repo", and the people most likely to see this are the ones an interrupted teardown
+    // already hurt. Print the same concrete two steps reportSkippedSteps does instead.
+    expect(errored()).toContain('worktree prune');
+    expect(errored()).toContain(wtPath);
+    expect(errored()).toContain('wksp task repo TASK-EXCL-CORRUPT');
+    expect(errored()).not.toContain('wksp task delete TASK-EXCL-CORRUPT');
   });
 });
 
@@ -672,6 +690,56 @@ describe('a worktree probe stranded by a crashed run', () => {
     expect(fs.existsSync(strandedPath)).toBe(false);
     // `recovered` used to be destructured away and discarded, so no command ever said this.
     expect(warned()).toContain(`Put "${folderName}" back in TASK-STRANDED-REC`);
+  });
+
+  // REQUIRED 1 (round 3): making recovery opt-in turned the tool's PRIMARY command into a
+  // dead end. A stranded probe carries `corrupted: true`, and handleOpen's critical-error
+  // block keys off exactly that — so `wksp start` / `resume` printed
+  // `✗ Corrupted worktree: <name>` and `Fix the above, or run: wksp task delete <id>`,
+  // signposting a command that DESTROYS the task as the way out of a state wksp itself
+  // created. create/resume is not a read path: it creates worktrees and writes task.json
+  // and the .code-workspace, so putting back a folder wksp moved aside is part of "make
+  // this task ready to work in".
+  test('wksp start puts it back and launches, instead of blocking on a "corrupted" worktree', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED-OPEN', 'feature/stranded');
+    const folderName   = path.basename(wtPath);
+    const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
+    fs.renameSync(wtPath, strandedPath);
+
+    await runStart(projectDir, 'TASK-STRANDED-OPEN');
+
+    // Recovered, announced, and the session actually launched.
+    expect(fs.existsSync(wtPath)).toBe(true);
+    expect(fs.existsSync(strandedPath)).toBe(false);
+    expect(warned()).toContain(`Put "${folderName}" back in TASK-STRANDED-OPEN`);
+    expect(claude.launch).toHaveBeenCalled();
+    expect(errored()).not.toContain('Critical errors');
+    expect(errored()).not.toContain('cannot launch');
+  });
+
+  test('an unrecoverable one still blocks resume — naming the move, not a teardown', async () => {
+    const { taskDir, wtPath } = makeTask(projectDir, repoDir, 'TASK-STRANDED-OPEN2', 'feature/stranded2');
+    const folderName   = path.basename(wtPath);
+    const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
+    fs.renameSync(wtPath, strandedPath);
+
+    // Recovery target already occupied, so the rename back cannot land.
+    fs.mkdirSync(wtPath, { recursive: true });
+    fs.writeFileSync(path.join(wtPath, 'placeholder.txt'), 'x');
+
+    await expect(runTask(projectDir, 'resume', 'TASK-STRANDED-OPEN2')).rejects.toThrow('process.exit(1)');
+
+    const errs = errored();
+    // The exit is a five-second move, and the message says exactly which one.
+    expect(errs).toContain('Move it by hand');
+    expect(errs).toContain(strandedPath);
+    expect(errs).toContain(wtPath);
+    // Teardown is named as the alternative it is, never as THE remedy.
+    expect(errs).not.toContain(`Fix the above, or run: wksp task delete`);
+    expect(errs).toContain('would also clear it, but it discards the task');
+    // Nothing launched, and nothing moved.
+    expect(claude.launch).not.toHaveBeenCalled();
+    expect(fs.existsSync(strandedPath)).toBe(true);
   });
 
   test('when it cannot be recovered, teardown refuses instead of silently sweeping it up', async () => {

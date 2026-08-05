@@ -165,6 +165,35 @@ describe('probeRemovable', () => {
     expect(fs.existsSync(dir)).toBe(true);
   });
 
+  // The theoretical hole in that success case: `dir` existing again is not proof OUR folder
+  // is back if the probe path still holds it. Something else appearing at `dir` must not
+  // read as a clean bill of health for a worktree that is still sitting aside.
+  test('does not call it success when something else took the directory and ours is still aside', () => {
+    const dir = path.join(parent, 'wt');
+    fs.mkdirSync(dir);
+    fs.writeFileSync(path.join(dir, 'ours.txt'), 'x');
+    const realRename = fs.renameSync;
+    let calls = 0;
+    jest.spyOn(fs, 'renameSync').mockImplementation((from, to) => {
+      if (++calls === 1) {
+        realRename(from, to);
+        fs.mkdirSync(from);   // a DIFFERENT directory appears where ours used to be
+        return;
+      }
+      throw Object.assign(new Error('no such file'), { code: 'ENOENT' });
+    });
+    let result;
+    try { result = probeRemovable(dir, parent); }
+    finally { jest.restoreAllMocks(); }
+
+    expect(result.ok).toBe(false);
+    expect(result.stranded).toBe(path.join(parent, '.wksp-probe-wt'));
+    // Ours really is still aside — the trail is not lost.
+    expect(fs.existsSync(path.join(result.stranded, 'ours.txt'))).toBe(true);
+    fs.rmSync(dir, { recursive: true, force: true });
+    fs.renameSync(result.stranded, dir);
+  });
+
   test('still reports stranded on ENOENT when the directory really is gone', () => {
     const dir = path.join(parent, 'wt');
     fs.mkdirSync(dir);

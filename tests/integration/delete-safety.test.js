@@ -38,12 +38,13 @@ const config    = require('../../lib/config');
 const guard     = require('../../lib/teardown-guard');
 const deleteCmd = require('../../lib/commands/delete');
 
-let errorLines, logLines;
+let errorLines, logLines, warnLines;
 beforeEach(() => {
   errorLines = [];
   logLines = [];
+  warnLines = [];
   jest.spyOn(console, 'log').mockImplementation((...args) => logLines.push(args.join(' ')));
-  jest.spyOn(console, 'warn').mockImplementation(() => {});
+  jest.spyOn(console, 'warn').mockImplementation((...args) => warnLines.push(args.join(' ')));
   jest.spyOn(console, 'error').mockImplementation((...args) => errorLines.push(args.join(' ')));
   jest.spyOn(process, 'exit').mockImplementation(code => { throw new Error(`process.exit(${code})`); });
   prompts.ask.mockReset();
@@ -193,6 +194,50 @@ describe('wksp delete — teardown safety', () => {
     expect(fs.existsSync(projectDir)).toBe(true);
     expect(git.branchExistsLocally(repoDir, 'feature/del-stranded')).toBe(true);
     expect(errorLines.join('\n')).toContain('stranded');
+  });
+
+  // MINOR 3: the per-task discovery ran with `recover: true` during enumeration — i.e.
+  // BEFORE confirmTyped — so a user who mistyped the project name and cancelled had still
+  // had directories renamed under them, and had been told `⚠ Put "<repo>" back`, for a
+  // command that never ran.
+  test('cancelling at the confirm leaves a stranded probe exactly where it was', async () => {
+    const { taskDir, wtPath } = makeTaskWithWorktree(projectDir, repoDir, 'TASK-DEL-CANCEL', 'feature/del-stranded');
+    const folderName   = path.basename(wtPath);
+    const strandedPath = path.join(taskDir, `.wksp-probe-${folderName}`);
+    fs.renameSync(wtPath, strandedPath);
+
+    config.findProjectDir.mockReturnValue(projectDir);
+    prompts.confirmTyped.mockResolvedValueOnce(false); // mistyped the project name
+    await deleteCmd.run();
+
+    // A cancelled command mutates nothing — and says nothing about having moved anything.
+    expect(fs.existsSync(strandedPath)).toBe(true);
+    expect(fs.existsSync(wtPath)).toBe(false);
+    expect(fs.existsSync(projectDir)).toBe(true);
+    expect(warnLines.join('\n')).not.toContain(`Put "${folderName}" back`);
+    expect(logLines.join('\n')).toContain('Cancelled.');
+  });
+
+  // MINOR 3, second half: refuseTaskCwd fired inside the per-task loop, so a shell sitting
+  // in the LAST task blocked the run only after every earlier task had already been
+  // deleted — one blocker turned into a half-deleted project. It is a pre-loop now, the
+  // way lib/commands/repo.js checks every worktree before it removes any.
+  test('a cwd blocker in a later task refuses before any earlier task is deleted', async () => {
+    const a = makeTaskWithWorktree(projectDir, repoDir, 'TASK-DEL-A', 'feature/del-ok');
+    const b = makeTaskWithWorktree(projectDir, repoDir, 'TASK-DEL-B', 'feature/del-cwd');
+    jest.spyOn(process, 'cwd').mockReturnValue(b.taskDir);
+
+    await expect(runDelete(projectDir)).rejects.toThrow('process.exit(1)');
+
+    // The earlier task never even started being deleted.
+    expect(logLines.join('\n')).not.toContain('Deleting task: TASK-DEL-A');
+    expect(fs.existsSync(a.taskDir)).toBe(true);
+    expect(fs.existsSync(path.join(a.wtPath, '.git'))).toBe(true);
+    expect(fs.existsSync(b.taskDir)).toBe(true);
+    expect(fs.existsSync(projectDir)).toBe(true);
+    expect(errorLines.join('\n')).toContain('shell is inside');
+    // Nothing was renamed to test it, either.
+    expect(guard.probeRemovable).not.toHaveBeenCalled();
   });
 
   test('still deletes everything cleanly when nothing is locked or in the way', async () => {
