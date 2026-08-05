@@ -1,6 +1,6 @@
 'use strict';
 const path = require('path');
-const { toPosix, normalizePath } = require('../../lib/paths');
+const { toPosix, normalizePath, isInside, samePath } = require('../../lib/paths');
 
 describe('toPosix', () => {
   test('converts Windows backslash path to POSIX', () => {
@@ -53,5 +53,64 @@ describe('normalizePath', () => {
     const posix = toPosix(original);
     const back  = normalizePath(posix);
     expect(back).toBe(path.resolve(original));
+  });
+});
+
+describe('isInside', () => {
+  const root = path.resolve(path.join('project', 'tasks'));
+  const foo  = path.join(root, 'foo');
+
+  test('a directory is inside itself', () => {
+    expect(isInside(foo, foo)).toBe(true);
+  });
+
+  test('a nested path is inside', () => {
+    expect(isInside(path.join(foo, 'worktrees', 'wksp', 'lib'), foo)).toBe(true);
+  });
+
+  test('a sibling that shares the prefix is NOT inside', () => {
+    // The edge a startsWith() check gets wrong: tasks/foo-bar is not in tasks/foo,
+    // so tearing down "foo" must not be refused because a shell sits in "foo-bar".
+    expect(isInside(path.join(root, 'foo-bar'), foo)).toBe(false);
+    expect(isInside(path.join(root, 'foo-bar', 'worktrees', 'wksp'), foo)).toBe(false);
+    expect(isInside(path.join(root, 'foobar'), foo)).toBe(false);
+  });
+
+  test('a parent is not inside its child', () => {
+    expect(isInside(root, foo)).toBe(false);
+  });
+
+  test('a directory whose name starts with .. is still inside', () => {
+    // path.relative() returns "..foo" here — a leading ".." SEGMENT means outside,
+    // a leading ".." substring does not.
+    expect(isInside(path.join(foo, '..foo'), foo)).toBe(true);
+  });
+
+  test('casing is ignored on win32 and honoured elsewhere', () => {
+    if (process.platform === 'win32') {
+      expect(isInside('C:\\Project\\Tasks\\Foo\\wt', 'c:\\project\\tasks\\foo')).toBe(true);
+    } else {
+      expect(isInside('/project/tasks/Foo/wt', '/project/tasks/foo')).toBe(false);
+    }
+  });
+
+  test('a different drive is outside', () => {
+    if (process.platform !== 'win32') return;
+    expect(isInside('D:\\project\\tasks\\foo\\wt', 'C:\\project\\tasks\\foo')).toBe(false);
+  });
+});
+
+describe('samePath', () => {
+  test('true for the same directory written differently', () => {
+    expect(samePath(path.join('a', 'b'), path.join('a', 'c', '..', 'b'))).toBe(true);
+  });
+
+  test('false for a child', () => {
+    expect(samePath(path.resolve('a'), path.resolve('a', 'b'))).toBe(false);
+  });
+
+  test('case-insensitive on win32 only', () => {
+    if (process.platform === 'win32') expect(samePath('C:\\A\\B', 'c:\\a\\b')).toBe(true);
+    else                              expect(samePath('/A/B', '/a/b')).toBe(false);
   });
 });
