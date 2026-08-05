@@ -4,7 +4,7 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
-## [Unreleased] — 3.4.1
+## [3.4.1] — 2026-08-05
 
 ### Fixed
 
