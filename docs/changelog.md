@@ -4,6 +4,25 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 3.4.2
+
+### Fixed
+
+- **wksp no longer mistakes your home directory for a project — `wksp delete` could offer to delete `~`.** The global config is `~/.wksp` and a project marker is `<project>/.wksp`: **the same filename**. Project resolution walked up from the current directory testing only whether a file called `.wksp` existed, so from anywhere under your home directory with no real project in between, it stopped at the **home directory itself** and handed it back as "the project". Thirteen commands resolve a project that way, and the consequences ran from noisy to destructive:
+  - **`wksp delete`** printed `⚠ DESTRUCTIVE: Delete project "<your-username>"?` and would have recursively deleted your entire home directory. Only the type-the-project-name confirmation stood in the way — and the name it asked you to type was the basename of your home folder, which is not obviously wrong.
+  - **`wksp migrate`** would have "migrated" your home directory: scaffolding `PLANNING.md`, `WORKLOG.md`, `AGENTS.md`, `ORCHESTRATION.md` and `CLAUDE.md` into `~`, and — worse, because it is silent and lasting — stamping `schemaVersion` through `writeProjectConfig(~, …)`, which targets `~/.wksp`, i.e. **writing a project field straight into your global config**. Every command warned you to run it, too: the schema check in `bin/wksp.js` reads the "project" it just resolved, finds a global config with no `schemaVersion`, and nags `This project was created with an older version of wksp` from any directory under `~`.
+  - **`wksp init`** pointed at the home directory would have replaced the global config with a project marker, silently discarding `reposRoot`, `aiProvider` and every other global setting.
+  - `task create`, `import` and `repo add` would have created `~/tasks/…` and `~/repos.txt`; project-scoped `wksp config set` wrote project keys into the global file; and the read commands (`status`, `list`, `providers`) merely reported nonsense.
+
+  Three independent fixes, because each one alone leaves a hole:
+  - **The global config is never a project marker.** Resolution now skips a candidate whose marker path *is* the global config path and keeps walking up, rather than returning it. The comparison is exact-path and platform-correct (case-insensitive on Windows, via the same `path.relative` helper the teardown guards use) — deliberately **not** "anything under the home directory", because keeping projects in `~/projects/foo` is a normal setup that must go on resolving exactly as before.
+  - **A marker has to look like a project, not just exist.** A stray or foreign `.wksp` anywhere else no longer hijacks resolution either: the file must parse as a JSON object carrying a non-empty `name`. `name` is the most lenient key that still tells the two files apart — wksp's **first** release wrote `{ name }` and nothing else, with `schemaVersion` only arriving later, so requiring both keys would have made wksp stop recognising the oldest projects, which is worse than the bug. Requiring nothing would accept an empty `{}` global config (reachable by clearing the last global key), and accepting `schemaVersion` on its own would accept a global config **this very bug already corrupted**, since `migrate` writes `schemaVersion` but never `name`. A `.wksp` that isn't readable or isn't JSON is treated as "not a project" instead of throwing, and resolution continues **upward** past any rejected candidate, so a real project is still found above a stray marker.
+  - **The destructive and creative entry points refuse outright.** Independently of how the path was resolved, `wksp delete`, `wksp migrate` and `wksp init` now refuse the home directory and any filesystem root, saying which one it is and why — one shared rule, so the three cannot drift apart. `delete` refuses before it enumerates anything or asks for a confirmation, and it refuses even if a perfectly project-shaped `.wksp` is sitting there, because this is a rule about *location*, not content. `init` checks before its "already exists" test, so the message names the real problem (the home directory always exists) instead of shrugging. `wksp import`'s hand-typed "path to existing project" prompt asks the same shape question as resolution now, rather than accepting any directory that merely contains a `.wksp`.
+
+  With resolution fixed, a project command run from a random directory under `~` now correctly reports `not inside a wksp project` and exits 1. No schema bump: the marker format is unchanged, and the validation only reads a key wksp has written since its first release.
+
+---
+
 ## [3.4.1] — 2026-08-05
 
 ### Fixed

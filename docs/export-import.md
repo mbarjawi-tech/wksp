@@ -294,7 +294,7 @@ Otherwise prompt:
   Path to existing project:
 ```
 
-Error if the path has no `.wksp` marker.
+Error if the path has no `.wksp` **project** marker. A `.wksp` that is really the global config — i.e. your home directory — does not count: both files share the name, so the check is on content (a project marker carries `name`), not mere existence.
 
 #### Step 2b — Task conflict check
 

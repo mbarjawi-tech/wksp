@@ -19,6 +19,8 @@ Create a new project. Scaffolds `.wksp`, `repos.txt`, `tasks/`, and the planning
 wksp init acme
 ```
 
+Refused at your home directory and at a filesystem root. The project marker and the global config are both called `.wksp`, so a project *at* your home directory would overwrite `~/.wksp` and lose every global setting. A project **inside** your home directory (`~/projects/acme`) is fine and is resolved normally.
+
 ---
 
 ### `wksp start [task-id]`
@@ -224,6 +226,8 @@ With no arguments, scans every repo registered in the current project's `repos.t
 ### `wksp delete`
 
 Destroy the entire project: tear down all worktrees for all tasks, then delete the project folder. Prompts for confirmation by typing the project name.
+
+Refused outright — before it enumerates anything, and whatever a `.wksp` sitting there claims — if the resolved project is your home directory or a filesystem root. Same rule as `wksp init` and `wksp migrate`.
 
 ---
 

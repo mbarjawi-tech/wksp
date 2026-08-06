@@ -6,6 +6,7 @@
 // probe stranded by a crashed run must all be caught before either of those, not
 // after.
 const fs   = require('fs');
+const os   = require('os');
 const path = require('path');
 const { makeTempDir, makeGitRepo, makeProject, cleanup } = require('../helpers');
 const { addRepo } = require('../../lib/repos');
@@ -240,6 +241,21 @@ describe('wksp delete — teardown safety', () => {
     expect(guard.probeRemovable).not.toHaveBeenCalled();
   });
 
+  test('still deletes everything cleanly when a project resolves normally under a home directory', async () => {
+    // The mirror of the two refusals below: the guard keys off the project dir being the
+    // home directory EXACTLY, so a project sitting inside it deletes as it always did.
+    jest.spyOn(os, 'homedir').mockReturnValue(path.dirname(projectDir));
+    const { wtPath } = makeTaskWithWorktree(projectDir, repoDir, 'TASK-DEL-UNDER-HOME', 'feature/del-ok');
+    jest.spyOn(process, 'cwd').mockReturnValue(makeTempDir('delete-safety-elsewhere'));
+    jest.spyOn(process, 'chdir').mockImplementation(() => {});
+
+    await runDelete(projectDir);
+
+    expect(fs.existsSync(wtPath)).toBe(false);
+    expect(fs.existsSync(projectDir)).toBe(false);
+    expect(errorLines).toEqual([]);
+  });
+
   test('still deletes everything cleanly when nothing is locked or in the way', async () => {
     const { wtPath } = makeTaskWithWorktree(projectDir, repoDir, 'TASK-DEL-OK', 'feature/del-ok');
     jest.spyOn(process, 'cwd').mockReturnValue(makeTempDir('delete-safety-elsewhere'));
@@ -253,5 +269,65 @@ describe('wksp delete — teardown safety', () => {
     expect(fs.existsSync(wtPath)).toBe(false);
     expect(fs.existsSync(projectDir)).toBe(false);
     expect(errorLines).toEqual([]);
+  });
+});
+
+// The project marker (`<project>/.wksp`) and the global config (`~/.wksp`) share a
+// filename, so from anywhere under the home directory with no real project in between,
+// project resolution used to return the HOME DIRECTORY — and `wksp delete` duly offered
+// to delete it. Only the typed-name confirmation stood in the way.
+//
+// Resolution is fixed in lib/config.js, but this guard is deliberately independent of it:
+// `delete` is the one command whose mistake is unrecoverable, so it refuses these paths
+// outright, whatever a `.wksp` sitting there claims.
+describe('wksp delete — refuses the home directory and filesystem roots outright', () => {
+  test('refuses at the home directory, before asking for anything', async () => {
+    const fakeHome = makeTempDir('delete-fake-home');
+    try {
+      // A global config, which is exactly the file that made ~ look like a project.
+      fs.writeFileSync(path.join(fakeHome, '.wksp'), JSON.stringify({ reposRoot: '/c/dev' }) + '\n');
+      jest.spyOn(os, 'homedir').mockReturnValue(fakeHome);
+      config.findProjectDir.mockReturnValue(fakeHome);
+
+      await expect(deleteCmd.run()).rejects.toThrow('process.exit(1)');
+
+      expect(fs.existsSync(fakeHome)).toBe(true);
+      expect(fs.existsSync(path.join(fakeHome, '.wksp'))).toBe(true);
+      const errs = errorLines.join('\n');
+      expect(errs).toContain('Refusing to delete');
+      expect(errs).toContain('home directory');
+      // Never even got as far as asking — no chance of a typo confirming it.
+      expect(prompts.confirmTyped).not.toHaveBeenCalled();
+    } finally {
+      cleanup(fakeHome);
+    }
+  });
+
+  test('refuses at a filesystem root', async () => {
+    const root = path.parse(process.cwd()).root;
+    config.findProjectDir.mockReturnValue(root);
+
+    await expect(deleteCmd.run()).rejects.toThrow('process.exit(1)');
+
+    expect(errorLines.join('\n')).toContain('filesystem root');
+    expect(prompts.confirmTyped).not.toHaveBeenCalled();
+  });
+
+  test('refuses even when a fully project-shaped .wksp sits at the home directory', async () => {
+    // Someone (or a previous buggy `wksp init`) left a legitimate-looking marker there.
+    // The guard does not care: it is a location rule, not a content rule.
+    const fakeHome = makeTempDir('delete-fake-home-marked');
+    try {
+      fs.writeFileSync(path.join(fakeHome, '.wksp'), JSON.stringify({ name: 'home', schemaVersion: 7 }) + '\n');
+      jest.spyOn(os, 'homedir').mockReturnValue(fakeHome);
+      config.findProjectDir.mockReturnValue(fakeHome);
+
+      await expect(deleteCmd.run()).rejects.toThrow('process.exit(1)');
+
+      expect(fs.existsSync(fakeHome)).toBe(true);
+      expect(errorLines.join('\n')).toContain('Refusing to delete');
+    } finally {
+      cleanup(fakeHome);
+    }
   });
 });
