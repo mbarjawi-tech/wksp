@@ -19,6 +19,8 @@ Create a new project. Scaffolds `.wksp`, `repos.txt`, `tasks/`, and the planning
 wksp init acme
 ```
 
+Refused at your home directory and at a filesystem root. The project marker and the global config are both called `.wksp`, so a project *at* your home directory would overwrite `~/.wksp` and lose every global setting. A project **inside** your home directory (`~/projects/acme`) is fine and is resolved normally.
+
 ---
 
 ### `wksp start [task-id]`
@@ -225,6 +227,8 @@ With no arguments, scans every repo registered in the current project's `repos.t
 
 Destroy the entire project: tear down all worktrees for all tasks, then delete the project folder. Prompts for confirmation by typing the project name.
 
+Refused outright — before it enumerates anything, and whatever a `.wksp` sitting there claims — if the resolved project is your home directory or a filesystem root. Same rule as `wksp init` and `wksp migrate`.
+
 ---
 
 ### `wksp export <task-id>`
@@ -275,6 +279,8 @@ wksp migrate --dry-run # preview changes without writing anything
 | `--dry-run` | Show what would be changed without writing to disk. |
 | `--repair` | Re-apply every step even when the project is already stamped current. Use when a project or task is missing an artifact it should have (common for tasks created by an older wksp or brought in via `wksp import`). Every step is idempotent — it fills in what's missing and never duplicates. |
 
+Refused if the resolved project is your home directory or a filesystem root — same rule as `wksp init` and `wksp delete`, and the refusal says how to unstick it. `migrate` is the command that would *corrupt* rather than merely misreport: it scaffolds `PLANNING.md`, `WORKLOG.md`, `AGENTS.md` and `ORCHESTRATION.md` into the project folder and stamps `schemaVersion` into its `.wksp` — which at your home directory means writing a project field straight into the global config.
+
 See the [Migration Guide](/migration) for a full history of what each migration does.
 
 ---
@@ -299,6 +305,8 @@ wksp config get reposRoot                  # single key, effective value
 ```
 
 Project-level values override global ones. If you run `set` without `--global` outside a project directory, wksp saves to the global config automatically. `clear` removes the key entirely — if a global value exists, it becomes effective again.
+
+One exception: `name`. It is not an ordinary setting but the project marker's identity — a `.wksp` is only recognised as a project while it carries a non-empty string `name`, which is what tells it apart from the global config of the same filename. So in project scope `wksp config clear name` is refused, and `wksp config set name` requires a non-empty string (values go through `JSON.parse`, so `42` and `""` are rejected too). Renaming a project with `wksp config set name <new-name>` works as always. Outside a project, `set name` refuses rather than falling back to the global config, since a `name` in `~/.wksp` would make the global config itself look like a project marker — and `wksp config clear name --global` is the repair if one ever gets there.
 
 | Key | Description |
 |---|---|

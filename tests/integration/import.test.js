@@ -325,6 +325,80 @@ describe('import — Mode 2, existing project', () => {
   });
 });
 
+// ─── The .wksp / ~/.wksp filename collision ──────────────────────────────────
+
+// A project marker and the global config are both called `.wksp`. Mode 1 writes a project
+// marker, so it must refuse the home directory for the same reason `wksp init` does; Mode
+// 2 accepts a hand-typed path, and "a .wksp is present" was never proof of a project.
+describe('import — never treats the home directory as a project', () => {
+  let bundleDir, fakeHome, errs;
+  beforeEach(() => {
+    bundleDir = makeTempDir('imp-collide-bundle');
+    fakeHome  = makeTempDir('imp-fake-home');
+    fs.writeFileSync(path.join(fakeHome, '.wksp'), JSON.stringify({ reposRoot: '/c/dev' }) + '\n');
+    jest.spyOn(os, 'homedir').mockReturnValue(fakeHome);
+    errs = [];
+    console.error.mockImplementation((...a) => errs.push(a.join(' ')));
+  });
+  afterEach(() => cleanup(bundleDir, fakeHome));
+
+  function writeMinimalBundle() {
+    const bundlePath = path.join(bundleDir, 'test.wksp-bundle');
+    writeBundle(bundlePath, makeBundle({ projectName: 'collide', taskId: 'TASK-C' }));
+    return bundlePath;
+  }
+
+  test('Mode 1 refuses to create a project AT the home directory', async () => {
+    const bundlePath = writeMinimalBundle();
+    prompts.ask
+      .mockResolvedValueOnce('1')                  // mode: new project
+      .mockResolvedValueOnce('.')                  // project name → resolves to the parent itself
+      .mockResolvedValueOnce(fakeHome);            // create in: the home directory
+    prompts.confirm.mockResolvedValue(true);
+
+    await expect(importCmd.run([bundlePath])).rejects.toThrow('process.exit(1)');
+
+    // The global config survived — a project marker would have replaced it.
+    expect(JSON.parse(fs.readFileSync(path.join(fakeHome, '.wksp'), 'utf8'))).toEqual({ reposRoot: '/c/dev' });
+    expect(fs.existsSync(path.join(fakeHome, 'tasks'))).toBe(false);
+    expect(errs.join('\n')).toContain('refusing to create a project');
+  });
+
+  test('Mode 2 rejects a hand-typed path whose .wksp is really the global config', async () => {
+    const bundlePath = writeMinimalBundle();
+    config.findProjectDir.mockReturnValue(null);   // not standing in a project
+    prompts.ask
+      .mockResolvedValueOnce('2')                  // mode: existing project
+      .mockResolvedValueOnce(fakeHome);            // path to existing project
+    prompts.confirm.mockResolvedValue(true);
+
+    await expect(importCmd.run([bundlePath])).rejects.toThrow('process.exit(1)');
+
+    expect(fs.existsSync(path.join(fakeHome, 'tasks'))).toBe(false);
+    expect(errs.join('\n')).toContain('is not a wksp project');
+  });
+
+  test('Mode 2 still accepts a real project that lives inside the home directory', async () => {
+    const projectDir = path.join(fakeHome, 'projects', 'inside');
+    fs.mkdirSync(path.join(projectDir, 'tasks'), { recursive: true });
+    fs.writeFileSync(path.join(projectDir, '.wksp'), JSON.stringify({ name: 'inside', schemaVersion: 2 }) + '\n');
+    fs.writeFileSync(path.join(projectDir, 'repos.txt'), '\n');
+
+    const bundlePath = writeMinimalBundle();
+    config.findProjectDir.mockReturnValue(null);
+    config.readProjectConfig.mockReturnValue({ name: 'inside', schemaVersion: 2 });
+    prompts.ask
+      .mockResolvedValueOnce('2')
+      .mockResolvedValueOnce(projectDir);
+    prompts.confirm.mockResolvedValue(true);
+
+    await importCmd.run([bundlePath]);
+
+    expect(fs.existsSync(path.join(projectDir, 'tasks', 'TASK-C'))).toBe(true);
+    expect(errs.join('\n')).not.toContain('is not a wksp project');
+  });
+});
+
 // ─── Mode 2 — task already exists → error ────────────────────────────────────
 
 describe('import — Mode 2, task already exists', () => {

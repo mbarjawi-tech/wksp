@@ -1273,3 +1273,47 @@ describe('not inside a project', () => {
     await expect(migrateCmd.run([])).rejects.toThrow('process.exit(1)');
   });
 });
+
+// `migrate` is the command the marker/global-config filename collision corrupted rather
+// than merely confused: pointed at the home directory it scaffolds PLANNING.md and friends
+// into ~, and stamps `schemaVersion` through writeProjectConfig — which for ~ writes a
+// project field straight into the global config, since both files are `.wksp`.
+describe('refuses the home directory and filesystem roots', () => {
+  let errs;
+  beforeEach(() => {
+    errs = [];
+    console.error.mockImplementation((...a) => errs.push(a.join(' ')));
+  });
+
+  test('refuses at the home directory, leaving the global config untouched', async () => {
+    const fakeHome = makeTempDir('mig-fake-home');
+    try {
+      fs.writeFileSync(path.join(fakeHome, '.wksp'), JSON.stringify({ reposRoot: '/c/dev' }) + '\n');
+      jest.spyOn(os, 'homedir').mockReturnValue(fakeHome);
+
+      await expect(runMigrate(fakeHome)).rejects.toThrow('process.exit(1)');
+
+      // No project fields written into the global config, and no scaffolding dropped in ~.
+      expect(JSON.parse(fs.readFileSync(path.join(fakeHome, '.wksp'), 'utf8'))).toEqual({ reposRoot: '/c/dev' });
+      expect(fs.existsSync(path.join(fakeHome, 'PLANNING.md'))).toBe(false);
+      expect(fs.existsSync(path.join(fakeHome, 'ORCHESTRATION.md'))).toBe(false);
+      expect(fs.existsSync(path.join(fakeHome, 'AGENTS.md'))).toBe(false);
+      expect(errs.join('\n')).toContain('refusing to migrate');
+    } finally {
+      cleanup(fakeHome);
+    }
+  });
+
+  // There is deliberately NO test that points `runMigrate` at a real filesystem root.
+  // `migrate` writes: with the guard removed it walks straight into `applyMigrations`, which
+  // scaffolds `.wksp`, `AGENTS.md`, `CLAUDE.md`, `ORCHESTRATION.md`, `PLANNING.md` and
+  // `WORKLOG.md` into whatever directory it was handed — and stamps a `schemaVersion` into
+  // that `.wksp`. On Windows that test only ever passed because ACLs block a non-admin write
+  // to `C:\`; in a CI container running as root the same regression would drop six files
+  // into `/`. A test whose safety rests on the very guard it is testing is not a test.
+  //
+  // The root half of the rule is covered where it is free of side effects: the reason string
+  // itself in tests/unit/paths.test.js (`unsafeProjectDirReason(root)`), and the wiring —
+  // that `migrate` consults that one shared rule and refuses on any reason it returns — by
+  // the home-directory case above, which uses a temp fake home.
+});

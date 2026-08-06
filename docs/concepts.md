@@ -22,7 +22,7 @@ git enforces one rule: the same branch cannot be checked out in two worktrees at
 
 ## Key vocabulary
 
-**Project** — a named group of repos, tracked in a folder with a `.wksp` marker. Corresponds to a product or team area (e.g. `acme`). Holds all your tasks.
+**Project** — a named group of repos, tracked in a folder with a `.wksp` marker carrying the project's `name`. Corresponds to a product or team area (e.g. `acme`). Holds all your tasks. Commands find it by walking up from your current directory; your home directory is never a project, because the global config living there is called `.wksp` too.
 
 **Repo** — a git repository registered in the project's `repos.txt`. Can be local or cloned from GitHub. Marked `--shared` if you only ever read from it, `--optional` if only some tasks need it.
 

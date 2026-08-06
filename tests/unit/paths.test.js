@@ -1,6 +1,10 @@
 'use strict';
 const path = require('path');
-const { toPosix, normalizePath, isInside, samePath } = require('../../lib/paths');
+const os   = require('os');
+const { toPosix, normalizePath, isInside, samePath,
+        isFilesystemRoot, unsafeProjectDirReason } = require('../../lib/paths');
+
+afterEach(() => jest.restoreAllMocks());
 
 describe('toPosix', () => {
   test('converts Windows backslash path to POSIX', () => {
@@ -112,5 +116,48 @@ describe('samePath', () => {
   test('case-insensitive on win32 only', () => {
     if (process.platform === 'win32') expect(samePath('C:\\A\\B', 'c:\\a\\b')).toBe(true);
     else                              expect(samePath('/A/B', '/a/b')).toBe(false);
+  });
+});
+
+describe('isFilesystemRoot', () => {
+  const root = path.parse(process.cwd()).root;
+
+  test('true for the root of the current drive', () => {
+    expect(isFilesystemRoot(root)).toBe(true);
+  });
+
+  test('false for an ordinary directory', () => {
+    expect(isFilesystemRoot(process.cwd())).toBe(false);
+    expect(isFilesystemRoot(path.join(root, 'anything'))).toBe(false);
+  });
+
+  test('true for a posix root', () => {
+    if (process.platform === 'win32') return;
+    expect(isFilesystemRoot('/')).toBe(true);
+  });
+});
+
+// The shared policy behind the init / delete / migrate guards. Kept in one place so the
+// three cannot drift: the home directory holds the global config under the very same
+// `.wksp` filename a project marker uses.
+describe('unsafeProjectDirReason', () => {
+  test('names the home directory', () => {
+    const fakeHome = path.join(path.parse(process.cwd()).root, 'Users', 'someone');
+    jest.spyOn(os, 'homedir').mockReturnValue(fakeHome);
+    expect(unsafeProjectDirReason(fakeHome)).toMatch(/home directory/);
+  });
+
+  test('names a filesystem root', () => {
+    expect(unsafeProjectDirReason(path.parse(process.cwd()).root)).toMatch(/filesystem root/);
+  });
+
+  test('null for a project inside the home directory — that is a normal setup', () => {
+    const fakeHome = path.join(path.parse(process.cwd()).root, 'Users', 'someone');
+    jest.spyOn(os, 'homedir').mockReturnValue(fakeHome);
+    expect(unsafeProjectDirReason(path.join(fakeHome, 'projects', 'foo'))).toBeNull();
+  });
+
+  test('null for an ordinary directory', () => {
+    expect(unsafeProjectDirReason(process.cwd())).toBeNull();
   });
 });
