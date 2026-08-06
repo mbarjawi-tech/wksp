@@ -87,9 +87,19 @@ describe('findProjectDir', () => {
     // This used to be unassertable: the walk ran all the way up through the home
     // directory, whose global config is ALSO called `.wksp`, and came back with the home
     // directory as "the project".
-    const isolated = makeTempDir('wksp-no-marker');
+    //
+    // The isolated directory goes under `tempHome`, not `os.tmpdir()`: on Windows the OS
+    // temp directory is itself inside the real home, so a sibling of tempHome makes the
+    // nearest `.wksp` above the isolated directory an arbitrary one on the developer's
+    // machine instead of the fake global config this suite controls.
+    const isolated = path.join(tempHome, 'wksp-no-marker');
+    fs.mkdirSync(isolated, { recursive: true });
     try {
-      expect(config.findProjectDir(isolated)).toBeNull();
+      const result = config.findProjectDir(isolated);
+      // Not the directory itself, and — the bug — not the home directory above it.
+      expect(result).not.toBe(path.resolve(isolated));
+      expect(result).not.toBe(path.resolve(tempHome));
+      expect(result).toBeNull();
     } finally {
       cleanup(isolated);
     }
@@ -113,7 +123,7 @@ describe('findProjectDir vs. the global config (~/.wksp)', () => {
     config.writeGlobalConfig({ reposRoot: 'c:/repos/work' });
   });
   afterEach(() => {
-    for (const d of ['Documents', 'projects', 'legacy', 'broken', 'outer', 'empty-marker'])
+    for (const d of ['Documents', 'projects', 'legacy', 'broken', 'outer', 'empty-marker', 'bom'])
       cleanup(under(d));
   });
 
@@ -177,10 +187,74 @@ describe('findProjectDir vs. the global config (~/.wksp)', () => {
     expect(config.findProjectDir(dir)).toBeNull();
   });
 
+  test('a marker written with a UTF-8 BOM still resolves', () => {
+    // Not a hypothetical on Windows: PowerShell's `>` and `Out-File` prepend a BOM by
+    // default, so any hand-edit of `.wksp` can add one. `JSON.parse` throws on it, and now
+    // that resolution depends on parsing the marker, that throw meant the project silently
+    // ceased to exist — the same failure as a missing `name`, with no visible cause.
+    const dir = mkMarker(under('bom'), '\uFEFF' + JSON.stringify({ name: 'bom', schemaVersion: 7 }) + '\n');
+    expect(config.isProjectMarker(path.join(dir, '.wksp'))).toBe(true);
+    expect(config.findProjectDir(dir)).toBe(path.resolve(dir));
+    // readProjectConfig has to survive it too, or every consumer reads `{}` from a project
+    // that resolves fine.
+    expect(config.readProjectConfig(dir)).toEqual({ name: 'bom', schemaVersion: 7 });
+  });
+
   test('a stray global-shaped .wksp does not shadow the real project above it', () => {
     const projectDir = mkMarker(under('outer'), { name: 'outer', schemaVersion: 7 });
     const stray      = mkMarker(path.join(projectDir, 'vendor'), { reposRoot: '/c/dev' });
     expect(config.findProjectDir(stray)).toBe(path.resolve(projectDir));
+  });
+});
+
+// Every rejection in resolution is silent, which makes "there is a .wksp here but it is not
+// a project marker" look exactly like "there is no .wksp anywhere" — and those need opposite
+// responses. noProjectHint is the one extra line that tells them apart.
+describe('noProjectHint', () => {
+  const under = (...parts) => path.join(tempHome, ...parts);
+  let dirs;
+  beforeEach(() => {
+    dirs = [];
+    config.writeGlobalConfig({ reposRoot: 'c:/repos/work' });
+  });
+  afterEach(() => dirs.forEach(cleanup));
+
+  function mkMarker(name, content) {
+    const dir = under(name);
+    fs.mkdirSync(dir, { recursive: true });
+    fs.writeFileSync(path.join(dir, '.wksp'), typeof content === 'string' ? content : JSON.stringify(content) + '\n');
+    dirs.push(dir);
+    return dir;
+  }
+
+  test('names the directory of a marker rejected for its shape', () => {
+    const dir = mkMarker('hint-no-name', { schemaVersion: 7 });
+    const hint = config.noProjectHint(dir);
+    expect(hint).toContain(path.resolve(dir));
+    expect(hint).toContain('not a project marker');
+    expect(hint).toContain('name');
+  });
+
+  test('names a marker that is not JSON at all', () => {
+    const dir = mkMarker('hint-garbage', 'not json {');
+    expect(config.noProjectHint(dir)).toContain(path.resolve(dir));
+  });
+
+  test('never names the global config — that rejection is normal, not a diagnosis', () => {
+    // ~/.wksp is skipped on every single run from anywhere under the home directory. Naming
+    // it would put a line about a non-problem in front of every "not inside a wksp project".
+    // (`|| ''` because on a machine with no `.wksp` above the temp home the walk finds
+    // nothing at all and correctly returns null.)
+    expect(config.noProjectHint(tempHome) || '').not.toContain(path.resolve(tempHome));
+    const sub = under('hint-quiet', 'deep');
+    fs.mkdirSync(sub, { recursive: true });
+    dirs.push(under('hint-quiet'));
+    expect(config.noProjectHint(sub) || '').not.toContain(path.resolve(tempHome));
+  });
+
+  test('says nothing when the project resolves normally', () => {
+    const dir = mkMarker('hint-fine', { name: 'fine', schemaVersion: 7 });
+    expect(config.noProjectHint(dir)).toBeNull();
   });
 });
 

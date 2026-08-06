@@ -197,6 +197,8 @@ wksp import acme--PROJ-1234.wksp-bundle
 
 Validate that `<parent>/<name>/` does not already exist. Error if it does (don't overwrite).
 
+Refused, before that existence check, if the resulting path is your home directory or a filesystem root — the same rule `wksp init` applies, since this branch writes a project marker the same way and `.wksp` at your home directory would overwrite the global config. The check comes first so the message names the real problem: your home directory always exists, and "already exists" would say nothing about the damage.
+
 #### Step 2b — Repo resolution
 
 For each repo in the bundle, in order, wksp resolves where the repo lives on this machine.

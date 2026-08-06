@@ -1304,8 +1304,16 @@ describe('refuses the home directory and filesystem roots', () => {
     }
   });
 
-  test('refuses at a filesystem root', async () => {
-    await expect(runMigrate(path.parse(process.cwd()).root)).rejects.toThrow('process.exit(1)');
-    expect(errs.join('\n')).toContain('filesystem root');
-  });
+  // There is deliberately NO test that points `runMigrate` at a real filesystem root.
+  // `migrate` writes: with the guard removed it walks straight into `applyMigrations`, which
+  // scaffolds `.wksp`, `AGENTS.md`, `CLAUDE.md`, `ORCHESTRATION.md`, `PLANNING.md` and
+  // `WORKLOG.md` into whatever directory it was handed — and stamps a `schemaVersion` into
+  // that `.wksp`. On Windows that test only ever passed because ACLs block a non-admin write
+  // to `C:\`; in a CI container running as root the same regression would drop six files
+  // into `/`. A test whose safety rests on the very guard it is testing is not a test.
+  //
+  // The root half of the rule is covered where it is free of side effects: the reason string
+  // itself in tests/unit/paths.test.js (`unsafeProjectDirReason(root)`), and the wiring —
+  // that `migrate` consults that one shared rule and refuses on any reason it returns — by
+  // the home-directory case above, which uses a temp fake home.
 });

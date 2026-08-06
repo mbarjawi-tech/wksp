@@ -118,6 +118,71 @@ describe('config set — outside a project (global fallback)', () => {
   });
 });
 
+// `name` became load-bearing when resolution started validating the marker's shape: a
+// project marker is a `.wksp` carrying a non-empty string `name`. `wksp config` could
+// destroy exactly that, and the destruction was unrecoverable from the CLI — the project
+// stopped resolving, so `wksp migrate --repair` could not reach it either, and the obvious
+// repair (`wksp config set name <x>` from outside a project) wrote `name` into the GLOBAL
+// config, making that file project-shaped in turn.
+describe('config set/clear name — the project marker\'s identity', () => {
+  let projectDir;
+  beforeEach(() => {
+    projectDir = makeTempDir('wksp-cfg-name');
+    config.writeProjectConfig(projectDir, { name: 'keep-me', schemaVersion: 7 });
+    jest.spyOn(config, 'findProjectDir').mockReturnValue(projectDir);
+  });
+  afterEach(() => { jest.restoreAllMocks(); cleanup(projectDir); });
+
+  test('clear name is refused, leaving the marker intact', async () => {
+    await expect(configCmd.run(['clear', 'name'])).rejects.toThrow('process.exit(1)');
+    expect(config.readProjectConfig(projectDir).name).toBe('keep-me');
+  });
+
+  test('set name to an empty string is refused', async () => {
+    await expect(configCmd.run(['set', 'name', ''])).rejects.toThrow('process.exit(1)');
+    expect(config.readProjectConfig(projectDir).name).toBe('keep-me');
+  });
+
+  test('set name to a JSON-coerced number is refused', async () => {
+    // `config set` runs the value through JSON.parse, so `42` arrives as the number 42 and
+    // `false` as a boolean — both fail the marker's non-empty-string test just as hard as a
+    // missing `name`.
+    await expect(configCmd.run(['set', 'name', '42'])).rejects.toThrow('process.exit(1)');
+    await expect(configCmd.run(['set', 'name', 'false'])).rejects.toThrow('process.exit(1)');
+    expect(config.readProjectConfig(projectDir).name).toBe('keep-me');
+  });
+
+  test('renaming the project is still allowed', async () => {
+    await configCmd.run(['set', 'name', 'renamed']);
+    expect(config.readProjectConfig(projectDir).name).toBe('renamed');
+  });
+
+  test('--global scope is untouched — clearing a global name is the repair for one', async () => {
+    config.writeGlobalConfig({ reposRoot: '/c/dev', name: 'oops' });
+    await configCmd.run(['clear', 'name', '--global']);
+    expect(config.readGlobalConfig().name).toBeUndefined();
+    expect(config.readGlobalConfig().reposRoot).toBe('/c/dev');
+  });
+});
+
+describe('config set name — outside a project', () => {
+  beforeEach(() => {
+    jest.spyOn(config, 'findProjectDir').mockReturnValue(null);
+    config.writeGlobalConfig({ reposRoot: '/c/dev' });
+  });
+  afterEach(() => jest.restoreAllMocks());
+
+  test('refuses rather than silently saving name to the global config', async () => {
+    await expect(configCmd.run(['set', 'name', 'acme'])).rejects.toThrow('process.exit(1)');
+    expect(config.readGlobalConfig().name).toBeUndefined();
+  });
+
+  test('other keys still fall back to global as before', async () => {
+    await configCmd.run(['set', 'autoResume', 'false']);
+    expect(config.readGlobalConfig().autoResume).toBe(false);
+  });
+});
+
 describe('config set — validation', () => {
   beforeEach(() => jest.spyOn(config, 'findProjectDir').mockReturnValue(null));
   afterEach(() => jest.restoreAllMocks());

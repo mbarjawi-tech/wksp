@@ -303,6 +303,15 @@ describe('wksp delete — refuses the home directory and filesystem roots outrig
     }
   });
 
+  // ⚠ This test hands `delete` a REAL filesystem root, and is safe only because of two
+  // things that must both stay true:
+  //   1. the guard under test refuses before anything is enumerated or deleted; and
+  //   2. it calls `deleteCmd.run()` directly rather than the `runDelete` helper, so
+  //      `prompts.confirmTyped` is the bare `jest.fn()` from the beforeEach `mockReset()` —
+  //      it resolves `undefined`, and a falsy confirmation aborts.
+  // Layer 2 is the backstop for a regression in layer 1. Do NOT give `confirmTyped` a
+  // suite-wide `mockResolvedValue(true)`, and do not route this test through `runDelete`
+  // (which primes `true`): either change turns a guard regression here into `rm -rf /`.
   test('refuses at a filesystem root', async () => {
     const root = path.parse(process.cwd()).root;
     config.findProjectDir.mockReturnValue(root);
