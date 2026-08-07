@@ -26,7 +26,9 @@
 
 /* ── Base overrides ── */
 .reveal { font-family: -apple-system, BlinkMacSystemFont, 'Segoe UI', Roboto, sans-serif; }
-.reveal .slides section { padding: 16px 44px; }
+/* box-sizing matters: reveal scales to the configured 1200x700, so padding that
+   ADDS to the width pushes ~88px of every slide off the right edge. */
+.reveal .slides section { padding: 16px 44px; box-sizing: border-box; }
 .reveal h1, .reveal h2, .reveal h3 { text-transform: none; letter-spacing: -0.02em; font-weight: 700; }
 .reveal h2 { font-size: 1.75rem; margin-bottom: .7rem; color: #fff; }
 .reveal h3 { font-size: 1rem; font-weight: 400; color: var(--muted); margin-bottom: .9rem; }
@@ -61,6 +63,7 @@
 .to  { color: var(--muted); }
 .tok { color: var(--green); }
 .tw  { color: var(--yellow); }
+.te  { color: var(--red); }
 .tb  { color: var(--blue); }
 .th  { color: var(--accent); font-weight: 600; }
 .tdm { color: var(--dim); }
@@ -92,6 +95,11 @@
 
 /* ── Callout ── */
 .callout { background: var(--surface); border-left: 3px solid var(--accent); border-radius: 0 8px 8px 0; padding: 10px 16px; font-size: .82rem; color: var(--text); line-height: 1.6; margin-top: .8rem; }
+.callout.warn { border-left-color: var(--yellow); }
+
+/* ── Live-demo marker ── */
+.live { display: inline-flex; align-items: center; gap: 7px; background: rgba(248,81,73,.1); border: 1px solid rgba(248,81,73,.35); border-radius: 20px; padding: 4px 14px; font-size: .7rem; font-weight: 700; letter-spacing: .06em; text-transform: uppercase; color: var(--red); }
+.live::before { content: ''; width: 8px; height: 8px; border-radius: 50%; background: var(--red); }
 
 /* ── Title slide ── */
 .title-logo      { font-size: 5.5rem; font-weight: 800; color: #fff; letter-spacing: -.06em; margin-bottom: 0; line-height: 1; }
@@ -102,6 +110,7 @@
 /* ── Section divider ── */
 .section-num { font-size: 6rem; font-weight: 800; color: rgba(124,106,247,.12); line-height: 1; }
 .section-h   { font-size: 2.4rem !important; color: #fff !important; margin-top: -.3em !important; }
+.section-sub { color: var(--muted); font-size: .95rem; margin-top: .6rem; }
 
 /* misc */
 code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; background: var(--surface2); border-radius: 4px; padding: 1px 6px; font-size: .85em; color: var(--blue); }
@@ -118,220 +127,192 @@ code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; background: 
 <section data-transition="fade">
   <div style="padding: 10px 0">
     <div class="title-logo">w<span>k</span>sp</div>
-    <div class="title-sub">Workspace CLI for Claude Code</div>
+    <div class="title-sub">Workspace CLI for agentic coding · v3.4.3</div>
     <div class="title-tagline">
       Multi-repo development.<br>
       Zero branch-switching.
     </div>
     <div style="margin-top: 2.5rem; display: flex; justify-content: center; gap: 10px; flex-wrap: wrap;">
       <span class="pill purple">Git Worktrees</span>
-      <span class="pill green">Claude Code</span>
-      <span class="pill blue">Multi-repo</span>
-      <span class="pill yellow">Task Isolation</span>
+      <span class="pill green">Multi-repo</span>
+      <span class="pill blue">Planning hub</span>
+      <span class="pill yellow">Headless / agentic</span>
     </div>
   </div>
 </section>
 
 
 <!-- ══════════════════════════════════════════
-     2. THE PAIN
+     2. DELTA CARD — for people who saw the v1 deck
 ══════════════════════════════════════════ -->
 <section data-transition="slide">
-  <h2>Sound familiar?</h2>
-  <h3>Starting PROJ-1234 — a feature that touches backend, front-end, and services</h3>
+  <h2>Seen this before?</h2>
+  <h3>If you saw the first version of this deck, three things changed. Everything else is additive.</h3>
 
-  <div class="term">
-    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
-    <div class="term-body">
-      <div class="tc">cd /c/dev/backend &amp;&amp; git checkout -b feature/PROJ-1234</div>
-      <div class="to">Switched to a new branch 'feature/PROJ-1234'</div>
-      <br>
-      <div class="tc">cd ../frontend &amp;&amp; git checkout -b feature/PROJ-1234</div>
-      <div class="to">Switched to a new branch 'feature/PROJ-1234'</div>
-      <br>
-      <div class="tc">cd ../services &amp;&amp; git checkout -b feature/PROJ-1234</div>
-      <div class="to">Switched to a new branch 'feature/PROJ-1234'</div>
+  <div style="display:flex;flex-direction:column;gap:12px;margin-top:1rem;">
+    <div class="card">
+      <div class="ct"><span class="pill red" style="margin-right:8px;">Breaking</span> The syntax went verb-first</div>
+      <div class="cb"><code>wksp task PROJ-1234</code> is <strong>gone</strong> — removed in 2.5.0, not deprecated.
+        It's <code>wksp task create / resume / delete / archive / finish</code> now, or just <code>wksp start</code>.</div>
+    </div>
+    <div class="card">
+      <div class="ct"><span class="pill purple" style="margin-right:8px;">New</span> The project root is where you plan</div>
+      <div class="cb">There's a hub above your tasks now, holding the backlog, the decisions, and how work gets handed down.</div>
+    </div>
+    <div class="card">
+      <div class="ct"><span class="pill purple" style="margin-right:8px;">New</span> wksp drives itself</div>
+      <div class="cb">It runs headless — an AI session can create a task, work in it, and close it out with no human at the prompt.</div>
     </div>
   </div>
 
-  <p style="margin-top: 1.1rem; color: var(--muted);">
-    Open 3 VS Code windows. Brief Claude on what you're doing. Start coding.<br>
-    Now PROJ-5678 lands as urgent. Start over.
-  </p>
+  <div class="callout warn" style="margin-top:1rem;">
+    The deck you saw is now <strong>wrong</strong>, not merely old — it teaches commands that error today. Migration is section 4.
+  </div>
 </section>
 
 
 <!-- ══════════════════════════════════════════
-     3. THE PROBLEM COMPOUNDS
+     3. SECTION 1 — THE PAIN
 ══════════════════════════════════════════ -->
 <section data-transition="slide">
-  <h2>Three tickets. Three repos each. One you.</h2>
+  <div class="section-num">01</div>
+  <h2 class="section-h">The pain</h2>
+  <div class="section-sub">Three repos, two tickets, one you</div>
+  <div style="margin-top:2rem;"><span class="live">Live demo</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     4. THE COST
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>What a context switch actually costs</h2>
 
   <div class="ba" style="margin-top: .8rem;">
     <div class="ba-box">
-      <div class="ba-head b">Without wksp — branch switching reality</div>
+      <div class="ba-head b">Branch switching, every time</div>
       <div class="ba-body">
-        <span class="x">✗</span> Switch all 3 repos to PROJ-5678 branches<br>
+        <span class="x">✗</span> Stash work-in-progress in each repo<br>
+        <span class="x">✗</span> Check out the new branch — in each repo<br>
         <span class="x">✗</span> VS Code loses open files and scroll positions<br>
-        <span class="x">✗</span> Claude loses conversation context<br>
-        <span class="x">✗</span> Switch back to PROJ-1234 — repeat<br>
-        <span class="x">✗</span> <code>git checkout</code> fails: <em>"already checked out"</em><br>
+        <span class="x">✗</span> Your AI session starts cold — re-brief it<br>
+        <span class="x">✗</span> Switch back, and match stashes to repos from memory<br>
         <br>
-        <span style="color: var(--red);">Every context switch costs 5–10 minutes of recovery.</span>
+        <span style="color: var(--red);">5–10 minutes of recovery. Three times a day is an hour.</span>
       </div>
     </div>
     <div class="ba-box">
       <div class="ba-head a">With wksp</div>
       <div class="ba-body">
-        <span class="check">✓</span> Open PROJ-1234 workspace in VS Code window 1<br>
-        <span class="check">✓</span> Open PROJ-5678 workspace in VS Code window 2<br>
-        <span class="check">✓</span> Both tasks live simultaneously on their own branches<br>
-        <span class="check">✓</span> Claude resumes exactly where it left off<br>
-        <span class="check">✓</span> No branch-switching. Ever.<br>
+        <span class="check">✓</span> Every task has its own checkout of every repo<br>
+        <span class="check">✓</span> Both tasks live simultaneously, on their own branches<br>
+        <span class="check">✓</span> One VS Code window per task, state intact<br>
+        <span class="check">✓</span> Each task keeps its own AI session and work log<br>
+        <span class="check">✓</span> Nothing to stash, because nothing gets switched<br>
         <br>
         <span style="color: var(--green);">Switch tasks by switching windows.</span>
       </div>
     </div>
   </div>
+
+  <div class="callout">
+    The tell is <code>git stash list</code>: two entries, both reading <em>WIP on feature/PROJ-1234</em>,
+    and nothing recording which repo or which ticket they belong to.
+  </div>
 </section>
 
 
 <!-- ══════════════════════════════════════════
-     4. THE PRIMITIVE
+     5. SECTION 2 — THE FIX
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <div class="section-num">02</div>
+  <h2 class="section-h">The fix</h2>
+  <div class="section-sub">Setup, a task, an interrupt, and closing out</div>
+  <div style="margin-top:2rem;"><span class="live">Live demo</span></div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     6. THE PRIMITIVE
 ══════════════════════════════════════════ -->
 <section data-transition="slide">
   <h2>The primitive: git worktrees</h2>
   <h3>Built into git since v2.5 — wksp makes them effortless across every repo in your project</h3>
 
   <div class="term" style="margin-bottom: 1rem;">
-    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">One git database — two working directories — two branches</span></div>
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">One git database — many working directories — many branches</span></div>
     <div class="term-body">
-      <div><span class="th">/c/dev/backend/</span><span class="tdm">                              ← base clone, on main</span></div>
-      <div><span class="th">acme/tasks/PROJ-1234/worktrees/backend/</span><span class="tdm">   ← worktree, on feature/PROJ-1234</span></div>
-      <div><span class="th">acme/tasks/PROJ-5678/worktrees/backend/</span><span class="tdm">   ← worktree, on feature/PROJ-5678</span></div>
+      <div><span class="th">C:/demo/repos/api/</span><span class="tdm">                            ← base clone, on main</span></div>
+      <div><span class="th">acme/tasks/PROJ-1234/worktrees/api/</span><span class="tdm">           ← worktree, on feature/PROJ-1234</span></div>
+      <div><span class="th">acme/tasks/PROJ-5678/worktrees/api/</span><span class="tdm">           ← worktree, on hotfix/PROJ-5678</span></div>
       <br>
-      <div class="tdm"># All three share the same .git object database</div>
-      <div class="tdm"># Checkout is instant — no duplicate history on disk</div>
+      <div class="tdm"># All three share one .git object database — you pay for files, not history</div>
+      <div class="tdm"># And git enforces it: one branch, one working directory</div>
+      <br>
+      <div class="tc">git checkout feature/PROJ-1234</div>
+      <div class="te">fatal: 'feature/PROJ-1234' is already used by worktree at '.../PROJ-1234/worktrees/api'</div>
     </div>
   </div>
 
   <div class="callout">
-    wksp automates creating, naming, and tearing down worktrees across every repo in your project simultaneously — so you get all the power without ever typing <code>git worktree add</code> directly.
+    git solves the branch half. wksp does the bookkeeping: creating and naming worktrees across
+    <em>every</em> repo at once, generating the VS Code workspace, handing every path to your AI tool,
+    keeping the record of what the task was for, and tearing it all down when it merges.
   </div>
 </section>
 
 
 <!-- ══════════════════════════════════════════
-     5. SETUP
+     7. THE THREE REPO MODES
 ══════════════════════════════════════════ -->
 <section data-transition="slide">
-  <h2>Setting up a project</h2>
-  <h3>One-time setup per product area — takes under a minute</h3>
+  <h2>Register your repos once</h2>
+  <h3>One-time setup per product area — under a minute</h3>
 
   <div class="cols cols-2" style="align-items: start; gap: 20px;">
     <div class="term">
       <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
       <div class="term-body">
         <div class="tc">wksp init acme</div>
-        <div class="tok">✓  Created acme/</div>
+        <div class="tok">✓  acme/</div>
+        <div class="tok">✓  AGENTS.md  (+ CLAUDE.md include)</div>
+        <div class="tok">✓  PLANNING.md · ORCHESTRATION.md</div>
         <br>
         <div class="tc">cd acme</div>
-        <div class="tc">wksp repo /c/dev/backend</div>
-        <div class="tc">wksp repo /c/dev/frontend</div>
-        <div class="tc">wksp repo /c/dev/services</div>
-        <div class="tc">wksp repo /c/dev/company-docs --shared</div>
-        <div class="tok">✓  4 repos registered</div>
+        <div class="tc">wksp repo add C:/demo/repos/api</div>
+        <div class="tc">wksp repo add C:/demo/repos/web</div>
+        <div class="tc">wksp repo add C:/demo/repos/docs --shared</div>
+        <div class="tok">✓  3 repos registered</div>
       </div>
     </div>
     <div style="display: flex; flex-direction: column; gap: 12px;">
       <div class="card">
         <div class="ci">🌿</div>
-        <div class="ct">Worktree repos</div>
-        <div class="cb">Each task gets its own isolated branch checkout. The default for repos you change.</div>
+        <div class="ct">Worktree <span class="pill dim">default</span></div>
+        <div class="cb">Each task gets its own isolated branch checkout. The mode for repos you actually change.</div>
       </div>
       <div class="card">
         <div class="ci">📖</div>
-        <div class="ct"><code>--shared</code> repos</div>
-        <div class="cb">Read-only reference repos — docs, design systems. Always use the base folder, no branch management needed.</div>
+        <div class="ct"><code>--shared</code></div>
+        <div class="cb">Reference material — docs, design systems, repos you don't own. Always the base folder, never branched.</div>
       </div>
       <div class="card">
-        <div class="ci">🔗</div>
-        <div class="ct">GitHub URLs work too</div>
-        <div class="cb"><code>wksp repo https://github.com/org/repo</code> — clones if needed, then registers.</div>
+        <div class="ci">🔌</div>
+        <div class="ct"><code>--optional</code></div>
+        <div class="cb">Only one task ever needs it. Excluded by default, so it stops interrogating you on every create. Pull it in with <code>wksp task repo</code>.</div>
       </div>
     </div>
   </div>
-</section>
 
-
-<!-- ══════════════════════════════════════════
-     6. CREATING A TASK
-══════════════════════════════════════════ -->
-<section data-transition="slide">
-  <h2>Starting a task</h2>
-  <h3>One command — prompts for branches, creates worktrees, launches Claude</h3>
-
-  <div class="term" style="margin-bottom: .9rem; font-size: .74rem;">
-    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
-    <div class="term-body">
-      <div class="tc">wksp task PROJ-1234</div>
-      <br>
-      <div><span class="to">Branch for backend [main, s=shared, x=exclude]: </span><span class="tpi">feature/PROJ-1234</span></div>
-      <div><span class="tdm">  → new branch. Base off [main]: </span><span class="tpi">↵</span></div>
-      <br>
-      <div><span class="to">Branch for frontend [main, s=shared, x=exclude]: </span><span class="tpi">feature/PROJ-1234</span></div>
-      <br>
-      <div><span class="to">Branch for services [main, s=shared, x=exclude]: </span><span class="tpi">s</span></div>
-      <div class="tdm">  → using shared path for this task</div>
-      <br>
-      <div class="tok">✓  worktree backend            → feature/PROJ-1234</div>
-      <div class="tok">✓  worktree frontend            → feature/PROJ-1234</div>
-      <div class="tok">✓  Generated acme--PROJ-1234.code-workspace</div>
-    </div>
-  </div>
-
-  <div style="display: flex; gap: 14px; justify-content: center; flex-wrap: wrap;">
-    <div style="text-align:center;"><span class="pill green">↵ Enter</span><br><span style="font-size:.7rem;color:var(--muted);">current branch</span></div>
-    <div style="text-align:center;"><span class="pill purple">branch name</span><br><span style="font-size:.7rem;color:var(--muted);">create or check out</span></div>
-    <div style="text-align:center;"><span class="pill blue">s</span><br><span style="font-size:.7rem;color:var(--muted);">use base repo</span></div>
-    <div style="text-align:center;"><span class="pill yellow">x</span><br><span style="font-size:.7rem;color:var(--muted);">exclude entirely</span></div>
+  <div class="callout" style="margin-top:.7rem;">
+    A GitHub URL works too — <code>wksp repo add https://github.com/org/repo</code> clones it, then registers it.
   </div>
 </section>
 
 
 <!-- ══════════════════════════════════════════
-     7. STARTUP SUMMARY + CLAUDE
-══════════════════════════════════════════ -->
-<section data-transition="slide">
-  <h2>Then Claude launches</h2>
-  <h3>A startup summary confirms exactly what's loaded before Claude appears</h3>
-
-  <div class="term">
-    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
-    <div class="term-body">
-      <div class="tsep">────────────────────────────────────────────</div>
-      <div style="color:#fff;font-weight:700;">  wksp · acme / PROJ-1234</div>
-      <div class="tsep">────────────────────────────────────────────</div>
-      <div class="to">  Repos:</div>
-      <br>
-      <div>  <span class="tb">backend</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="tok">feature/PROJ-1234</span>&nbsp;&nbsp; <span class="to">(worktree)</span></div>
-      <div>  <span class="tb">frontend</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="tok">feature/PROJ-1234</span>&nbsp;&nbsp; <span class="to">(worktree)</span>&nbsp; <span class="tw">⚠ 3 commits behind main</span></div>
-      <div>  <span class="tb">services</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="to">main</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="to">(shared)</span></div>
-      <div>  <span class="tb">company-docs</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="to">main</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; <span class="to">(shared)</span></div>
-      <div class="tsep">────────────────────────────────────────────</div>
-      <div class="to">  Launching Claude...</div>
-    </div>
-  </div>
-
-  <p style="margin-top: .9rem; color: var(--muted); font-size: .82rem;">
-    All worktrees and shared repos are passed to Claude as <code>--add-dir</code>.
-    The last conversation session is automatically resumed — context carries over from where you left off.
-  </p>
-</section>
-
-
-<!-- ══════════════════════════════════════════
-     8. WHAT'S ON DISK
+     8. WHAT LANDS ON DISK
 ══════════════════════════════════════════ -->
 <section data-transition="slide">
   <h2>What lands on disk</h2>
@@ -340,18 +321,22 @@ code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; background: 
     <div class="term" style="font-size: .71rem;">
       <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">acme/</span></div>
       <div class="term-body" style="line-height:1.9;padding:14px 18px 14px;">
-        <pre style="background:transparent;border:none;padding:0;margin:0;font-size:inherit;line-height:inherit;"><span class="th">acme/</span>
-<span class="to">  ├── .wksp</span>                 <span class="tdm">project marker</span>
-<span class="to">  ├── repos.txt</span>             <span class="tdm">registered repos</span>
-<span class="to">  ├── CLAUDE.md</span>             <span class="tdm">project conventions</span>
+<pre style="background:transparent;border:none;padding:0;margin:0;font-size:inherit;line-height:inherit;"><span class="th">acme/</span>
+<span class="to">  ├── .wksp</span>                 <span class="tdm">project marker + settings</span>
+<span class="to">  ├── repos.txt</span>             <span class="tdm">the universe of repos</span>
+<span class="to">  ├── AGENTS.md</span>             <span class="tdm">conventions — shared with tasks</span>
+<span class="to">  ├── PLANNING.md</span>           <span class="tdm">backlog, open decisions</span>
+<span class="to">  ├── ORCHESTRATION.md</span>      <span class="tdm">hub-only: how work is delegated</span>
+<span class="to">  ├── WORKLOG.md</span>            <span class="tdm">what was decided, and why</span>
 <span class="th">  ├── tasks/</span>
 <span class="to">  │   </span><span class="th">└── PROJ-1234/</span>
-<span class="to">  │       ├── CLAUDE.md</span>         <span class="tdm">goal, decisions</span>
+<span class="to">  │       ├── AGENTS.md</span>         <span class="tdm">this task's goal + scope</span>
+<span class="to">  │       ├── WORKLOG.md</span>        <span class="tdm">what was actually changed</span>
 <span class="to">  │       ├── acme--PROJ-1234.code-workspace</span>
 <span class="to">  │       └── </span><span class="th">worktrees/</span>
-<span class="to">  │           ├── backend/</span>       <span class="tdm">feature/PROJ-1234</span>
-<span class="to">  │           └── frontend/</span>      <span class="tdm">feature/PROJ-1234</span>
-<span class="th">  └── archived-tasks/</span>        <span class="tdm">done work, kept for later</span></pre>
+<span class="to">  │           ├── api/</span>          <span class="tdm">feature/PROJ-1234</span>
+<span class="to">  │           └── web/</span>          <span class="tdm">feature/PROJ-1234</span>
+<span class="th">  └── archived-tasks/</span>        <span class="tdm">done work, context kept</span></pre>
       </div>
     </div>
 
@@ -359,17 +344,17 @@ code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; background: 
       <div class="card">
         <div class="ci">📁</div>
         <div class="ct">One folder per task</div>
-        <div class="cb">Everything for a ticket lives together. Open a task by opening its <code>.code-workspace</code> file — all repos in the sidebar, all on the right branches.</div>
+        <div class="cb">Everything for a ticket lives together. Open the <code>.code-workspace</code> and every repo is in the sidebar, on the right branch.</div>
       </div>
       <div class="card">
         <div class="ci">📝</div>
-        <div class="ct">CLAUDE.md hierarchy</div>
-        <div class="cb">Project-level conventions + task-level goals. Claude reads both automatically. You never re-explain architecture or patterns.</div>
+        <div class="ct">Two levels of context</div>
+        <div class="cb">Project conventions plus task goals. Your AI reads both automatically — you never re-explain the architecture.</div>
       </div>
       <div class="card">
         <div class="ci">📦</div>
-        <div class="ct">archived-tasks/</div>
-        <div class="cb">Completed tasks move here. Worktrees gone, context preserved. Restore anytime with <code>--unarchive</code>.</div>
+        <div class="ct">Nothing is thrown away</div>
+        <div class="cb">Finished tasks move to <code>archived-tasks/</code>: worktrees gone, branch state and work log preserved. <code>wksp task unarchive</code> brings it back.</div>
       </div>
     </div>
   </div>
@@ -377,183 +362,278 @@ code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; background: 
 
 
 <!-- ══════════════════════════════════════════
-     9. CONCURRENT TASKS
+     9. CLOSING OUT
 ══════════════════════════════════════════ -->
 <section data-transition="slide">
-  <h2>Two tasks. Same repos. No conflict.</h2>
+  <h2>Closing out a merged task</h2>
+  <h3><code>wksp task finish</code> — verify, archive, clean up, fast-forward</h3>
 
-  <div class="term" style="margin-bottom: 1rem; font-size: .74rem;">
+  <div class="term" style="font-size:.75rem;">
     <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Terminal</span></div>
     <div class="term-body">
-      <div class="tdm"># PROJ-1234 already running in VS Code window 1</div>
+      <div class="tc">wksp task finish PROJ-5678</div>
       <br>
-      <div class="tc">wksp task PROJ-5678</div>
-      <br>
-      <div><span class="to">Branch for backend [main, s=shared, x=exclude]: </span><span class="tpi">hotfix/PROJ-5678</span></div>
-      <div><span class="to">Branch for frontend [main, s=shared, x=exclude]: </span><span class="tpi">hotfix/PROJ-5678</span></div>
-      <br>
-      <div class="tok">✓  worktree backend            → hotfix/PROJ-5678</div>
-      <div class="tok">✓  worktree frontend            → hotfix/PROJ-5678</div>
+      <div class="to">  Fetching base repos ...</div>
+      <div class="tok">  ✓  hotfix/PROJ-5678 merged — PR #128 (confirmed on GitHub)</div>
+      <div class="to">  Removing worktrees ...</div>
+      <div class="tok">  ✓  api    ✓  web</div>
+      <div class="tok">  ✓  Deleted local branch hotfix/PROJ-5678</div>
+      <div class="tok">  ✓  api → main fast-forwarded</div>
+      <div class="tok">  ✓  Archived → archived-tasks/PROJ-5678</div>
     </div>
   </div>
 
-  <div style="background: var(--surface); border: 1px solid var(--border); border-radius: 8px; padding: 13px 18px; font-size: .8rem; color: var(--text);">
-    <div style="margin-bottom: 7px;">
-      <span class="pill green" style="margin-right:8px;">PROJ-1234</span>
-      backend <code>feature/PROJ-1234</code> &nbsp;·&nbsp; front-end <code>feature/PROJ-1234</code>
-    </div>
-    <div>
-      <span class="pill yellow" style="margin-right:8px;">PROJ-5678</span>
-      backend <code>hotfix/PROJ-5678</code> &nbsp;·&nbsp; front-end <code>hotfix/PROJ-5678</code>
-    </div>
-    <div style="margin-top: 9px; color: var(--muted); font-size: .73rem;">
-      git supports multiple worktrees of the same repo on different branches simultaneously — wksp just makes it seamless across your whole project.
-    </div>
+  <div class="callout" style="margin-top:1rem;">
+    <strong>Why it asks GitHub.</strong> A squash- or rebase-merge rewrites your branch into a
+    <em>new</em> commit, so the branch tip is never an ancestor of <code>main</code> — pure git ancestry
+    reported <span class="tw">"not merged"</span> on <em>every</em> finish. It now checks ancestry first, and
+    when that's inconclusive asks the forge about the actual PR. <code>gh</code> is entirely optional;
+    without it, finish falls back to asking you.
   </div>
 </section>
 
 
 <!-- ══════════════════════════════════════════
-     10. LIST
+     10. SECTION 3 — WHAT'S NEW
 ══════════════════════════════════════════ -->
 <section data-transition="slide">
-  <h2>See everything at a glance</h2>
-
-  <div class="cols cols-2" style="gap: 18px;">
-    <div class="term" style="font-size: .74rem;">
-      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">wksp list --all</span></div>
-      <div class="term-body">
-        <div class="tc">wksp list --all</div>
-        <br>
-        <div style="color:#fff;font-weight:700;">acme</div>
-        <br>
-        <div><span class="tdm" style="font-size:.68em;text-transform:uppercase;letter-spacing:.07em;">  Task&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; Status&nbsp;&nbsp;&nbsp;&nbsp; Details</span></div>
-        <div>  <span class="th">PROJ-1234</span>&nbsp;&nbsp;&nbsp; <span class="tok">live</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 worktrees, 1 shared</div>
-        <div>  <span class="th">PROJ-5678</span>&nbsp;&nbsp;&nbsp; <span class="tok">live</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp; 2 worktrees</div>
-        <div>  <span class="th">PROJ-0987</span>&nbsp;&nbsp;&nbsp; <span class="to">archived</span>&nbsp;&nbsp; 2026-03-02</div>
-        <div>  <span class="th">PROJ-0500</span>&nbsp;&nbsp;&nbsp; <span class="to">archived</span>&nbsp;&nbsp; 2025-11-18</div>
-      </div>
-    </div>
-    <div style="display:flex;flex-direction:column;gap:10px;justify-content:center;">
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;font-size:.78rem;">
-        <code>wksp list</code>
-        <div style="color:var(--muted);font-size:.72rem;margin-top:4px;">Live tasks only</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;font-size:.78rem;">
-        <code>wksp list --archived</code>
-        <div style="color:var(--muted);font-size:.72rem;margin-top:4px;">Archived tasks with dates</div>
-      </div>
-      <div style="background:var(--surface);border:1px solid var(--border);border-radius:8px;padding:11px 14px;font-size:.78rem;">
-        <code>wksp list --all</code>
-        <div style="color:var(--muted);font-size:.72rem;margin-top:4px;">Combined view with status column</div>
-      </div>
-    </div>
-  </div>
+  <div class="section-num">03</div>
+  <h2 class="section-h">What's new</h2>
+  <div class="section-sub">The hub, headless delegation, and everything since v1</div>
+  <div style="margin-top:2rem;"><span class="live">Live demo</span></div>
 </section>
 
 
 <!-- ══════════════════════════════════════════
-     11. ARCHIVE
+     11. THE HUB
 ══════════════════════════════════════════ -->
 <section data-transition="slide">
-  <h2>Archive: done for now, not forever</h2>
-  <h3>Preserve context and branch metadata. Restore months later — even if branches were merged.</h3>
-
-  <div class="cols cols-2" style="gap: 16px; margin-top: .3rem;">
-    <div class="term" style="font-size:.73rem;">
-      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Archive</span></div>
-      <div class="term-body">
-        <div class="tc">wksp task PROJ-1234 --archive</div>
-        <br>
-        <div class="to">Removing worktrees...</div>
-        <div class="tok">✓  backend</div>
-        <div class="tok">✓  frontend</div>
-        <div class="to">Writing archived.json...</div>
-        <div class="tok">✓  Moved → archived-tasks/PROJ-1234</div>
-      </div>
-    </div>
-    <div class="term" style="font-size:.73rem;">
-      <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Unarchive (3 months later)</span></div>
-      <div class="term-body">
-        <div class="tc">wksp task PROJ-1234 --unarchive</div>
-        <br>
-        <div class="to">Classifying branches...</div>
-        <div>  backend          <span class="tok">present-local</span>  → worktree</div>
-        <div>  frontend         <span class="tw">merged</span>&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;&nbsp;→ task-shared</div>
-        <br>
-        <div><span class="to">Apply? [y/N]: </span><span class="tpi">y</span></div>
-        <div class="tok">✓  Restored PROJ-1234</div>
-      </div>
-    </div>
-  </div>
-
-  <p style="margin-top: .9rem; font-size: .8rem; color: var(--muted);">
-    wksp records each branch's tip SHA at archive time. On unarchive it checks: is the branch still local? merged into main? deleted but SHA reachable? It picks a sensible default for each repo and shows you a preview when anything non-trivial happened.
-  </p>
-</section>
-
-
-<!-- ══════════════════════════════════════════
-     12. COMMAND REFERENCE
-══════════════════════════════════════════ -->
-<section data-transition="slide">
-  <h2>Key commands</h2>
+  <h2>The project root is the planning hub</h2>
+  <h3><code>wksp start</code> with no task id — plan above your tasks, not inside one</h3>
 
   <table style="margin-top:.4rem;">
     <thead>
-      <tr><th>Command</th><th>What it does</th></tr>
+      <tr><th style="width:30%">File</th><th>What it holds</th><th style="width:22%">Loaded into a task session?</th></tr>
     </thead>
     <tbody>
-      <tr><td><code>wksp init acme</code></td><td>Create a project folder</td></tr>
-      <tr><td><code>wksp repo &lt;path&gt; [--shared]</code></td><td>Register a repo (local path or GitHub URL)</td></tr>
-      <tr><td><code>wksp task PROJ-1234</code></td><td>Create or resume — prompts for branches, launches Claude</td></tr>
-      <tr><td><code>wksp task PROJ-1234 --del</code></td><td>Tear down worktrees and delete the task folder</td></tr>
-      <tr><td><code>wksp task PROJ-1234 --archive</code></td><td>Remove worktrees, preserve context in <code>archived-tasks/</code></td></tr>
-      <tr><td><code>wksp task PROJ-1234 --unarchive</code></td><td>Restore — smart branch recovery included</td></tr>
-      <tr><td><code>wksp task PROJ-1234 --to-shared backend</code></td><td>Use base repo instead of worktree (this task only)</td></tr>
-      <tr><td><code>wksp task PROJ-1234 --to-worktree backend</code></td><td>Create a worktree; clears shared or excluded</td></tr>
-      <tr><td><code>wksp list --all</code></td><td>Live and archived tasks in one view</td></tr>
+      <tr><td><code>AGENTS.md</code></td><td>Conventions genuinely shared with every task</td><td><span class="check">✓ yes</span></td></tr>
+      <tr><td><code>PLANNING.md</code></td><td>The backlog, open decisions, research pointers</td><td><span class="x">✗ no</span></td></tr>
+      <tr><td><code>ORCHESTRATION.md</code></td><td>Hub-only: delegation, PR review, stacked PRs, settings</td><td><span class="x">✗ no</span></td></tr>
+      <tr><td><code>WORKLOG.md</code></td><td>What was decided at project level, and why</td><td><span class="x">✗ no</span></td></tr>
+    </tbody>
+  </table>
+
+  <div class="callout" style="margin-top:1rem;">
+    That third column is the whole design. Only the <em>instruction</em> file is injected into a task
+    session — so the backlog doesn't bloat every task's context, and a task-scoped agent isn't handed
+    instructions on how to delegate work, spawn reviewers, or pick merge methods. Role confusion is the
+    real cost; the tokens are the smaller half.
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     12. HEADLESS
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>wksp runs headless</h2>
+  <h3>The change that makes hub-driven work possible at all</h3>
+
+  <div class="term" style="font-size:.73rem;margin-bottom:.8rem;">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">From a planning session at the root</span></div>
+    <div class="term-body">
+      <div class="tc">wksp task create PROJ-4242 \</div>
+      <div class="tc" style="padding-left:1.2em;">--goal "Add pagination to the sessions endpoint" \</div>
+      <div class="tc" style="padding-left:1.2em;">--branch feature/PROJ-4242 --json</div>
+      <br>
+      <div class="tdm"># no prompts · launches nothing · prints the task brief on stdout</div>
+      <div class="to">{ "ok": true, "briefVersion": 1, "task": { … }, "repos": [ … ] }</div>
+    </div>
+  </div>
+
+  <div class="cols cols-3" style="gap:11px;">
+    <div class="card">
+      <div class="ct">The brief</div>
+      <div class="cb">Paths, per-repo branch and mode, where to log, what belongs in the hub instead. Re-print any time with <code>wksp task brief &lt;id&gt;</code>.</div>
+    </div>
+    <div class="card">
+      <div class="ct"><code>--goal</code> is the contract</div>
+      <div class="cb">It lands in the task's <code>AGENTS.md</code> — the one line stating what this task is and isn't for.</div>
+    </div>
+    <div class="card">
+      <div class="ct">Use <code>create</code>, not <code>start</code></div>
+      <div class="cb"><code>start</code> partial-matches, so a new id that's a substring of an existing task silently resumes <em>that</em> one.</div>
+    </div>
+  </div>
+
+  <div class="callout" style="margin-top:.7rem;">
+    A task folder lives under the project root — so a session at the root can work inside a task from
+    its brief exactly as if it had been launched there.
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     13. TOOL-AGNOSTIC + SETTINGS
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Not Claude-only — and settings your agent honours</h2>
+
+  <div class="cols cols-2" style="gap:18px;align-items:start;">
+    <div>
+      <div class="term" style="font-size:.72rem;">
+        <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">wksp providers</span></div>
+        <div class="term-body">
+          <div>  <span class="th">claude</span>   <span class="tok">full</span>      <span class="to">CLAUDE.md</span>  <span class="tb">← configured</span></div>
+          <div>  <span class="th">none</span>     <span class="to">launch-only</span>  <span class="to">AGENTS.md</span></div>
+        </div>
+      </div>
+      <div class="cb" style="font-size:.74rem;color:var(--muted);margin-top:.7rem;line-height:1.55;">
+        <code>aiProvider</code> picks the tool. <code>none</code> launches nothing — wksp becomes a pure
+        multi-repo worktree manager. Register your own tool declaratively with
+        <code>customProviders</code>; instruction files are <code>AGENTS.md</code> now, with a one-line
+        <code>@AGENTS.md</code> include left in <code>CLAUDE.md</code>.
+      </div>
+    </div>
+    <div>
+      <table>
+        <thead><tr><th>Agent-honored key</th><th>Default</th></tr></thead>
+        <tbody>
+          <tr><td><code>reviewLoop</code><div style="color:var(--muted);font-size:.9em;">independent review→fix pass before a PR merges</div></td><td><code>ask</code></td></tr>
+          <tr><td><code>prGate</code><div style="color:var(--muted);font-size:.9em;">pause for manual testing before opening a PR</div></td><td><code>never</code></td></tr>
+          <tr><td><code>mergeMethod</code><div style="color:var(--muted);font-size:.9em;">how a solo PR gets landed</div></td><td><code>squash</code></td></tr>
+        </tbody>
+      </table>
+      <div class="callout" style="margin-top:.7rem;font-size:.76rem;">
+        A new category: <strong>wksp's CLI never acts on these</strong> — the orchestrating agent reads
+        them and follows them. On this project <code>reviewLoop: always</code> has caught a data-loss
+        path, a silent no-op, and a safety guard that failed <em>open</em> — all with a green test suite.
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     14. STACKED PRs + SAFETY
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Two more things worth knowing</h2>
+
+  <div style="display:flex;flex-direction:column;gap:14px;margin-top:.5rem;">
+    <div class="card">
+      <div class="ct">Stacked PRs — guidance shipped product-wide</div>
+      <div class="cb" style="font-size:.78rem;">
+        One reframe carries it: <strong style="color:var(--text);">stacking constrains merge order, not build
+        order.</strong> Decide by <em>code overlap</em> — disjoint areas get parallel tasks and independent
+        PRs off <code>main</code> with no stack at all; overlapping regions get chained branches, because
+        building them in parallel only defers the same conflicts to stack time. Every project's
+        <code>ORCHESTRATION.md</code> now carries the mechanics.
+      </div>
+    </div>
+    <div class="card">
+      <div class="ct">It got a lot harder to hurt yourself</div>
+      <div class="cb" style="font-size:.78rem;">
+        Teardown now <strong style="color:var(--text);">refuses up front</strong> rather than half-removing a
+        task while your shell sits inside it, and nothing is ever skipped in silence. wksp can no longer
+        mistake your home directory for a project — the marker and the global config share a filename, and
+        <code>wksp delete</code> could offer to delete <code>~</code>. And path comparisons are canonicalised,
+        which closed a guard that failed <em>open</em> on Windows short paths.
+        <br><br>
+        <span class="pill green">719 tests</span>
+        <span class="pill blue" style="margin-left:6px;">Windows + Linux</span>
+        <span class="pill blue" style="margin-left:6px;">Node 18 &amp; 24</span>
+        <span class="pill dim" style="margin-left:6px;">on every PR</span>
+      </div>
+    </div>
+  </div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     15. SECTION 4 — MIGRATION
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <div class="section-num">04</div>
+  <h2 class="section-h">Migrating</h2>
+  <div class="section-sub">If you already have wksp projects</div>
+</section>
+
+
+<!-- ══════════════════════════════════════════
+     16. MIGRATION
+══════════════════════════════════════════ -->
+<section data-transition="slide">
+  <h2>Two commands, then one habit to unlearn</h2>
+
+  <div class="term" style="font-size:.75rem;margin-bottom:.9rem;">
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">In each existing project</span></div>
+    <div class="term-body">
+      <div class="tc">wksp migrate --dry-run</div>
+      <div class="tdm"># always look first — shows every change without writing</div>
+      <div class="tc">wksp migrate</div>
+      <div class="tok">✓  Project migrated to schema 7</div>
+    </div>
+  </div>
+
+  <p style="font-size:.78rem;color:var(--muted);margin:0 0 .8rem;">
+    Scaffolds the planning files, converts instruction files to <code>AGENTS.md</code> + include, and
+    relocates the hub-only guidance. It only ever <strong>inserts</strong> — your prose is never rewritten,
+    and a block you've edited is left in place and reported rather than replaced.
+    <code>wksp migrate --repair</code> backfills anything a task is missing.
+  </p>
+
+  <table>
+    <thead><tr><th style="width:46%">If your muscle memory says…</th><th>Type this</th></tr></thead>
+    <tbody>
+      <tr><td><code>wksp task PROJ-1234</code></td><td><code>wksp start PROJ-1234</code></td></tr>
+      <tr><td><code>wksp task PROJ-1234 --del</code></td><td><code>wksp task delete PROJ-1234</code></td></tr>
+      <tr><td><code>wksp task PROJ-1234 --archive</code></td><td><code>wksp task archive PROJ-1234</code></td></tr>
+      <tr><td><code>wksp task PROJ-1234 --to-shared api</code></td><td><code>wksp task repo PROJ-1234 api share</code></td></tr>
+      <tr><td><code>wksp repo /c/dev/api</code></td><td><code>wksp repo add /c/dev/api</code></td></tr>
     </tbody>
   </table>
 </section>
 
 
 <!-- ══════════════════════════════════════════
-     13. GET STARTED
+     17. GET STARTED
 ══════════════════════════════════════════ -->
 <section data-transition="fade">
   <h2>Get started</h2>
 
   <div class="term" style="margin-bottom: 1.2rem;">
-    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Three commands to be up and running</span></div>
+    <div class="term-bar"><span class="dot r"></span><span class="dot y"></span><span class="dot g"></span><span class="label">Four commands to be up and running</span></div>
     <div class="term-body">
       <div class="tdm"># 1. Install</div>
-      <div class="tc">cd /c/workspaces/wksp &amp;&amp; npm link</div>
+      <div class="tc">npm install -g @mbarjawi-tech/wksp</div>
       <br>
       <div class="tdm"># 2. Create your project</div>
       <div class="tc">wksp init acme &amp;&amp; cd acme</div>
-      <div class="tc">wksp repo /c/dev/backend</div>
       <br>
-      <div class="tdm"># 3. Start your first task</div>
-      <div class="tc">wksp task PROJ-1234</div>
+      <div class="tdm"># 3. Register your repos</div>
+      <div class="tc">wksp repo add &lt;path-or-github-url&gt;</div>
+      <br>
+      <div class="tdm"># 4. Start working</div>
+      <div class="tc">wksp start PROJ-1234</div>
     </div>
   </div>
 
   <div class="cols cols-3" style="gap: 12px;">
     <div class="card" style="text-align:center;">
       <div class="ci">📖</div>
-      <div class="ct">Full docs</div>
-      <div class="cb"><code>npm run docs:dev</code><br>localhost:5173</div>
+      <div class="ct">Docs</div>
+      <div class="cb">mbarjawi-tech.github.io/wksp</div>
     </div>
     <div class="card" style="text-align:center;">
-      <div class="ci">🧪</div>
-      <div class="ct">Run tests</div>
-      <div class="cb"><code>npm test</code><br>81 tests, all passing</div>
+      <div class="ci">🧭</div>
+      <div class="ct">Plan first</div>
+      <div class="cb"><code>wksp start</code><br>with no task id</div>
     </div>
     <div class="card" style="text-align:center;">
       <div class="ci">❓</div>
       <div class="ct">Help</div>
-      <div class="cb"><code>wksp --help</code><br>wksp &lt;command&gt; --help</div>
+      <div class="cb"><code>wksp --help</code><br><code>wksp &lt;command&gt; --help</code></div>
     </div>
   </div>
 </section>
