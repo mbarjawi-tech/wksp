@@ -133,6 +133,28 @@ describe('removeRepo', () => {
     expect(() => removeRepo(projectDir, repoPath('nope'))).toThrow();
   });
 
+  test('reports how many lines went', () => {
+    const p = repoPath('api');
+    addRepo(projectDir, p, false);
+    expect(removeRepo(projectDir, p)).toEqual({ normalized: path.resolve(p), removed: 1 });
+  });
+
+  test('removes EVERY entry naming that directory, not just the first', () => {
+    // Only reachable for a registry written before addRepo's duplicate check became
+    // canonical — but there it matters: `wksp repo remove` tears down the worktrees of
+    // every task worktree pointing at this directory, i.e. both entries', so leaving one
+    // line behind reported the repo removed while it was still registered with its
+    // worktrees already gone.
+    const p     = repoPath('api');
+    const alias = path.join(p, 'sub', '..');       // a different spelling, one directory
+    fs.appendFileSync(path.join(projectDir, 'repos.txt'),
+      `${p.replace(/\\/g, '/')}\n${alias.replace(/\\/g, '/')}  --shared\n`);
+    expect(readRepos(projectDir)).toHaveLength(2);
+
+    expect(removeRepo(projectDir, p).removed).toBe(2);
+    expect(readRepos(projectDir)).toHaveLength(0);
+  });
+
   test('does not affect other repos when removing one', () => {
     const a = repoPath('api');
     const b = repoPath('frontend');
