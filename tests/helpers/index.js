@@ -67,4 +67,28 @@ function cleanup(...dirs) {
   }
 }
 
-module.exports = { makeTempDir, makeGitRepo, makeGitRepoWithRemote, makeProject, cleanup };
+// The 8.3 short name of an EXISTING directory ("C:\Users\RUNNER~1\...") — a second,
+// equally valid name Windows gives any path component over 8 characters or containing
+// a space, and the one %TEMP% is served under on the GitHub Windows runner.
+//
+// Returns null when this machine will not produce one, which callers must treat as
+// "skip this test", never as a failure: 8.3 generation is a per-volume NTFS setting
+// (NtfsDisable8dot3NameCreation) that is routinely switched off, and it only applies
+// to Windows in the first place.
+//
+// Deliberately NOT used by makeTempDir — the point of these tests is that production
+// code copes with both spellings, so the suite must be able to hand it a short one.
+function shortPathOf(dir) {
+  if (process.platform !== 'win32') return null;
+  let out;
+  try {
+    // cmd's %~sI is the only shell-level way to ask for the short form.
+    out = execSync(`for %I in ("${dir}") do @echo %~sI`,
+      { shell: 'cmd.exe', encoding: 'utf8', stdio: ['ignore', 'pipe', 'ignore'] }).trim();
+  } catch { return null; }
+  if (!out) return null;
+  // Identical means the volume generated no alias — nothing to test with.
+  return out.toLowerCase() === path.resolve(dir).toLowerCase() ? null : out;
+}
+
+module.exports = { makeTempDir, makeGitRepo, makeGitRepoWithRemote, makeProject, cleanup, shortPathOf };

@@ -3,6 +3,7 @@ const fs   = require('fs');
 const path = require('path');
 const { execSync } = require('child_process');
 const { makeTempDir, makeGitRepo, makeGitRepoWithRemote, cleanup } = require('../helpers');
+const { samePathCanonical } = require('../../lib/paths');
 const git = require('../../lib/git');
 
 // ─── helpers ─────────────────────────────────────────────────────────────────
@@ -202,7 +203,10 @@ describe('findCheckedOutBranch', () => {
   test('returns the worktree path when branch is checked out', () => {
     const result = git.findCheckedOutBranch(repoDir, 'feature/checked-out');
     expect(result).toBeTruthy();
-    expect(result.replace(/\\/g, '/')).toContain(wtDir.replace(/\\/g, '/'));
+    // git answers in its own long on-disk spelling; `wtDir` is whatever os.tmpdir()
+    // gave us, which on the GitHub Windows runner is an 8.3 short path. The claim is
+    // that it named THIS directory, not that it spelled it our way.
+    expect(samePathCanonical(result, wtDir)).toBe(true);
   });
 
   test('returns null for a branch not checked out anywhere', () => {

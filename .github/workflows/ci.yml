@@ -49,22 +49,14 @@ jobs:
           git config --global user.name "wksp ci"
           git config --global user.email "ci@wksp.test"
 
-      # The Windows runner sets TEMP to the 8.3 short form
+      # NOTE: the Windows runner sets TEMP to the 8.3 short form
       # (C:\Users\RUNNER~1\AppData\Local\Temp), so os.tmpdir() — where every
       # integration test builds its repos — hands back a short path while git
-      # reports the long one (C:\Users\runneradmin\...). wksp compares those
-      # paths as strings, so 13 tests mismatch. Point temp at the runner's own
-      # long-path temp dir; whether wksp itself should canonicalise short paths
-      # is a separate question, deliberately not decided here.
-      - name: Use a long-path temp dir (Windows TEMP is an 8.3 short path)
-        if: runner.os == 'Windows'
-        shell: pwsh
-        run: |
-          $dir = Join-Path $env:RUNNER_TEMP 'jest'
-          New-Item -ItemType Directory -Force -Path $dir | Out-Null
-          "TEMP=$dir" | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-          "TMP=$dir"  | Out-File -FilePath $env:GITHUB_ENV -Append -Encoding utf8
-
+      # reports the long one (C:\Users\runneradmin\...). That is deliberate here.
+      # An earlier revision pointed TEMP at RUNNER_TEMP to dodge it; the fix in
+      # lib/paths.js canonicalises the comparisons instead, and these jobs
+      # running against the runner's own short TEMP are what keeps it honest.
+      # Do not reintroduce a long-path workaround — it would hide the bug again.
       - run: npm ci
 
       - run: npx jest
