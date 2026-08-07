@@ -133,9 +133,11 @@ describe('samePath', () => {
 // stubbed; nothing here touches disk. tests/integration/short-paths.test.js does the
 // same thing against a real 8.3 name and real git.
 //
-// Every test uses its own fabricated paths on purpose: canonicalPath memoises
-// successful resolutions for the life of the process, so a shared fixture would let
-// one test's stubbed answer decide another test's outcome.
+// Every test uses its own fabricated paths on purpose. Each one stubs
+// fs.realpathSync.native wholesale — the stub answers for EVERY path, not just the
+// fixture it was written for — so giving each test distinct paths is what stops one
+// test's stub answering another test's question. (canonicalPath itself holds no state
+// between calls: it is deliberately not memoised, pinned by the test below.)
 describe('canonicalPath and the two flavours of path comparison', () => {
   const ROOT = path.parse(process.cwd()).root;
   const fake = (...segs) => path.join(ROOT, ...segs);
@@ -185,7 +187,10 @@ describe('canonicalPath and the two flavours of path comparison', () => {
 
   test('falls back to fs.realpathSync when the native implementation fails', () => {
     // The documented chain is native → JS → the un-canonicalised path. Only native
-    // expands 8.3 names, but the JS one still follows symlinks, so it is worth having.
+    // expands 8.3 names, but the JS one still follows symlinks, so it is worth having —
+    // for native failing for some OTHER reason than the path not being there, which is
+    // why the stub below throws a plain Error: an ENOENT from native is rethrown rather
+    // than retried, since the JS implementation cannot do better with it.
     const short = fake('cp-fallback', 'SHORTN~1');
     const long  = fake('cp-fallback', 'shortname-is-long');
     jest.spyOn(fs.realpathSync, 'native').mockImplementation(() => { throw new Error('nope'); });
@@ -217,6 +222,24 @@ describe('canonicalPath and the two flavours of path comparison', () => {
   });
 
   describe('lookups compare canonical forms', () => {
+    test('a literal match short-circuits, so no realpath call is made at all', () => {
+      // The fast path cannot change an answer — two paths that resolve to one string
+      // canonicalise to one answer — and it is what keeps `wksp repo add` from
+      // realpath-ing entries a string comparison already settled. One entry naming an
+      // unreachable UNC share costs seconds per call, so "did we call it" is the
+      // property worth pinning, not just the boolean.
+      // realpathOf is the only route to either realpath implementation, and it always
+      // tries .native first — so "native was never called" is "no realpath happened".
+      const native = jest.spyOn(fs.realpathSync, 'native').mockImplementation(() => {
+        throw new Error('canonicalPath was reached for two paths that already match');
+      });
+      const p = fake('cmp-fast', 'SHORTN~1');
+
+      expect(samePathCanonical(p, path.join(p, 'sub', '..'))).toBe(true);
+      expect(samePathEitherForm(p, p)).toBe(true);
+      expect(native).not.toHaveBeenCalled();
+    });
+
     test('samePathCanonical matches two spellings of one directory, samePath does not', () => {
       const short = fake('cmp-look', 'SHORTN~1');
       const long  = fake('cmp-look', 'shortname-is-long');
@@ -234,7 +257,10 @@ describe('canonicalPath and the two flavours of path comparison', () => {
     });
   });
 
-  describe('guards match if EITHER form matches', () => {
+  // Scoped to CONTAINMENT on purpose: that is the comparison where the two forms can
+  // genuinely disagree. samePathEitherForm is samePathCanonical with a literal fast
+  // path, asserted alongside only because guard call sites read the two as a pair.
+  describe('the containment guard matches if EITHER form matches', () => {
     test('the canonical form catches a short name the literal comparison misses', () => {
       const short = fake('cmp-guard-short', 'SHORTN~1');
       const long  = fake('cmp-guard-short', 'shortname-is-long');
@@ -250,7 +276,8 @@ describe('canonicalPath and the two flavours of path comparison', () => {
     });
 
     test('the LITERAL form catches a junction whose canonical target is elsewhere', () => {
-      // The reason "either form" is not just "canonical form". `taskDir/worktrees/repo`
+      // The reason isInsideEitherForm is not just the canonical form — and the one place
+      // that argument holds, since it needs the two forms to disagree. `taskDir/worktrees/repo`
       // is a junction to a directory outside the task; by canonical name the cwd is
       // nowhere near what is about to be deleted, but by the only name the user and
       // `git worktree remove` will use, it is squarely inside it. Comparing canonical
