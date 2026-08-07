@@ -4,6 +4,7 @@ const path = require('path');
 const { execSync } = require('child_process');
 const { makeTempDir, makeGitRepo, makeGitRepoWithRemote, makeProject, cleanup } = require('../helpers');
 const { addRepo } = require('../../lib/repos');
+const { samePathCanonical } = require('../../lib/paths');
 const git = require('../../lib/git');
 const { WORKTREES_DIR } = require('../../lib/worktrees');
 const archive = require('../../lib/archive');
@@ -312,7 +313,10 @@ describe('wksp task finish — forge-confirmed merge (squash/rebase)', () => {
     // The forge tier fired (ancestry had failed).
     expect(forge.prMergeState).toHaveBeenCalledTimes(1);
     const [calledRepo, calledBranch] = forge.prMergeState.mock.calls[0];
-    expect(calledRepo.replace(/\\/g, '/')).toBe(repoDir.replace(/\\/g, '/'));
+    // The repo path travels via the worktree's .git file, so it arrives in git's long
+    // on-disk spelling while `repoDir` may be an 8.3 short one (the GitHub Windows
+    // runner's %TEMP%). Assert the directory, not the spelling.
+    expect(samePathCanonical(calledRepo, repoDir)).toBe(true);
     expect(calledBranch).toBe('feature/sq');
 
     // Positive confirmation, and NOT the warning.

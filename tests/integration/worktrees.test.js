@@ -3,6 +3,7 @@ const fs   = require('fs');
 const path = require('path');
 const { makeTempDir, makeGitRepo, cleanup } = require('../helpers');
 const { discoverWorktrees, WORKTREES_DIR } = require('../../lib/worktrees');
+const { samePathCanonical } = require('../../lib/paths');
 const git = require('../../lib/git');
 
 describe('discoverWorktrees', () => {
@@ -53,7 +54,12 @@ describe('discoverWorktrees', () => {
       expect(wt.folderName).toBe('api');
       expect(wt.currentBranch).toBe('feature/disc-test');
       expect(wt.baseRepo).toBeTruthy();
-      expect(path.resolve(wt.baseRepo)).toBe(path.resolve(repoDir));
+      // `baseRepo` comes out of the worktree's .git file, so it is git's long on-disk
+      // spelling, while `repoDir` is whatever os.tmpdir() handed us — an 8.3 short path
+      // on the GitHub Windows runner. This asserts they are the same DIRECTORY, which is
+      // what the code cares about; comparing the two strings asserts a coincidence of
+      // spelling instead. See tests/integration/short-paths.test.js.
+      expect(samePathCanonical(wt.baseRepo, repoDir)).toBe(true);
     } finally {
       git.removeWorktree(repoDir, wtPath);
       git.deleteBranch(repoDir, 'feature/disc-test', true);
