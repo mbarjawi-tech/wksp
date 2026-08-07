@@ -30,7 +30,10 @@ describe('toPosix', () => {
 
   test('resolves relative path before converting', () => {
     const result = toPosix('.');
-    expect(result).toMatch(/^\/[a-z]\//);
+    // The /c/ drive-letter shape only exists on win32; elsewhere toPosix hands
+    // back path.resolve() untouched, which is already an absolute POSIX path.
+    if (process.platform === 'win32') expect(result).toMatch(/^\/[a-z]\//);
+    else expect(path.isAbsolute(result)).toBe(true);
   });
 });
 
