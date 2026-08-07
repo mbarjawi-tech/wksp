@@ -22,11 +22,16 @@ jobs:
     # The suite creates real git repos in temp dirs; several minutes is normal.
     timeout-minutes: 30
 
+    # 18 is the floor `engines.node` advertises — running it is what turns that
+    # claim into an enforced one — and 24 is what the release and docs workflows
+    # already build on. A first run across 18/20/22/24 on both OSes gave
+    # byte-identical results per OS, so the two middle versions were dropped as
+    # pure cost; widening again is a one-line change.
     strategy:
       fail-fast: false
       matrix:
         os: [ubuntu-latest, windows-latest]
-        node: [18, 20, 22, 24]
+        node: [18, 24]
 
     steps:
       - uses: actions/checkout@v7
@@ -63,3 +68,19 @@ jobs:
       - run: npm ci
 
       - run: npx jest
+
+  # One stable check name for branch protection to require. The matrix jobs are
+  # named after their own axes, so requiring them directly means every matrix
+  # change silently breaks the requirement — a required check that stops
+  # reporting blocks every merge in the repo. This job's name never moves.
+  ci:
+    name: ci
+    needs: test
+    if: always()
+    runs-on: ubuntu-latest
+    steps:
+      - name: Fail unless every matrix job succeeded
+        if: needs.test.result != 'success'
+        run: |
+          echo "matrix result: ${{ needs.test.result }}"
+          exit 1
