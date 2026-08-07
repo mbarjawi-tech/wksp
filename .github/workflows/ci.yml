@@ -1,0 +1,49 @@
+name: CI
+
+on:
+  pull_request:
+  push:
+    branches: [main]
+
+permissions:
+  contents: read
+
+# Superseded pushes to the same PR/branch are cancelled — unlike the Pages
+# workflow, nothing here is deployed, so cancelling only saves runner minutes.
+# Runs on `main` are never cancelled: those are the ones worth keeping.
+concurrency:
+  group: ci-${{ github.workflow }}-${{ github.event.pull_request.number || github.ref }}
+  cancel-in-progress: ${{ github.event_name == 'pull_request' }}
+
+jobs:
+  test:
+    name: test (${{ matrix.os }}, node ${{ matrix.node }})
+    runs-on: ${{ matrix.os }}
+    # The suite creates real git repos in temp dirs; several minutes is normal.
+    timeout-minutes: 30
+
+    strategy:
+      fail-fast: false
+      matrix:
+        os: [ubuntu-latest, windows-latest]
+        node: [18, 20, 22, 24]
+
+    steps:
+      - uses: actions/checkout@v7
+
+      - uses: actions/setup-node@v7
+        with:
+          node-version: ${{ matrix.node }}
+          cache: npm
+
+      # Integration tests commit in throwaway repos. The helpers set a repo-local
+      # identity, but runners have no global one at all, so anything that commits
+      # outside a helper would fail with "Please tell me who you are".
+      - name: Configure git identity
+        run: |
+          git config --global user.name "wksp ci"
+          git config --global user.email "ci@wksp.test"
+
+      - run: npm ci
+
+      - run: npx jest
