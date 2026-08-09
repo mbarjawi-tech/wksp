@@ -4,6 +4,14 @@ All notable changes to this project will be documented here. Follows [Keep a Cha
 
 ---
 
+## [Unreleased] — 3.4.4
+
+### Changed
+
+- **`presentation.html` rewritten for the current release.** The deck in the repo root still described v1: it taught `wksp task <id>`, `--del`, `--archive` and `--to-shared` — positional forms *removed* in 2.5.0, so anyone following it typed commands that error — installed via `npm link` from a clone rather than `npm install -g @mbarjawi-tech/wksp`, named `CLAUDE.md` as the instruction file, and claimed 81 tests against the current 719. It was documentation that had become actively wrong rather than merely dated, which is the same class of problem as the docs audit in 3.3.0. The rewrite also changes what the deck is *for*: it is now a thin narrative spine (~17 slides — the cost of a context switch, the worktree primitive, the three repo modes, what lands on disk, and the migration table) meant to be delivered alongside a live terminal, rather than a self-contained tour that duplicated the docs site and drifted out of date the moment a command changed. Sections covering everything since v1 are new: the project root as planning hub and why only `AGENTS.md` is injected into a task session, headless task creation and the task brief, the provider layer, the agent-honored settings (`reviewLoop` / `prGate` / `mergeMethod`), stacked-PR guidance, and the 3.4.x teardown and path-resolution safety work
+
+---
+
 ## [3.4.3] — 2026-08-07
 
 ### Fixed
