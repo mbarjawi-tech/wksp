@@ -203,6 +203,10 @@ wksp status            # auto-detects task from cwd
 wksp status PROJ-1234  # explicit task-id
 ```
 
+Each registered repo reads as one of: its branch plus `✓` (a worktree), `(shared)` for a repo registered `--shared` in `repos.txt`, `(shared — this task)` for one this task alone uses in place, `(excluded)`, or `(not set up)  ⚠`.
+
+That last one means the repo is registered but this task has **no worktree and no recorded choice** for it — so it is not among the directories handed to your AI tool, and a session there cannot see it. It normally means a setup run stopped part-way. Nothing is lost: finish the task off with `wksp start <task-id>`, which asks only about repos that still have no answer, or decide one outright with `wksp task repo <task-id> <repo> share|worktree|exclude`.
+
 ---
 
 ### `wksp cleanup [<path>] [--recursive]`
@@ -391,7 +395,9 @@ Records which repos use a shared path or are excluded from the task. Both keys a
 }
 ```
 
-`shared` — repos using the base path directly (no worktree), by folder name. Written when the user types `s` at the branch prompt or runs `wksp task repo … share`.
+`shared` — repos using the base path directly (no worktree), by folder name. Written when the user types `s` at the branch prompt or runs `wksp task repo … share` (which also accepts a repo that has no worktree yet — there is nothing to remove, so it just records the choice).
+
+Both lists are written **as each repo is decided**, not once at the end, so a setup run that stops part-way never costs you the answers already given: re-running picks up from there. A repo in neither list and with no worktree has simply not been decided yet — `wksp status` shows it as `(not set up)`.
 
 `excluded` — repos excluded from the task entirely, by folder name. Written when the user types `x` at the branch prompt or runs `wksp task repo … exclude`. Repos registered `--optional` are recorded here automatically (and silently) the first time the task launches.
 
