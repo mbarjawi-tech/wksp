@@ -184,14 +184,18 @@ describe('a setup run that stops part-way leaves recoverable state', () => {
   // re-disposition into the very data loss this persistence exists to prevent.
   test('a failed re-disposition leaves an existing disposition untouched', async () => {
     await runTask(projectDir, 'create', 't5', '--shared', nameA(), '--shared', nameB(), '--no-launch');
-    const before = taskJson('t5');
-    expect(before.shared.sort()).toEqual([nameA(), nameB()].sort());
+    const p = path.join(projectDir, 'tasks', 't5', 'task.json');
+    // Compare the FILE, not a parsed copy: `.sort()` mutates in place, so sorting a
+    // parsed `before` to check its contents would silently re-order the very value the
+    // final assertion compares against — passing or failing on temp-dir name luck.
+    const before = fs.readFileSync(p, 'utf8');
+    expect(JSON.parse(before).shared.slice().sort()).toEqual([nameA(), nameB()].slice().sort());
 
     await expect(runTask(projectDir, 'resume', 't5', '--branch', `${nameA()}=bad..name`, '--no-launch'))
       .rejects.toThrow('process.exit(1)');
 
-    // Nothing about repoA changed on disk, so nothing about it should have changed here.
-    expect(taskJson('t5')).toEqual(before);
+    // Nothing about repoA changed on disk, so the file should be byte-identical.
+    expect(fs.readFileSync(p, 'utf8')).toBe(before);
   });
 
   test('a failed re-disposition does not delete task.json when it held only that entry', async () => {
