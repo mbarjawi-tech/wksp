@@ -107,6 +107,21 @@ describe('addWorktree — a branch on origin that was never fetched', () => {
     git.addWorktree(repoDir, wtDir, 'feat/mine', null, 'pipe');
     expect(git.currentBranch(wtDir)).toBe('feat/mine');
   });
+
+  // git's DWIM only resolves a bare branch name when EXACTLY ONE remote carries it,
+  // so a fork setup (origin + upstream) put `fatal: invalid reference` back even
+  // though the ref had just been fetched. wksp names origin/<branch> explicitly.
+  test('resolves via origin when a second remote carries the same branch', () => {
+    const sha = pushBranchBehindOurBack(originDir, 'feat/dual');
+    execSync(`git remote add upstream "${originDir}"`, { cwd: repoDir, stdio: 'pipe' });
+    execSync('git fetch origin',   { cwd: repoDir, stdio: 'pipe' });
+    execSync('git fetch upstream', { cwd: repoDir, stdio: 'pipe' });
+    expect(git.branchExistsCached(repoDir, 'feat/dual')).toBe(true);
+
+    git.addWorktree(repoDir, wtDir, 'feat/dual', null, 'pipe');
+    expect(git.revParse(wtDir, 'HEAD')).toBe(sha);
+    expect(git.currentBranch(wtDir)).toBe('feat/dual');
+  });
 });
 
 describe('a setup run that stops part-way leaves recoverable state', () => {
@@ -162,6 +177,40 @@ describe('a setup run that stops part-way leaves recoverable state', () => {
     expect(out()).toMatch(/wksp start t3/);
     // The one that WAS decided reads as shared, not as another blank row.
     expect(out()).toMatch(/shared — this task/);
+  });
+
+  // Persisting eagerly is only safe if a FAILED change leaves the old answer alone.
+  // Stripping the disposition before attempting the worktree turned every failed
+  // re-disposition into the very data loss this persistence exists to prevent.
+  test('a failed re-disposition leaves an existing disposition untouched', async () => {
+    await runTask(projectDir, 'create', 't5', '--shared', nameA(), '--shared', nameB(), '--no-launch');
+    const before = taskJson('t5');
+    expect(before.shared.sort()).toEqual([nameA(), nameB()].sort());
+
+    await expect(runTask(projectDir, 'resume', 't5', '--branch', `${nameA()}=bad..name`, '--no-launch'))
+      .rejects.toThrow('process.exit(1)');
+
+    // Nothing about repoA changed on disk, so nothing about it should have changed here.
+    expect(taskJson('t5')).toEqual(before);
+  });
+
+  test('a failed re-disposition does not delete task.json when it held only that entry', async () => {
+    await runTask(projectDir, 'create', 't6', '--shared', nameA(), '--branch', `${nameB()}=feat/b`, '--no-launch');
+    expect(taskJson('t6')).toEqual({ shared: [nameA()] });
+
+    await expect(runTask(projectDir, 'resume', 't6', '--branch', `${nameA()}=bad..name`, '--no-launch'))
+      .rejects.toThrow('process.exit(1)');
+
+    expect(taskJson('t6')).toEqual({ shared: [nameA()] });
+  });
+
+  test('`task repo … worktree` keeps the disposition when the worktree cannot be created', async () => {
+    await runTask(projectDir, 'create', 't7', '--shared', nameA(), '--shared', nameB(), '--no-launch');
+
+    await expect(runTask(projectDir, 'repo', 't7', nameA(), 'worktree', '--branch', 'bad..name'))
+      .rejects.toThrow('process.exit(1)');
+
+    expect(taskJson('t7').shared.sort()).toEqual([nameA(), nameB()].sort());
   });
 
   test('`task repo <id> <repo> share` can decide a repo that has no worktree', async () => {
