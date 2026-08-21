@@ -127,7 +127,7 @@ code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; background: 
 <section data-transition="fade">
   <div style="padding: 10px 0">
     <div class="title-logo">w<span>k</span>sp</div>
-    <div class="title-sub">Workspace CLI for agentic coding · v3.4.3</div>
+    <div class="title-sub">Workspace CLI for agentic coding · v3.4.4</div>
     <div class="title-tagline">
       Multi-repo development.<br>
       Zero branch-switching.
@@ -540,7 +540,13 @@ code { font-family: 'Cascadia Code','Fira Code',Consolas,monospace; background: 
         <code>wksp delete</code> could offer to delete <code>~</code>. And path comparisons are canonicalised,
         which closed a guard that failed <em>open</em> on Windows short paths.
         <br><br>
-        <span class="pill green">719 tests</span>
+        <strong style="color:var(--text);">The one you're most likely to have hit:</strong> checking out a branch a
+        colleague pushed since your last fetch used to die on <code>fatal: invalid reference</code> —
+        wksp asked the <em>server</em> whether the branch existed, then handed git a name only resolvable
+        locally. It fetches first now. And a setup run that stops part-way no longer discards the answers
+        you already gave: re-running finishes the job.
+        <br><br>
+        <span class="pill green">730 tests</span>
         <span class="pill blue" style="margin-left:6px;">Windows + Linux</span>
         <span class="pill blue" style="margin-left:6px;">Node 18 &amp; 24</span>
         <span class="pill dim" style="margin-left:6px;">on every PR</span>
